@@ -127,11 +127,20 @@ export (F), style learning / present mode / deck-level rewrite (G).
 ---
 
 ### B. Images — search + upload + stored media · Effort: L · after A
-CLAUDE.md §8 step 3. Port `presentationMedia.ts`, `slideImageSource.ts`,
-`objectStorage.ts`, `yandexImages.ts`, the auth proxy route, https
-normalisation at ingest *and* render (§3.6), PNG/JPEG-only rule (§3.5).
-Deferred until A because nothing binary exists before export, and the
-exporter's image path (`containFit`, exact w/h) is already laid in A.3.
+CLAUDE.md §8 step 3.
+- **Phase 1 — upload + stored media + auth proxy.** 🟢 SHIPPED (2026-09-14).
+  `objectStorage.ts` (any S3, local-disk fallback), `talk_media`
+  (migration 007), `talkMedia.ts`, the `/api/talks/media/:id/image`
+  proxy, `slideImageSource.ts` reading storage directly, upload/remove in
+  the viewer, exporter placing the picture by intrinsic size.
+- **Phase 2 — search.** Needs a provider decision: the parent used Yandex
+  Images (`YANDEX_FOLDER_ID` + API key); no credentials exist for this
+  project yet. When one does: port `yandexImages.ts`, the picker UI, and
+  `autoFillImages` at generation (best-effort, capped at 20 per deck);
+  https at ingest AND at render (§3.6) for web results.
+- **Phase 3 — generated schematics** (SVG/Mermaid → PNG via resvg, which
+  is already installed for formulas). On the parent's backlog, blocked
+  on rendering, not on the idea.
 
 ### C. Deploy pipeline · Effort: M · when there is a first external user
 Parent's `deploy.sh` shape (§9): CI gate on exact commit → image guard →

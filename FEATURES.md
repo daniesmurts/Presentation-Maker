@@ -3,7 +3,7 @@
 Legend: ✅ shipped · 🚧 in progress · 📋 planned. Grouped by the role that
 uses it. A 📋 item is marked, never implied. See `docs/WORKFLOW.md` §1.
 
-Last updated: TODO A Phase 5 — spend caps, quota, rate limits (item A complete)
+Last updated: TODO B Phase 1 — uploaded slide images
 
 ---
 
@@ -34,7 +34,9 @@ numbers are the shape of the gate, and the `.pptx` download is open to both.
   instruction («короче», «добавь пример с числами»), move, delete, insert
   a blank slide — without touching the rest. One level of undo after a
   rewrite. «Только по моим материалам» holds on rewrites too.
-- 📋 **Images** — search, upload. *(TODO B)*
+- ✅ **Upload an image onto a slide** (PNG or JPEG up to 8 MB) on any slide
+  type the deck lays out — replace or remove it; it goes into the `.pptx`
+  at its true aspect ratio. 📋 Image search (needs a provider). *(TODO B)*
 - 📋 **Import an existing `.pptx`.** *(TODO D)*
 - 📋 **PDF export, partial export, read-only share link.** *(TODO F)*
 - 📋 **Present mode with notes on a second screen.** *(TODO G)*

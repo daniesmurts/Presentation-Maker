@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Trash2, Download, Plus } from 'lucide-react'
-import { getTalk, deleteTalk, updateSlide, regenerateSlide, deleteSlide, insertSlide, moveSlide } from '../api/talks'
+import { getTalk, deleteTalk, updateSlide, regenerateSlide, deleteSlide, insertSlide, moveSlide, uploadSlideImage, removeSlideImage } from '../api/talks'
 import { errorMessage } from '../api/client'
 import SlideCard, { type SlideEditActions } from '../components/talks/SlideCard'
 import Spinner from '../components/ui/Spinner'
@@ -66,6 +66,8 @@ export default function TalkPage() {
           void run(() => updateSlide(id, idx, before)).then(() => toast(copy.talk.edit.undone, 'success'))
         }
       : undefined,
+    onUpload:      (idx, file) => void run(() => uploadSlideImage(id, idx, file), false),
+    onRemoveImage: (idx) => void run(() => removeSlideImage(id, idx), false),
   }
   const insertAfter = (idx: number) => void run(() => insertSlide(id, idx))
 

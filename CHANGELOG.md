@@ -6,6 +6,37 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
 ## [Unreleased]
 
 ### Added
+- **Загрузка изображения на слайд.** TODO B Phase 1 (upload only — search
+  waits for a provider). Object storage behind generic `STORAGE_*` vars
+  with a local-disk fallback (CLAUDE.md §10), `talk_media` with the
+  intrinsic size read at ingest (migration 007), a workspace-scoped proxy
+  route, upload/replace/remove in the viewer, and the exporter placing the
+  picture by its real dimensions.
+  - **Bytes, not headers** (§3.5, §3.7): the multipart Content-Type is
+    ignored; PNG/JPEG are identified from the magic bytes and the IHDR/SOF
+    dimensions must parse. A text file named `.png` → «Поддерживаются
+    только PNG и JPEG».
+  - **`slideImageSource.ts` is the one loader** (§2): a root-relative
+    `/api/talks/media/:id/image` is read straight from storage, never
+    fetched — `fetch()` of a relative URL throws in Node, which is how
+    every stored image once exported as a placeholder in the parent.
+  - **Two things caught before commit.** (1) Talk deletion cascaded the
+    media rows before cleanup listed their paths — the objects would have
+    been orphaned forever; paths are now collected first, workspace-scoped
+    so a talk id alone cannot reach another tenant's objects. (2) The
+    viewer offered an upload slot on title/summary/cta slides, which the
+    exporter has no layout for — a picture the deck never shows; the slot
+    is now limited to the types that are laid out.
+  - **Verified live**: fake PNG refused; real PNG stored on disk, served
+    to its owner byte-identical (200), refused to an anonymous request
+    (401) and to another workspace (404); the deck exported with the
+    picture and read back by the parent's importer showed slide 4 with two
+    images — the rendered formula (4000×114) and the upload (200×120);
+    upload through the file input and remove both worked in the browser;
+    a throwaway talk with an upload deleted cleanly — row and object gone.
+    `tsc` clean; backend 163, frontend 17 tests.
+  - Not verified: the S3 branch (no credentials on this machine — only the
+    local-disk fallback ran).
 - **Лимиты расходов и квота выступлений.** TODO A Phase 5 — item A is
   complete. Per-workspace monthly spend cap (tier default, or the new
   `workspaces.monthly_spend_cap_usd` override — migration 006) and a

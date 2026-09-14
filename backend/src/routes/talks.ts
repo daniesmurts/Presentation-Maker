@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import rateLimit from 'express-rate-limit'
+import multer from 'multer'
 import { asyncHandler } from '../lib/asyncHandler'
 import { authenticate } from '../middleware/authenticate'
 import { NotFoundError, ValidationError } from '../errors/AppError'
@@ -13,6 +14,10 @@ import { generateTalkPptx } from '../services/talkExport'
 import { parseSlideSelection, selectSlides, selectionSuffix, SelectionError } from '../lib/slideSelection'
 import { assertPlanFeature, assertTalkQuota } from '../lib/planTier'
 import { checkSpendCap } from '../services/spendCap'
+import { storeSlideImage, collectTalkMediaPaths, deleteMediaObjects, MAX_IMAGE_BYTES } from '../services/talkMedia'
+import { withSlideImage } from '../services/talks'
+import { getTalkMediaById } from '../db/queries/talkMedia'
+import { downloadObject } from '../services/objectStorage'
 import {
   INTENTS, AUDIENCES, MAX_SLIDE_COUNT, MIN_SLIDE_COUNT, notesDefaultFor,
   type Intent, type Audience, type TalkLanguage, type Talk, type Slide,
@@ -266,8 +271,55 @@ talksRouter.post('/:id/slides/move', asyncHandler(async (req, res) => {
   res.json({ talk: await persist(talk, next, req.user.workspace_id) })
 }))
 
+// ─── Images (upload) ────────────────────────────────────────────────────────
+
+// In memory, capped; the bytes are then sniffed — the multipart Content-Type
+// is a claim. Anything but PNG/JPEG is refused in storeSlideImage (§3.5).
+const imageUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_IMAGE_BYTES, files: 1 } }).single('file')
+
+// GET /api/talks/media/:id/image — the auth proxy for stored images. Scoped
+// to the workspace: an uploaded picture is the workspace's own file, so
+// "any signed-in user with the uuid" is the wrong posture.
+talksRouter.get('/media/:id/image', asyncHandler(async (req, res) => {
+  const media = await getTalkMediaById(req.params.id)
+  if (!media || media.workspace_id !== req.user.workspace_id) throw new NotFoundError('Изображение не найдено')
+  const buffer = await downloadObject(media.storage_path)
+  res.setHeader('Content-Type', media.mime)
+  res.setHeader('Cache-Control', 'private, max-age=3600')
+  res.send(buffer)
+}))
+
+// POST /api/talks/:id/slides/:idx/image  (multipart, field "file")
+talksRouter.post('/:id/slides/:idx/image', (req, res, next) => {
+  imageUpload(req, res, (err) => {
+    if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') return next(new ValidationError('Изображение больше 8 МБ — уменьшите его'))
+    if (err) return next(new ValidationError('Не удалось прочитать файл'))
+    next()
+  })
+}, asyncHandler(async (req, res) => {
+  const { talk, slides, idx } = await loadTalkSlide(req.params.id, req.user.workspace_id, req.params.idx)
+  if (!req.file) throw new ValidationError('Выберите файл PNG или JPEG')
+  const image = await storeSlideImage(talk, idx, req.file.buffer)
+  res.status(201).json({ talk: await persist(talk, slides.map((s, i) => (i === idx ? withSlideImage(s, image) : s)), req.user.workspace_id) })
+}))
+
+// DELETE /api/talks/:id/slides/:idx/image — detaches; the object stays until
+// the talk is deleted (a re-attach or undo may want it, and it is counted).
+talksRouter.delete('/:id/slides/:idx/image', asyncHandler(async (req, res) => {
+  const { talk, slides, idx } = await loadTalkSlide(req.params.id, req.user.workspace_id, req.params.idx)
+  const next = slides.map((s, i) => {
+    if (i !== idx) return s
+    return s.type === 'diagram' ? { ...s, body: { ...s.body, image: null } } : { ...s, image: null }
+  })
+  res.json({ talk: await persist(talk, next, req.user.workspace_id) })
+}))
+
 talksRouter.delete('/:id', asyncHandler(async (req, res) => {
+  // Paths first: the media rows cascade with the talk row and would be
+  // gone by the time cleanup ran. The scoped delete is the ownership check.
+  const paths = await collectTalkMediaPaths(req.params.id, req.user.workspace_id)
   if (!(await deleteTalk(req.params.id, req.user.workspace_id))) throw new NotFoundError('Выступление не найдено')
+  await deleteMediaObjects(paths)
   res.status(204).end()
 }))
 

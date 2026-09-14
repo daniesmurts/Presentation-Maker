@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { Copy, Check, AlertTriangle, Image as ImageIcon, ArrowUp, ArrowDown, Pencil, RefreshCw, Trash2, Undo2 } from 'lucide-react'
-import type { Slide, TalkLanguage } from '../../../../shared/types'
+import { useRef, useState } from 'react'
+import { Copy, Check, AlertTriangle, Image as ImageIcon, ArrowUp, ArrowDown, Pencil, RefreshCw, Trash2, Undo2, Upload, X } from 'lucide-react'
+import type { Slide, SlideImage, TalkLanguage } from '../../../../shared/types'
 import { BlockMath, InlineText } from './Math'
 import { slideToText } from './slideText'
 import SlideEditor from './SlideEditor'
@@ -18,6 +18,8 @@ export interface SlideEditActions {
   onSave:       (idx: number, slide: Slide) => void
   onRegenerate: (idx: number, instruction: string) => Promise<void>
   onUndo?:      (idx: number) => void   // present only while a previous version is held
+  onUpload:     (idx: number, file: File) => void
+  onRemoveImage:(idx: number) => void
 }
 
 // One card per slide. Renders each type with its own layout; the card grows
@@ -52,6 +54,14 @@ export default function SlideCard({ slide, number, language, notesEnabled, overf
   }
 
   const imageQuery = slide.type === 'diagram' ? slide.body.image_query : slide.image_query
+  const image = slide.type === 'diagram' ? slide.body.image : slide.image
+  // Only the types the exporter lays an image out for (talkExport.ts's
+  // addSideImage / diagram box). Offering a slot on a title or summary slide
+  // would store a picture the deck never shows.
+  const canHaveImage = !['title', 'summary', 'cta'].includes(slide.type)
+  const imageSlot = !canHaveImage ? null : edit
+    ? <ImageSlot query={imageQuery ?? ''} image={image ?? null} busy={edit.busy} onUpload={(f) => edit.onUpload(idx, f)} onRemove={() => edit.onRemoveImage(idx)} />
+    : image ? <ImageSlot query={imageQuery ?? ''} image={image} /> : null
 
   return (
     <article className="bg-surface border border-border rounded-lg overflow-hidden appear" aria-label={`Слайд ${number}`}>
@@ -106,8 +116,8 @@ export default function SlideCard({ slide, number, language, notesEnabled, overf
 
       <div className={notesEnabled ? 'grid md:grid-cols-[3fr_2fr]' : ''}>
         <div className={notesEnabled ? 'md:border-r border-border' : ''}>
-          <Body slide={slide} />
-          {imageQuery && slide.type !== 'diagram' && <ImageSlot query={imageQuery} />}
+          <Body slide={slide} imageSlot={imageSlot} />
+          {slide.type !== 'diagram' && imageSlot && <div className="px-4 pb-4">{imageSlot}</div>}
         </div>
         {notesEnabled && (
           <aside className="p-4 bg-surface-soft">
@@ -134,12 +144,44 @@ function Icon({ children, label, onClick, disabled, danger, active }: { children
   )
 }
 
-function ImageSlot({ query }: { query: string }) {
-  // A dashed slot with the model's suggested query. Search and upload arrive
-  // with TODO B; until then the query tells the user what to find.
+// The one image slot: a picture with a credit line and replace/remove, or a
+// dashed slot with the model's suggested query and an upload control. A
+// real <label> wraps the hidden file input so the whole chip is the target.
+function ImageSlot({ query, image, busy, onUpload, onRemove }: {
+  query: string; image: SlideImage | null; busy?: boolean
+  onUpload?: (file: File) => void; onRemove?: () => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const pick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]
+    if (f && onUpload) onUpload(f)
+    e.target.value = ''
+  }
+  const fileInput = onUpload && <input ref={inputRef} type="file" accept="image/png,image/jpeg" className="sr-only" onChange={pick} disabled={busy} />
+
+  if (image) {
+    return (
+      <figure className="m-0">
+        <img src={image.url} alt={query || ''} width={image.width ?? undefined} height={image.height ?? undefined}
+             className="max-h-72 w-auto max-w-full rounded-md border border-border object-contain bg-surface-soft" />
+        <figcaption className="mt-1.5 flex items-center gap-3 text-xs text-ink-secondary">
+          {image.source_host && <span>{image.source_host}</span>}
+          {onUpload && <label className="inline-flex items-center gap-1 h-8 px-2 rounded-md border border-border cursor-pointer hover:bg-surface-soft hover:text-ink">
+            <Upload className="w-3.5 h-3.5" aria-hidden /> {copy.talk.image.replace}{fileInput}
+          </label>}
+          {onRemove && <button type="button" onClick={onRemove} disabled={busy} className="inline-flex items-center gap-1 h-8 px-2 rounded-md border border-border hover:bg-danger-bg hover:text-danger">
+            <X className="w-3.5 h-3.5" aria-hidden /> {copy.talk.image.remove}
+          </button>}
+        </figcaption>
+      </figure>
+    )
+  }
   return (
-    <div className="mx-4 mb-4 border border-dashed border-border-strong rounded-md px-3 py-2 flex items-center gap-2 text-xs text-ink-secondary">
-      <ImageIcon className="w-4 h-4 flex-shrink-0" aria-hidden /> {copy.talk.imageSlot(query)}
+    <div className="border border-dashed border-border-strong rounded-md px-3 py-3 flex flex-wrap items-center gap-3 text-xs text-ink-secondary">
+      <span className="inline-flex items-center gap-2"><ImageIcon className="w-4 h-4 flex-shrink-0" aria-hidden /> {query ? copy.talk.imageSlot(query) : copy.talk.image.hint}</span>
+      {onUpload && <label className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-border bg-surface cursor-pointer hover:bg-surface-soft hover:text-ink ml-auto">
+        <Upload className="w-3.5 h-3.5" aria-hidden /> {copy.talk.image.upload}{fileInput}
+      </label>}
     </div>
   )
 }
@@ -151,7 +193,7 @@ const Bullet = ({ children, muted }: { children: React.ReactNode; muted?: boolea
   </li>
 )
 
-function Body({ slide }: { slide: Slide }) {
+function Body({ slide, imageSlot }: { slide: Slide; imageSlot: React.ReactNode }) {
   switch (slide.type) {
     case 'title':
       return (
@@ -198,9 +240,7 @@ function Body({ slide }: { slide: Slide }) {
     case 'diagram':
       return (
         <div className="p-4">
-          <div className="border border-dashed border-border-strong rounded-md px-3 py-6 text-center text-xs text-ink-secondary flex flex-col items-center gap-2">
-            <ImageIcon className="w-6 h-6" aria-hidden /> {copy.talk.imageSlot(slide.body.image_query)}
-          </div>
+          {imageSlot}
           {slide.body.caption && <p className="text-sm text-ink text-center mt-2"><InlineText text={slide.body.caption} /></p>}
           {slide.body.points.length > 0 && <ul className="mt-3 space-y-1.5">{slide.body.points.map((p, i) => <Bullet key={i} muted><InlineText text={p} /></Bullet>)}</ul>}
         </div>

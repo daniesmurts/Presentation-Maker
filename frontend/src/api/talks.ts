@@ -37,3 +37,11 @@ export const regenerateSlide = (id: string, idx: number, instruction: string) =>
 export const deleteSlide     = (id: string, idx: number) => client.delete<{ talk: Talk }>(`/api/talks/${id}/slides/${idx}`).then(unwrap)
 export const insertSlide     = (id: string, afterIndex: number, type: SlideType = 'bullets') => client.post<{ talk: Talk }>(`/api/talks/${id}/slides`, { after_index: afterIndex, type }).then(unwrap)
 export const moveSlide       = (id: string, from: number, to: number) => client.post<{ talk: Talk }>(`/api/talks/${id}/slides/move`, { from, to }).then(unwrap)
+
+// ─── Images ─────────────────────────────────────────────────────────────────
+export function uploadSlideImage(id: string, idx: number, file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  return client.post<{ talk: Talk }>(`/api/talks/${id}/slides/${idx}/image`, form, { timeout: 60_000 }).then(unwrap)
+}
+export const removeSlideImage = (id: string, idx: number) => client.delete<{ talk: Talk }>(`/api/talks/${id}/slides/${idx}/image`).then(unwrap)

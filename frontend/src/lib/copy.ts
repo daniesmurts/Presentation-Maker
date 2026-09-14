@@ -123,6 +123,10 @@ export const copy = {
     copy:       'Копировать',
     copied:     'Скопировано',
     imageSlot:  (q: string) => `Изображение: «${q}»`,
+    image: {
+      upload: 'Загрузить изображение', replace: 'Заменить', remove: 'Убрать изображение',
+      hint: 'PNG или JPEG до 8 МБ', credit: (host: string) => host,
+    },
     download:   'Скачать .pptx',
     delete:     'Удалить выступление',
     deleteConfirm: 'Удалить это выступление? Это действие нельзя отменить.',

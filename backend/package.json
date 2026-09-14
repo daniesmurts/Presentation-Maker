@@ -13,6 +13,7 @@
     "eval:talks": "node --env-file=../.env $(npm root)/.bin/tsx scripts/evalTalks.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1059.0",
     "@resvg/resvg-js": "^2.6.2",
     "axios": "^1.17.0",
     "bcryptjs": "^2.4.3",
@@ -25,6 +26,7 @@
     "jsonwebtoken": "^9.0.2",
     "jszip": "^3.10.1",
     "mathjax-full": "^3.2.2",
+    "multer": "^1.4.5-lts.1",
     "pg": "^8.12.0",
     "pg-boss": "^10.4.2",
     "pino": "^10.3.1",
@@ -36,6 +38,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.6",
+    "@types/multer": "^1.4.12",
     "@types/node": "^22.0.0",
     "@types/pg": "^8.11.6",
     "pino-pretty": "^13.1.3",
