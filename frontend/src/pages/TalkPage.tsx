@@ -6,11 +6,11 @@ import { getTalk, deleteTalk, updateSlide, regenerateSlide, deleteSlide, insertS
 import RewriteReview from '../components/talks/RewriteReview'
 import { remapAfterMove, remapAfterDelete, remapAfterInsert, toSlideNumbers, rangeBetween } from '../lib/slideSelection'
 import { getBrand } from '../api/brand'
-import { inputClass } from '../components/ui/Field'
+import { inputClass, Pill } from '../components/ui/Field'
 import { errorMessage } from '../api/client'
 import SlideCard, { type SlideEditActions } from '../components/talks/SlideCard'
 import Spinner from '../components/ui/Spinner'
-import Button from '../components/ui/Button'
+import Button, { buttonClass } from '../components/ui/Button'
 import { useToast } from '../lib/toast'
 import { copy, INTENT_LABEL, AUDIENCE_LABEL, slidesCount } from '../lib/copy'
 import { findOverfullSlides } from '../../../shared/slideFit'
@@ -139,50 +139,63 @@ export default function TalkPage() {
   if (error || !talk) return <p role="alert" className="text-sm text-danger">{errorMessage(error)}</p>
 
   const slides = talk.slides ?? []
+  const sub = [slidesCount(slides.length), brandData?.themes.find((t) => t.id === talk.theme_id)?.name].filter(Boolean).join(' · ')
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Title first, toolbar under it: seven controls beside a title crushed
           it into a one-letter column at 1280px (Phase G browser check). The
           toolbar wraps; the first slide still sits above the fold — measured. */}
-      <header className="space-y-3">
+      <header className="space-y-4">
         <div className="min-w-0">
+          <div className="eyebrow text-accent mb-1.5">{copy.talk.kind} · {INTENT_LABEL[talk.intent]} · {AUDIENCE_LABEL[talk.audience]}</div>
           {/* Two lines, not one: a one-line truncate ate the title on a phone. */}
-          <h1 className="text-xl font-semibold text-ink leading-tight line-clamp-2">{talk.title}</h1>
-          <p className="text-xs text-ink-secondary mt-1">
-            {INTENT_LABEL[talk.intent]} · {AUDIENCE_LABEL[talk.audience]} · {slidesCount(slides.length)}
-            {overfull.size > 0 && ` · ${copy.talk.overfull}: ${overfull.size}`}
+          <h1 className="display font-semibold text-[30px] leading-tight text-ink line-clamp-2">{talk.title}</h1>
+          <p className="text-sm text-ink-secondary mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span>{sub}</span>
+            {talk.approved_at && <Pill tone="ok">{copy.list.status.approved}</Pill>}
+            {talk.share_token && <Pill tone="accent">{copy.list.status.shared}</Pill>}
+            {overfull.size > 0 && <Pill tone="warn">{copy.talk.overfull}: {overfull.size}</Pill>}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
         {brandData && (
-          <label className="hidden sm:flex items-center gap-2 text-xs text-ink-secondary">
-            {copy.theme.label}
-            <select value={talk.theme_id} onChange={(e) => void run(() => setTalkTheme(id, e.target.value), false)} disabled={busy}
-                    aria-label={copy.theme.label} className={`${inputClass} h-10 w-auto`}>
-              {brandData.themes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
-          </label>
+          <select value={talk.theme_id} onChange={(e) => void run(() => setTalkTheme(id, e.target.value), false)} disabled={busy}
+                  aria-label={copy.theme.label} title={copy.theme.label} className={`${inputClass} !w-auto h-10 py-0 text-sm`}>
+            {brandData.themes.map((t) => <option key={t.id} value={t.id}>{copy.theme.label}: {t.name}</option>)}
+          </select>
         )}
-        <Button variant={talk.approved_at ? 'secondary' : 'ghost'} size="md" onClick={() => void run(() => approveTalk(id, !talk.approved_at), false)} disabled={busy} title={copy.approve.hint} aria-label={copy.approve.button}>
+        <Button variant={talk.approved_at ? 'secondary' : 'ghost'} onClick={() => void run(() => approveTalk(id, !talk.approved_at), false)} disabled={busy} title={copy.approve.hint} aria-label={copy.approve.button}>
           <CheckCircle2 className="w-4 h-4" aria-hidden /> <span className="hidden lg:inline">{talk.approved_at ? copy.approve.on : copy.approve.button}</span>
         </Button>
-        <Button variant="ghost" size="md" onClick={() => setRewriteOpen((o) => !o)} disabled={busy || Boolean(rewriteJob)} title={copy.rewrite.lead} aria-label={copy.rewrite.button}>
+        <Button variant="quiet" onClick={() => setRewriteOpen((o) => !o)} disabled={busy || Boolean(rewriteJob)} title={copy.rewrite.lead} aria-label={copy.rewrite.button}>
           <Wand2 className="w-4 h-4" aria-hidden /> <span className="hidden lg:inline">{copy.rewrite.button}</span>
         </Button>
-        <Link to={`/talks/${id}/present`} title={copy.present.hint}
-              className="h-10 px-3 inline-flex items-center gap-1.5 rounded-md text-sm font-medium bg-accent-light text-accent hover:bg-accent hover:text-white flex-shrink-0">
+        <div className="flex items-center gap-1">
+          <Button variant={talk.share_token ? 'secondary' : 'quiet'} loading={share.isPending} onClick={() => share.mutate(!talk.share_token)}
+                  aria-label={copy.talk.share.button} title={copy.talk.share.hint}>
+            <Link2 className="w-4 h-4" aria-hidden /> <span className="hidden md:inline">{talk.share_token ? copy.talk.share.off : copy.talk.share.button}</span>
+          </Button>
+          {shareUrl && (
+            <Button variant="quiet" onClick={copyShare} aria-label={copy.talk.share.copy} title={shareUrl}>
+              {copied ? <Check className="w-4 h-4" aria-hidden /> : <Copy className="w-4 h-4" aria-hidden />}
+            </Button>
+          )}
+        </div>
+        <span className="flex-1" />
+        {/* Present · download · delete wrap as one group, not one control at a time. */}
+        <div className="flex items-center gap-2">
+        <Link to={`/talks/${id}/present`} title={copy.present.hint} className={buttonClass('ghost')}>
           <Play className="w-4 h-4" aria-hidden /> <span className="hidden md:inline">{copy.present.button}</span>
         </Link>
         {/* Plain links, not fetch+blob: the browser streams the file and
             shows its own download UI; the cookie rides along same-origin. */}
         <div className="relative flex-shrink-0">
-          <button type="button" onClick={() => setMenuOpen((o) => !o)} aria-haspopup="menu" aria-expanded={menuOpen}
-                  className="h-10 px-4 inline-flex items-center gap-2 rounded-md text-sm font-medium bg-accent text-white hover:bg-accent-deep">
+          <Button onClick={() => setMenuOpen((o) => !o)} aria-haspopup="menu" aria-expanded={menuOpen}>
             <Download className="w-4 h-4" aria-hidden /> <span className="hidden sm:inline">{copy.talk.downloadMenu}</span>
-            {selected.size > 0 && <span className="text-xs bg-white/20 rounded px-1.5">{selected.size}</span>}
+            {selected.size > 0 && <span className="text-xs bg-bg/20 rounded px-1.5 tabular-nums">{selected.size}</span>}
             <ChevronDown className="w-3.5 h-3.5" aria-hidden />
-          </button>
+          </Button>
           {menuOpen && (
             <div role="menu" className="absolute right-0 mt-1 w-72 bg-surface border border-border rounded-md shadow-lg z-30 py-1" onClick={() => setMenuOpen(false)}>
               <a role="menuitem" href={`/api/talks/${id}/export.pptx${selQuery}`} download className="block px-3 py-2 text-sm text-ink hover:bg-surface-soft">
@@ -200,21 +213,11 @@ export default function TalkPage() {
             </div>
           )}
         </div>
-        <div className="relative flex-shrink-0 flex items-center gap-1">
-          <Button variant={talk.share_token ? 'secondary' : 'ghost'} size="md" loading={share.isPending} onClick={() => share.mutate(!talk.share_token)}
-                  aria-label={copy.talk.share.button} title={copy.talk.share.hint}>
-            <Link2 className="w-4 h-4" aria-hidden /> <span className="hidden md:inline">{talk.share_token ? copy.talk.share.off : copy.talk.share.button}</span>
-          </Button>
-          {shareUrl && (
-            <Button variant="ghost" size="md" onClick={copyShare} aria-label={copy.talk.share.copy} title={shareUrl}>
-              {copied ? <Check className="w-4 h-4" aria-hidden /> : <Copy className="w-4 h-4" aria-hidden />}
-            </Button>
-          )}
-        </div>
-        <Button variant="ghost" size="md" loading={remove.isPending} aria-label={copy.talk.delete} title={copy.talk.delete}
+        <Button variant="quiet" size="icon" loading={remove.isPending} aria-label={copy.talk.delete} title={copy.talk.delete} className="hover:!text-danger hover:!bg-danger-bg"
                 onClick={() => { if (window.confirm(copy.talk.deleteConfirm)) remove.mutate() }}>
           <Trash2 className="w-4 h-4" aria-hidden />
         </Button>
+        </div>
         </div>
       </header>
 
@@ -244,22 +247,24 @@ export default function TalkPage() {
           <Button size="sm" variant="ghost" onClick={() => { const b = beforeRewrite; setBeforeRewrite(null); void run(() => replaceTalkSlides(id, b)).then(() => toast(copy.rewrite.undone, 'success')) }}>{copy.rewrite.undo}</Button>
         </div>
       )}
-      <div className="space-y-4">
+
+      {/* The manuscript: slide column + 280px margin for the speaker's text
+          at lg; one column below. SlideCard is `display: contents`, so its
+          two cells land here and align row by row. The insert chip is a
+          full-width row sitting on the rule between two slides. */}
+      <div className={`border-t border-border-strong grid ${talk.notes_enabled ? 'lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-x-8' : ''}`}>
         {slides.map((s, i) => (
-          <div key={i} className="group">
-            <SlideCard slide={s} number={i + 1} language={talk.language} notesEnabled={talk.notes_enabled} overfull={overfull.get(i)}
-                       edit={{ ...edit, onUndo: previous.has(i) ? edit.onUndo : undefined }} isFirst={i === 0} isLast={i === slides.length - 1}
-                       selected={selected.has(i)} onSelect={toggleSelect} />
-            {/* Insert-after sits between cards: a 32px chip that is always
-                present (touch has no hover), quiet until pointed at. */}
-            <div className="flex justify-center -mb-2 mt-2">
-              <button type="button" onClick={() => insertAfter(i)} disabled={busy || slides.length >= MAX_SLIDE_COUNT}
-                      className="h-8 px-3 inline-flex items-center gap-1 rounded-md border border-border bg-surface text-xs text-ink-secondary hover:text-accent hover:border-accent disabled:opacity-40">
-                <Plus className="w-3.5 h-3.5" aria-hidden /> {copy.talk.edit.insertAfter}
-              </button>
-            </div>
-          </div>
-        ))}
+          <SlideCard key={i} slide={s} number={i + 1} total={slides.length} language={talk.language} notesEnabled={talk.notes_enabled} overfull={overfull.get(i)}
+                     edit={{ ...edit, onUndo: previous.has(i) ? edit.onUndo : undefined }} isFirst={i === 0} isLast={i === slides.length - 1}
+                     selected={selected.has(i)} onSelect={toggleSelect} />
+        )).flatMap((card, i) => [card,
+          <div key={`ins-${i}`} className="col-span-full flex justify-center -my-4 relative z-10">
+            <button type="button" onClick={() => insertAfter(i)} disabled={busy || slides.length >= MAX_SLIDE_COUNT}
+                    className="h-8 px-3 inline-flex items-center gap-1 rounded-full bg-bg text-xs text-ink-tertiary hover:text-accent transition-colors disabled:opacity-40">
+              <Plus className="w-3.5 h-3.5" aria-hidden /> {copy.talk.edit.insertAfter}
+            </button>
+          </div>,
+        ])}
       </div>
     </div>
   )

@@ -180,6 +180,15 @@ style learning picks by type + recency + intent — measure with the eval
 harness (`styleExemplars: true` on a workspace with approvals) before
 tuning the selector.
 
+### H. Design «Редакция» · Effort: M · 🟢 SHIPPED (2026-09-14)
+Tokens, three faces, the rail, editorial library rows, the manuscript
+layout, dark theme. Follow-ups: the export themes (`themes.ts`) still carry the
+old teal default — decide whether the deck's default theme should follow
+the app's pencil blue or stay a deliberately different palette; the
+«Посты»/«Реклама» rows become real when the first of them ships, on the
+same Тезисы → План → Материал → Экспорт skeleton (`TalkPage` + the gate +
+`RewriteReview` are the reusable parts).
+
 ### The plan is built. What is next is not more building.
 Every item in CLAUDE.md §8 is shipped and deployed. The next TODO entries
 should come from users, usage_log and talk_events — not from this file.

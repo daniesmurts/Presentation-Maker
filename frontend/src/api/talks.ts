@@ -17,7 +17,8 @@ export interface CreateTalkRequest {
 
 export interface TalkListItem {
   id: string; title: string; intent: Intent; audience: Audience; language: TalkLanguage
-  slide_count: number; created_at: string; updated_at: string
+  slide_count: number; notes_enabled: boolean; approved_at: string | null; shared: boolean
+  created_at: string; updated_at: string
 }
 
 export const createJob      = (data: CreateTalkRequest) => client.post<TalkJob>('/api/talks/jobs', data).then((r) => r.data)

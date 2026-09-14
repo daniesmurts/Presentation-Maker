@@ -227,17 +227,30 @@ product, not a feature.
 
 ## 6. Design system baseline
 
-Start from ИСПУМ's tokens but **re-measure every pair** once the palette
-changes. What is known to be true today:
+The palette is «Редакция» (2026-09-14): paper, ink, one blue pencil. The
+tokens and every measured pair live in `frontend/src/index.css`; this is
+the summary. **Re-measure every pair** if any token moves.
 
 | Pair | Ratio | Rule |
 |---|---|---|
-| Body ink on white | 15.8:1 | — |
-| `ink-secondary` on white | 5.74:1 | minimum for secondary text |
-| `ink-tertiary` on white | 2.84:1 | **captions/graphics only, never text a user must read** |
-| Accent `#966508` on white / white on it | 5.05:1 | derived: lightest amber at hue 39°, sat 90% clearing 4.5 on every ground |
-| Accent on the warm page ground | 4.59:1 | the pair that fails *last* — check it for any new accent |
-| Accent-deep `#835807` (hover) | 6.24:1 | hover darkens; contrast rises |
+| Ink `#15171C` on the sheet `#FFFFFF` / on paper `#F5F6F8` | 17.9 / 16.6 | also the solid-button ground; paper text on it 16.6 |
+| `ink-secondary` `#5B6170` on sheet / paper / accent-light | 6.2 / 5.7 / 5.2 | minimum for secondary text |
+| `ink-tertiary` `#8B909C` on sheet | 3.2 | **captions/graphics only, never text a user must read** |
+| Pencil `#2F4FD0` on sheet / paper / accent-light `#E6EAFA` | 6.7 / 6.2 / 5.6 | the pair on accent-light fails *last* — check it for any new accent |
+| `accent-deep` `#24409F` (hover of pencil text) | 9.1 | hover darkens; contrast rises |
+| Marker `#FFE85A` (highlighter) with `marker-ink` on it | 14.5 | means one thing: *selected*; once more as a flourish, never as decoration |
+| Dark: ink `#ECEDF0` on `#121317`; pencil `#8FA3FF` on surface `#1A1C22` | 15.9 / 7.2 | same roles, not an inversion; rules 14% / 32% (10% vanishes on dark) |
+
+The solid primary button is **ink**, never the pencil: the pencil marks
+(slide type, links, selection), it does not fill. Faces: Literata
+(display, speaker notes), Golos Text (UI), JetBrains Mono (numbers) — all
+with full Cyrillic; fallbacks are the PT faces the PDF exporter vendors.
+Structure: content on a *sheet* (`surface`), the rail on the paper (`bg`)
+— two planes, which is what keeps the page legible in dark; a left rail of
+material kinds (talks · posts · ads · brand) that becomes a bottom bar
+under `lg`; the talk page is a manuscript — slide column plus a 280 px
+margin for the speaker's text. Theme: system / light / dark, `data-theme`
+on `<html>`, `lib/theme.ts`.
 
 Rules that survived user testing:
 - **One solid primary CTA per screen.** A second emphasis is tinted

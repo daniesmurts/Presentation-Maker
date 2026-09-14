@@ -25,8 +25,9 @@ export default function NewTalkPage() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-xl font-semibold text-ink mb-1">{copy.nav.newTalk}</h1>
-      <p className="text-sm text-ink-secondary mb-6">{copy.tagline}</p>
+      <div className="eyebrow text-accent mb-1.5">{copy.talk.kind}</div>
+      <h1 className="display font-semibold text-[30px] leading-tight text-ink mb-1">{copy.nav.newTalk}</h1>
+      <p className="text-sm text-ink-secondary mb-8">{copy.tagline}</p>
       <TalkForm onSubmit={submit} submitting={busy} error={error} />
     </div>
   )

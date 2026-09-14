@@ -28,9 +28,9 @@ export default function RewriteReview({ current, proposal, language, busy, onApp
   const [accept, setAccept] = useState<Set<number>>(() => new Set(changed.map((r) => r.i)))
 
   return (
-    <section className="bg-surface border border-accent/40 rounded-lg p-5 space-y-4 appear" aria-labelledby="rw-heading">
+    <section className="border-l-2 border-accent pl-5 py-1 space-y-4 appear" aria-labelledby="rw-heading">
       <div className="flex flex-wrap items-center gap-3">
-        <h2 id="rw-heading" className="text-base font-semibold text-ink">{copy.rewrite.review(current.length, changed.length)}</h2>
+        <h2 id="rw-heading" className="display text-[21px] font-medium text-ink">{copy.rewrite.review(current.length, changed.length)}</h2>
         <div className="ml-auto flex gap-2">
           <Button size="sm" variant="ghost" onClick={() => setAccept(new Set(changed.map((r) => r.i)))}>{copy.rewrite.acceptAll}</Button>
           <Button size="sm" variant="ghost" onClick={() => setAccept(new Set())}>{copy.rewrite.rejectAll}</Button>
@@ -42,15 +42,15 @@ export default function RewriteReview({ current, proposal, language, busy, onApp
           <li key={r.i} className="border border-border rounded-md overflow-hidden">
             <label className="flex items-center gap-3 px-3 min-h-[44px] bg-surface-soft cursor-pointer">
               <input type="checkbox" checked={accept.has(r.i)} onChange={(e) => setAccept((s) => { const n = new Set(s); e.target.checked ? n.add(r.i) : n.delete(r.i); return n })} className="w-4 h-4 accent-accent" />
-              <span className="text-sm font-medium text-ink">{r.i + 1}. {r.before.title}</span>
+              <span className="font-mono text-xs text-ink-secondary">{String(r.i + 1).padStart(2, '0')}</span><span className="font-display text-[15px] font-medium text-ink">{r.before.title}</span>
             </label>
             <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
-              <div className="p-3"><div className="text-[11px] uppercase tracking-wider text-ink-secondary mb-1">{copy.rewrite.before}</div><pre className="whitespace-pre-wrap font-sans text-xs text-ink-secondary leading-relaxed">{r.a}</pre></div>
-              <div className="p-3"><div className="text-[11px] uppercase tracking-wider text-accent mb-1">{copy.rewrite.after}</div><pre className="whitespace-pre-wrap font-sans text-xs text-ink leading-relaxed">{r.b}</pre></div>
+              <div className="p-3"><div className="eyebrow mb-1.5">{copy.rewrite.before}</div><pre className="whitespace-pre-wrap font-sans text-xs text-ink-secondary leading-relaxed">{r.a}</pre></div>
+              <div className="p-3"><div className="eyebrow text-accent mb-1.5">{copy.rewrite.after}</div><pre className="whitespace-pre-wrap font-sans text-xs text-ink leading-relaxed">{r.b}</pre></div>
             </div>
           </li>
         ) : (
-          <li key={r.i} className="px-3 py-1.5 text-xs text-ink-secondary">{r.i + 1}. {r.before.title} — {copy.rewrite.unchanged}</li>
+          <li key={r.i} className="px-3 py-1.5 text-xs text-ink-tertiary"><span className="font-mono">{String(r.i + 1).padStart(2, '0')}</span> {r.before.title} — {copy.rewrite.unchanged}</li>
         ))}
       </ol>
 

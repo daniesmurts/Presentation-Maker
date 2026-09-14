@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import Button from '../ui/Button'
-import { Field, Checkbox, inputClass } from '../ui/Field'
+import { Field, Checkbox, inputClass, proseInputClass } from '../ui/Field'
 import { copy, INTENT_LABEL, INTENT_HINT, AUDIENCE_LABEL, slidesCount, minutesCount } from '../../lib/copy'
 import {
   INTENTS, AUDIENCES, LENGTH_PRESETS, MIN_SLIDE_COUNT, MAX_SLIDE_COUNT, estimateSlideCount, notesDefaultFor,
@@ -51,18 +51,18 @@ export default function TalkForm({ onSubmit, submitting, error }: Props) {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-6" noValidate>
+    <form onSubmit={submit} className="space-y-7" noValidate>
       <Field label={copy.form.title} hint={copy.form.titleHint} htmlFor="title">
-        <input id="title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} required className={inputClass} autoFocus />
+        <input id="title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} required className={`${proseInputClass} text-[19px]`} autoFocus />
       </Field>
 
       <Field label={copy.form.brief} hint={copy.form.briefHint} htmlFor="brief">
-        <textarea id="brief" value={brief} onChange={(e) => setBrief(e.target.value)} rows={8} maxLength={BRIEF_MAX} className={`${inputClass} resize-y`} />
-        <div className="text-xs text-ink-secondary text-right tabular-nums">{brief.length.toLocaleString('ru-RU')} / {BRIEF_MAX.toLocaleString('ru-RU')}</div>
+        <textarea id="brief" value={brief} onChange={(e) => setBrief(e.target.value)} rows={8} maxLength={BRIEF_MAX} className={`${proseInputClass} resize-y`} />
+        <div className="text-xs text-ink-tertiary text-right font-mono tabular-nums">{brief.length.toLocaleString('ru-RU')} / {BRIEF_MAX.toLocaleString('ru-RU')}</div>
       </Field>
 
       <fieldset>
-        <legend className="block text-sm font-medium text-ink mb-2">{copy.form.intent}</legend>
+        <legend className="block text-sm font-medium text-ink mb-2.5">{copy.form.intent}</legend>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {INTENTS.map((i) => (
             <label key={i} className={`min-h-[44px] px-3 py-2 rounded-md border cursor-pointer transition-colors ${
@@ -90,7 +90,7 @@ export default function TalkForm({ onSubmit, submitting, error }: Props) {
       </div>
 
       <fieldset>
-        <legend className="block text-sm font-medium text-ink mb-2">{copy.form.length}</legend>
+        <legend className="block text-sm font-medium text-ink mb-2.5">{copy.form.length}</legend>
         <div className="flex flex-wrap gap-2">
           {LENGTH_PRESETS.map((p) => (
             <label key={p.id} className={`h-10 px-3 inline-flex items-center rounded-md border text-sm cursor-pointer ${

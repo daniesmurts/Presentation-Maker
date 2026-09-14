@@ -40,23 +40,24 @@ export default function OutlineEditor({ outline, onConfirm, onCancel, confirming
   const full = rows.length >= MAX_SLIDE_COUNT
 
   return (
-    <section className="bg-surface border border-border rounded-lg p-5 space-y-4 appear" aria-labelledby="outline-heading">
+    <section className="space-y-5 appear max-w-3xl" aria-labelledby="outline-heading">
       <div>
-        <h2 id="outline-heading" className="text-base font-semibold text-ink">{copy.outline.heading}</h2>
+        <div className="eyebrow text-accent mb-1.5">{copy.talk.kind}</div>
+        <h2 id="outline-heading" className="display font-semibold text-[30px] leading-tight text-ink">{copy.outline.heading}</h2>
         <p className="text-sm text-ink-secondary mt-1 max-w-[62ch]">{copy.outline.lead}</p>
       </div>
 
-      <ol className="border border-border rounded-md overflow-hidden">
+      <ol className="border-t border-border-strong">
         {rows.map((row, i) => (
-          <li key={i} className="grid grid-cols-[28px_1fr] sm:grid-cols-[28px_140px_1fr_auto] gap-2 items-start px-3 py-2.5 border-b border-border last:border-0">
-            <div className="text-xs text-ink-secondary pt-2.5 tabular-nums">{i + 1}</div>
+          <li key={i} className="grid grid-cols-[36px_1fr] sm:grid-cols-[36px_140px_1fr_auto] gap-2 items-start py-3 border-b border-border">
+            <div className="font-mono text-sm text-ink-secondary pt-2 tabular-nums">{String(i + 1).padStart(2, '0')}</div>
             <select value={row.type} onChange={(e) => update(i, { type: e.target.value as SlideType })} aria-label={`Тип слайда ${i + 1}`}
                     className={`${inputClass} h-9 py-0 sm:col-start-2`}>
               {SLIDE_TYPES.map((t) => <option key={t} value={t}>{SLIDE_TYPE_LABEL[t]}</option>)}
             </select>
             <div className="space-y-1.5 col-start-2 sm:col-start-3">
               <input value={row.title} onChange={(e) => update(i, { title: e.target.value })} placeholder={copy.outline.titlePh}
-                     aria-label={`Заголовок слайда ${i + 1}`} maxLength={200} className={inputClass} />
+                     aria-label={`Заголовок слайда ${i + 1}`} maxLength={200} className={`${inputClass} font-display text-[16px]`} />
               <textarea value={row.brief} onChange={(e) => update(i, { brief: e.target.value })} placeholder={copy.outline.briefPh}
                         aria-label={`Описание слайда ${i + 1}`} rows={2} maxLength={600} className={`${inputClass} text-xs text-ink-secondary resize-y`} />
             </div>
@@ -68,7 +69,7 @@ export default function OutlineEditor({ outline, onConfirm, onCancel, confirming
             </div>
           </li>
         ))}
-        {rows.length === 0 && <li className="px-3 py-6 text-center text-sm text-ink-secondary">{copy.outline.empty}</li>}
+        {rows.length === 0 && <li className="py-6 text-center text-sm text-ink-secondary">{copy.outline.empty}</li>}
       </ol>
 
       <div className="flex items-center justify-between gap-3">

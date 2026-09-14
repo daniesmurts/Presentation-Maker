@@ -32,6 +32,9 @@ export interface TalkListRow {
   audience:      string
   language:      string
   slide_count:   number
+  notes_enabled: boolean
+  approved_at:   string | null
+  shared:        boolean     // a share token exists; the token itself stays off the list
   created_at:    string
   updated_at:    string
 }
@@ -40,6 +43,7 @@ export async function listTalks(workspaceId: string): Promise<TalkListRow[]> {
   const { rows } = await pool.query<TalkListRow>(
     `SELECT id, title, intent, audience, language,
             COALESCE(jsonb_array_length(slides), 0) AS slide_count,
+            notes_enabled, approved_at, (share_token IS NOT NULL) AS shared,
             created_at, updated_at
        FROM talks
       WHERE workspace_id = $1

@@ -33,6 +33,76 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 
 ## [Unreleased]
 
+### Changed
+- **Дизайн «Редакция»** — the UI rebuilt on one idea: Tezarium is an
+  editor's desk, not a generator. Paper, ink, one blue pencil; the text
+  the speaker says sits in the margin beside its slide, like a note on a
+  draft. Chosen over the design skill's literal output (Newsreader +
+  Roboto + pink, a newsletter pattern): Newsreader has no Cyrillic, pink
+  on white is 3.8:1, the pattern is a landing page. What changed:
+  - **Tokens** (`index.css`, `tailwind.config.ts`): cool paper `#F5F6F8`,
+    ink `#15171C`, pencil `#2F4FD0`; every text pair re-measured and
+    written next to its token (accent on accent-light 5.56 is the pair
+    that fails last). **A dark theme** for the first time, as the same
+    roles, not an inversion (pencil `#8FA3FF`, 7.18 on surface), through
+    `prefers-color-scheme` — every colour goes through a token, so it
+    cost 20 lines. Radii tightened (4/6/10/14).
+  - **Type**: Literata (display, speaker notes — optical sizes, real
+    Cyrillic), Golos Text (UI, designed for Cyrillic), JetBrains Mono
+    (slide numbers, counters). Google Fonts with `display=swap`;
+    fallbacks are the PT faces the PDF exporter vendors.
+  - **The solid button is ink**, never the accent: the pencil marks
+    (slide type, links, selection), it does not fill. Hover ink →
+    ink-hover stays at 12.7:1; accent text → accent-deep rises to 9.1.
+    New `quiet` variant and `icon` size; `buttonClass()` for links and
+    file-picker labels that act as buttons.
+  - **A left rail** (≥ lg) instead of a top bar: «Работы» lists every
+    kind of material the desk will make — talks now, «Посты» and
+    «Реклама» shown and marked «скоро» with a hint, not hidden (a
+    destination that is unavailable is explained). Under lg: a slim
+    wordmark strip and a four-item bottom bar; content reserves 96 px so
+    the last row is never under it.
+  - **The library**: editorial rows, not cards — serif title, one line
+    of metadata, state as a dot with a word («Готово», «по ссылке»,
+    «Черновик»). The list row gained `notes_enabled`, `approved_at`,
+    `shared` (additive; the token itself stays off the list).
+  - **The manuscript** (`SlideCard`, `TalkPage`): `display: contents`
+    rows in one page grid — slide column · 280 px margin — so the speaker's
+    text lines up with its slide on every row and simply follows it on a
+    phone. The slide number is the selection control (a real checkbox in
+    a 44 px label; checked → pencil-blue with a tick). Type as a pencil
+    eyebrow, title in Literata, quiet chip actions under the body, the
+    «не влезает» flag at the slide. The margin shows **≈ N сек** — a
+    speaking-time estimate (110 words/min RU, 140 EN, rounded to 5 s).
+    First slide above the fold: top 192, bottom 559 of 800.
+  - Forms: тезисы and the title in the display face (prose reads as
+    prose); mono numbers in the outline gate; the rewrite review as a
+    pencil-ruled margin block rather than a boxed card.
+  - **Gotcha, recorded**: a `tailwind.config.ts` change is not picked up
+    by the running Vite dev server — the served CSS still had the old
+    `font-display` stack while `npm run build` had the new one. Restart
+    Vite after touching the config; the build was previewed on :4174 to
+    verify the faces.
+  - **Second pass, after the first dark look** («the page loses structure
+    when it's dark»): the cause was one ground with 10% hairlines. Fixed
+    with the manuscript's own metaphor — content on a *sheet* (`surface`),
+    the rail on the paper (`bg`) — a second plane in both themes; dark
+    rules raised to 14% / 32%. **Theme switcher** (`lib/theme.ts`,
+    `ThemeToggle`): system → light → dark, stamped as `data-theme` on
+    `<html>` so an explicit choice beats the OS in both directions, saved
+    in localStorage, applied by an inline script before first paint (no
+    flash). **The highlighter**, taken from an editorial reference the
+    founder sent (Golf le Fleur — hand marks over a poster): a `marker`
+    token `#FFE85A` (ink on it 14.5; dark `#E2C94A`, 11.2) that means one
+    thing — SELECTED: the slide number turns marker-yellow with a tick.
+    Used once more as a flourish, a stroke under «выступлению» in the
+    login tagline (`.marker-under`). Page titles a weight heavier (600,
+    30 px) for the poster energy; nothing else from the collage — it is a
+    streetwear landing page, this is a tool.
+  - Not touched: the exported deck themes (`themes.ts`) and the present
+    stage keep their own palettes — a deck's look is the user's theme
+    choice, not the app's.
+
 ### Added
 - **Режим показа, переписать всё, обучение стилю.** TODO G — the last item
   of the CLAUDE.md §8 plan.

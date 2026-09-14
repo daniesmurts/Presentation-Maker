@@ -1,12 +1,18 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Upload, Loader2 } from 'lucide-react'
-import { listTalks, importPptx } from '../api/talks'
+import { Upload, Loader2, Presentation } from 'lucide-react'
+import { listTalks, importPptx, type TalkListItem } from '../api/talks'
 import { errorMessage } from '../api/client'
 import Spinner from '../components/ui/Spinner'
+import { buttonClass } from '../components/ui/Button'
 import { useToast } from '../lib/toast'
-import { copy, INTENT_LABEL, AUDIENCE_LABEL, slidesCount } from '../lib/copy'
+import { copy, INTENT_LABEL, AUDIENCE_LABEL } from '../lib/copy'
+
+// The library («Работы»). Editorial rows, not cards: a serif title, one
+// line of metadata, the state as a dot with a word — «Готово», «по ссылке»
+// — so a talk's condition reads before it is opened. The filter row already
+// holds the kinds of material that do not exist yet, dashed and inert.
 
 // «Загрузить .pptx» — the adoption lever (CLAUDE.md §8 step 4). A real
 // <label> around the file input so the chip itself is the target.
@@ -32,8 +38,7 @@ function ImportChip() {
     }
   }
   return (
-    <label title={copy.import.hint} className={`h-10 px-4 inline-flex items-center gap-2 rounded-md text-sm font-medium border cursor-pointer ${
-      busy ? 'opacity-60 cursor-wait' : ''} bg-accent-light text-accent border-transparent hover:bg-accent hover:text-white`}>
+    <label title={copy.import.hint} className={`${buttonClass('ghost')} ${busy ? 'opacity-60 cursor-wait' : ''}`}>
       {busy ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden /> : <Upload className="w-4 h-4" aria-hidden />}
       {busy ? copy.import.busy : copy.import.button}
       <input type="file" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" className="sr-only" onChange={pick} disabled={busy} />
@@ -41,34 +46,66 @@ function ImportChip() {
   )
 }
 
+const CHIP = 'h-8 px-3 inline-flex items-center rounded-full border text-xs whitespace-nowrap'
+
+function Status({ t }: { t: TalkListItem }) {
+  const S = copy.list.status
+  const parts: string[] = []
+  if (t.approved_at) parts.push(S.approved)
+  if (t.shared) parts.push(S.shared)
+  const ok = parts.length > 0
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-xs ${ok ? 'text-success' : 'text-ink-secondary'}`}>
+      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${ok ? 'bg-success' : 'bg-ink-tertiary'}`} aria-hidden />
+      {ok ? parts.join(' · ') : S.draft}
+    </span>
+  )
+}
+
 export default function TalksPage() {
   const { data, isLoading } = useQuery({ queryKey: ['talks'], queryFn: listTalks })
+  const n = data?.length ?? 0
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold text-ink">{copy.list.heading}</h1>
+    <div className="space-y-5">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <h1 className="display font-semibold text-[30px] leading-tight text-ink">{copy.list.heading}</h1>
+          <p className="text-sm text-ink-secondary mt-1">{copy.list.lead(n)}</p>
+        </div>
         <ImportChip />
       </div>
+
+      <div className="flex gap-2 overflow-x-auto -mx-4 px-4 lg:mx-0 lg:px-0">
+        <span className={`${CHIP} bg-ink text-bg border-transparent`}>{copy.list.filterAll}</span>
+        <span className={`${CHIP} text-ink-secondary border-border-strong`}>{copy.nav.talks}</span>
+        <span className={`${CHIP} text-ink-tertiary border-dashed border-border-strong`} title={copy.nav.soonHint(copy.nav.posts)}>{copy.nav.posts}</span>
+        <span className={`${CHIP} text-ink-tertiary border-dashed border-border-strong`} title={copy.nav.soonHint(copy.nav.ads)}>{copy.nav.ads}</span>
+      </div>
+
       {isLoading && <Spinner />}
       {data && data.length === 0 && (
-        <div className="bg-surface border border-border rounded-lg p-8 text-center">
+        <div className="border-t border-border-strong pt-8 text-center">
           <p className="text-sm text-ink-secondary">{copy.list.empty}</p>
-          <Link to="/talks/new" className="inline-flex h-10 px-4 items-center mt-4 rounded-md bg-accent text-white text-sm font-medium hover:bg-accent-deep">{copy.list.emptyCta}</Link>
+          <Link to="/talks/new" className={`${buttonClass('primary')} mt-4`}>{copy.list.emptyCta}</Link>
         </div>
       )}
       {data && data.length > 0 && (
-        <ul className="bg-surface border border-border rounded-lg divide-y divide-border">
+        <ul className="border-t border-border-strong">
           {data.map((t) => (
-            <li key={t.id}>
-              <Link to={`/talks/${t.id}`} className="flex items-center gap-4 px-4 py-3 hover:bg-surface-soft">
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium text-ink truncate">{t.title}</div>
+            <li key={t.id} className="border-b border-border">
+              <Link to={`/talks/${t.id}`} className="grid grid-cols-[20px_minmax(0,1fr)] sm:grid-cols-[20px_minmax(0,1fr)_150px_88px] gap-x-4 gap-y-1 items-baseline py-3.5 -mx-2 px-2 rounded-md hover:bg-surface transition-colors">
+                <Presentation className="w-4 h-4 text-ink-tertiary self-center" aria-hidden />
+                <div className="min-w-0">
+                  <div className="display text-[17px] font-medium leading-snug text-ink">{t.title}</div>
                   <div className="text-xs text-ink-secondary mt-0.5">
-                    {INTENT_LABEL[t.intent]} · {AUDIENCE_LABEL[t.audience]} · {slidesCount(t.slide_count)}
+                    {INTENT_LABEL[t.intent]} · {AUDIENCE_LABEL[t.audience]} · {copy.list.slidesShort(t.slide_count)}
+                    {t.notes_enabled ? ` · ${copy.list.status.withNotes}` : ''}
+                    {t.language === 'en' ? ' · EN' : ''}
                   </div>
                 </div>
-                <time dateTime={t.created_at} className="text-xs text-ink-secondary tabular-nums flex-shrink-0">
+                <div className="col-start-2 sm:col-start-3"><Status t={t} /></div>
+                <time dateTime={t.created_at} className="hidden sm:block text-xs text-ink-secondary tabular-nums text-right">
                   {new Date(t.created_at).toLocaleDateString('ru-RU')}
                 </time>
               </Link>

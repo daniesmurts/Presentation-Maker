@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import Button from '../ui/Button'
-import { inputClass } from '../ui/Field'
+import { inputClass, proseInputClass } from '../ui/Field'
 import { copy } from '../../lib/copy'
 import type {
   Slide, TitleSlide, BulletsSlide, ConceptSlide, FormulaSlide, ComparisonSlide, DiagramSlide, DiscussionSlide, CtaSlide, SummarySlide,
@@ -24,8 +24,8 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 }
 const Text  = ({ value, onChange }: { value: string; onChange: (v: string) => void }) =>
   <input className={inputClass} value={value} onChange={(e) => onChange(e.target.value)} />
-const Area  = ({ value, onChange, rows = 3 }: { value: string; onChange: (v: string) => void; rows?: number }) =>
-  <textarea className={`${inputClass} resize-y`} rows={rows} value={value} onChange={(e) => onChange(e.target.value)} />
+const Area  = ({ value, onChange, rows = 3, prose }: { value: string; onChange: (v: string) => void; rows?: number; prose?: boolean }) =>
+  <textarea className={`${prose ? proseInputClass : inputClass} resize-y`} rows={rows} value={value} onChange={(e) => onChange(e.target.value)} />
 const Lines = ({ value, onChange, rows = 4 }: { value: string[]; onChange: (v: string[]) => void; rows?: number }) =>
   <textarea className={`${inputClass} resize-y`} rows={rows} value={value.join('\n')} onChange={(e) => onChange(linesToArray(e.target.value))} placeholder={F.perLine} />
 
@@ -45,10 +45,10 @@ export default function SlideEditor({ slide, notesEnabled, saving, onSave, onCan
   }
 
   return (
-    <div className="p-4 space-y-3 bg-surface-soft border-b border-border">
+    <div className="p-4 space-y-3 bg-surface-soft rounded-md">
       <Row label={F.title}><Text value={draft.title} onChange={(title) => setDraft((d) => ({ ...d, title }))} /></Row>
       {bodyFields(draft, patch)}
-      {notesEnabled && <Row label={F.notes}><Area rows={6} value={draft.notes} onChange={(notes) => setDraft((d) => ({ ...d, notes }))} /></Row>}
+      {notesEnabled && <Row label={F.notes}><Area prose rows={6} value={draft.notes} onChange={(notes) => setDraft((d) => ({ ...d, notes }))} /></Row>}
       <div className="flex items-center gap-2 pt-1">
         <Button size="sm" onClick={() => onSave(draft)} loading={saving}>{copy.talk.edit.save}</Button>
         <Button size="sm" variant="ghost" onClick={onCancel} disabled={saving}>{copy.talk.edit.cancel}</Button>

@@ -64,7 +64,15 @@ export const JOB_STATUS_LINE: Record<TalkJobStatus, string> = {
 export const copy = {
   brand:        'Тезариум',
   tagline:      'От тезисов — к выступлению',
-  nav: { talks: 'Выступления', newTalk: 'Новое выступление', brand: 'Бренд', logout: 'Выйти' },
+  taglineParts: ['От тезисов — к ', 'выступлению'] as const,   // the second half takes the highlighter on the login page
+  // The rail lists every kind of material the desk will make; the ones
+  // that do not exist yet are shown and marked, not hidden (a destination
+  // that is unavailable is explained, not silently missing).
+  nav: {
+    talks: 'Выступления', newTalk: 'Новое выступление', newShort: 'Создать', brand: 'Бренд', logout: 'Выйти',
+    works: 'Работы', workspace: 'Пространство', posts: 'Посты', ads: 'Реклама', soon: 'скоро',
+    soonHint: (what: string) => `${what} — скоро. Тот же стол: тезисы → план → материал → экспорт.`,
+  },
   auth: {
     loginTitle:    'Вход',
     registerTitle: 'Регистрация',
@@ -116,8 +124,10 @@ export const copy = {
     open:      'Открыть выступление',
   },
   talk: {
+    kind:       'Выступление',
     notes:      'Текст докладчика',
-    noNotes:    '—',
+    noNotes:    'Текста пока нет — напишите или попросите написать.',
+    seconds:    (s: number) => `≈ ${s} сек`,
     overfull:   'Много текста',
     overfullTip:(reason: string) => `Не поместится на слайд 16:9: ${reason}. В презентации текст обрежется или уедет за край — сократите или разбейте на два слайда.`,
     copy:       'Копировать',
@@ -189,6 +199,8 @@ export const copy = {
   },
   theme: {
     label: 'Тема',
+    switch: 'Оформление', to: (what: string) => `Переключить: ${what}`,
+    choice: { system: 'как в системе', light: 'светлое', dark: 'тёмное' } as Record<'system' | 'light' | 'dark', string>,
   },
   approve: {
     button: 'Готово', on: 'Готово ✓', hint: 'Отметьте, когда выступление вас устраивает. Только такие выступления используются как образец стиля — если вы это включили в настройках бренда.',
@@ -213,9 +225,13 @@ export const copy = {
   },
   list: {
     heading: 'Выступления',
+    lead:    (n: number) => n === 0 ? 'Пока пусто' : plural(n, 'выступление', 'выступления', 'выступлений'),
     empty:   'Пока ни одного выступления.',
     emptyCta:'Создать первое',
     created: 'Создано',
+    filterAll: 'Все',
+    status: { draft: 'Черновик', approved: 'Готово', shared: 'по ссылке', noNotes: 'без текста докладчика', withNotes: 'с текстом докладчика' },
+    slidesShort: (n: number) => `${n} сл.`,
   },
   errors: {
     generic:  'Что-то пошло не так. Попробуйте ещё раз.',

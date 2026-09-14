@@ -3,7 +3,7 @@
 Legend: ✅ shipped · 🚧 in progress · 📋 planned. Grouped by the role that
 uses it. A 📋 item is marked, never implied. See `docs/WORKFLOW.md` §1.
 
-Last updated: TODO G — present mode, deck rewrite, style learning (the §8 plan is complete)
+Last updated: design «Редакция» — rail, library rows, manuscript layout, dark theme
 
 ---
 
@@ -13,6 +13,16 @@ Free: 10 talks a month, $3 of model spend a month (a cost circuit breaker,
 not a price). Pro: unlimited talks, $30. No billing exists yet — the
 numbers are the shape of the gate, and the `.pptx` download is open to both.
 
+- ✅ **The desk.** A left rail with every kind of material the product
+  will make (talks now; posts and ads listed as «скоро»), the brand kit,
+  and one solid «Новое выступление»; a bottom bar on phones. Light and
+  dark themes: as in the system, or chosen with the switcher (remembered). The library is a list of editorial rows
+  with the state of each talk (черновик · готово · по ссылке) visible
+  before it is opened.
+- ✅ **The manuscript view.** Each slide with the speaker's text in the
+  margin beside it, a speaking-time estimate per slide (≈ N сек), the
+  slide number as the selection control for partial download, and the
+  «не влезает» flag at the slide it concerns.
 - ✅ **Create a talk from talking points.** Paste тезисы, pick intent (inform · persuade · teach · pitch · report ·
   workshop) and audience (executives · customers · team · conference ·
   classroom · investors), set length in minutes or an explicit slide count

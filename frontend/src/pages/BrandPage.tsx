@@ -46,17 +46,18 @@ export default function BrandPage() {
   return (
     <div className="max-w-2xl space-y-8">
       <div>
-        <h1 className="text-xl font-semibold text-ink">{copy.brandKit.heading}</h1>
-        <p className="text-sm text-ink-secondary mt-1 max-w-[62ch]">{copy.brandKit.lead}</p>
+        <div className="eyebrow text-accent mb-1.5">{copy.nav.workspace}</div>
+        <h1 className="display font-semibold text-[30px] leading-tight text-ink">{copy.brandKit.heading}</h1>
+        <p className="text-sm text-ink-secondary mt-1.5 max-w-[62ch]">{copy.brandKit.lead}</p>
       </div>
 
       {/* One form, one primary action (CLAUDE.md §6): accent and name save together. */}
       <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); void run(() => updateBrand({ accent: accent.trim() || null, name: name.trim() || null })) }}>
       <Field label={copy.brandKit.accent} hint={copy.brandKit.accentHint} htmlFor="accent">
         <div className="flex items-center gap-2">
-          <input type="color" aria-label={copy.brandKit.accent} value={hexOk ? (accent.startsWith('#') ? accent : `#${accent}`) : '#0F6E6E'}
+          <input type="color" aria-label={copy.brandKit.accent} value={hexOk ? (accent.startsWith('#') ? accent : `#${accent}`) : '#2F4FD0'}
                  onChange={(e) => setAccent(e.target.value.toUpperCase())} className="h-10 w-12 p-0.5 rounded-md border border-border-strong bg-surface cursor-pointer" />
-          <input id="accent" value={accent} onChange={(e) => setAccent(e.target.value)} placeholder="#0F6E6E" className={`${inputClass} w-36 font-mono`} maxLength={7} />
+          <input id="accent" value={accent} onChange={(e) => setAccent(e.target.value)} placeholder="#2F4FD0" className={`${inputClass} !w-36 font-mono`} maxLength={7} />
           {brand.accent && <Button size="sm" variant="ghost" onClick={() => { setAccent(''); void run(() => updateBrand({ accent: null })) }} disabled={busy}>{copy.brandKit.reset}</Button>}
         </div>
         {brand.contrast.length > 0 && (
@@ -94,7 +95,7 @@ export default function BrandPage() {
       </div>
 
       <section aria-label={copy.brandKit.preview}>
-        <h2 className="text-sm font-medium text-ink mb-2">{copy.brandKit.preview}</h2>
+        <h2 className="eyebrow mb-3">{copy.brandKit.preview}</h2>
         <div className="grid sm:grid-cols-2 gap-4">
           <SlidePreview theme={light} accent={previewAccent} name={name} logoUrl={logoUrl} caption={copy.brandKit.previewOnLight} />
           <SlidePreview theme={dark} accent={previewAccent} name={name} logoUrl={logoUrl} caption={copy.brandKit.previewOnDark} />
@@ -116,7 +117,7 @@ function SlidePreview({ theme, accent, name, logoUrl, caption }: { theme: ThemeS
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center">
           {logoUrl && <img src={logoUrl} alt="" className="h-[18%] max-w-[40%] object-contain" />}
           {name && <div className="text-[10px] tracking-wide" style={{ color: `#${theme.ink}`, opacity: 0.7 }}>{name}</div>}
-          <div className="font-semibold text-base leading-tight" style={{ color: `#${theme.ink}` }}>{copy.brandKit.sampleTitle}</div>
+          <div className="font-display font-medium text-base leading-tight" style={{ color: `#${theme.ink}` }}>{copy.brandKit.sampleTitle}</div>
           <div className="h-[2px] w-10" style={{ background: `#${a}` }} />
         </div>
       </div>

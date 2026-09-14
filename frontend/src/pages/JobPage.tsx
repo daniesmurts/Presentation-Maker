@@ -67,17 +67,17 @@ export default function JobPage() {
   }
 
   return (
-    <div className="bg-surface border border-border rounded-lg p-8 flex flex-col items-center gap-3 text-center">
+    <div className="py-16 flex flex-col items-center gap-3 text-center">
       <Spinner />
-      <p className="text-sm text-ink-secondary max-w-[48ch]">{stage === 'write' || job.outline ? copy.job.writing : copy.job.planning}</p>
+      <p className="font-display text-[17px] text-ink-secondary max-w-[40ch]">{stage === 'write' || job.outline ? copy.job.writing : copy.job.planning}</p>
     </div>
   )
 }
 
 function Failed({ message }: { message: string }) {
   return (
-    <div className="bg-surface border border-border rounded-lg p-6 space-y-4 max-w-xl">
-      <h1 className="text-base font-semibold text-ink">{copy.job.failedLead}</h1>
+    <div className="max-w-xl space-y-4">
+      <h1 className="display font-semibold text-[30px] leading-tight text-ink">{copy.job.failedLead}</h1>
       <p role="alert" className="text-sm text-danger">{message}</p>
       <Link to="/talks/new"><Button variant="secondary">{copy.job.back}</Button></Link>
     </div>

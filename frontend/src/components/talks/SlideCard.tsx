@@ -22,13 +22,27 @@ export interface SlideEditActions {
   onRemoveImage:(idx: number) => void
 }
 
-// One card per slide. Renders each type with its own layout; the card grows
-// to fit, which is exactly why the "Много текста" flag exists — the slide
-// will not (shared/slideFit.ts).
+// The manuscript row («Редакция»): the slide on the left, the speaker's
+// text in the margin on the right, at the same height — like a note in the
+// margin of a draft. The article is `display: contents`, so its two cells
+// sit directly in the page's grid (slide column · 280px margin) and line
+// up across every row; under lg the grid is one column and the margin note
+// simply follows its slide. The cell grows to fit, which is exactly why the
+// «не влезает» flag exists — the slide will not (shared/slideFit.ts).
+
+// A speaking-time estimate for the margin: ≈110 words/min in Russian,
+// ≈140 in English (conference pace, measured against ИСПУМ lecture notes
+// read aloud). Rounded to 5 s — the number is a feel, not a stopwatch.
+export function speakingSeconds(text: string, language: TalkLanguage): number {
+  const words = text.trim().split(/\s+/).filter(Boolean).length
+  const wpm = language === 'ru' ? 110 : 140
+  return Math.max(5, Math.round((words / wpm) * 60 / 5) * 5)
+}
 
 interface Props {
   slide:        Slide
   number:       number
+  total:        number
   language:     TalkLanguage
   notesEnabled: boolean
   overfull?:    string   // reason from slideFit, when over budget
@@ -39,7 +53,7 @@ interface Props {
   onSelect?:    (idx: number, opts: { range: boolean }) => void
 }
 
-export default function SlideCard({ slide, number, language, notesEnabled, overfull, edit, isFirst, isLast, selected, onSelect }: Props) {
+export default function SlideCard({ slide, number, total, language, notesEnabled, overfull, edit, isFirst, isLast, selected, onSelect }: Props) {
   const [copied, setCopied] = useState(false)
   const [mode, setMode] = useState<'view' | 'edit' | 'regenerate'>('view')
   const [instruction, setInstruction] = useState('')
@@ -65,92 +79,104 @@ export default function SlideCard({ slide, number, language, notesEnabled, overf
     ? <ImageSlot query={imageQuery ?? ''} image={image ?? null} busy={edit.busy} onUpload={(f) => edit.onUpload(idx, f)} onRemove={() => edit.onRemoveImage(idx)} />
     : image ? <ImageSlot query={imageQuery ?? ''} image={image} /> : null
 
-  return (
-    <article className="bg-surface border border-border rounded-lg overflow-hidden appear" aria-label={`Слайд ${number}`}>
-      <header className="flex items-center gap-2.5 px-4 h-11 border-b border-border">
-        {onSelect && (
-          // A real checkbox in a label: the whole 44px square is the target,
-          // keyboard and screen reader for free, shift-click extends from the
-          // last one — forty slides is otherwise forty taps.
-          <label className="-ml-3 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer rounded-md hover:bg-surface-soft" title={copy.talk.selectSlide(number)}>
-            <input type="checkbox" checked={Boolean(selected)} onChange={() => {}} onClick={(e) => onSelect(idx, { range: e.shiftKey })}
-                   className="w-4 h-4 accent-accent cursor-pointer" aria-label={copy.talk.selectSlide(number)} />
-          </label>
-        )}
-        <span className="text-[11px] font-semibold bg-accent-light text-accent px-2 py-0.5 rounded-sm uppercase tracking-wide flex-shrink-0">
-          {number}
-        </span>
-        <span className="text-[11px] font-medium text-ink-secondary uppercase tracking-wide flex-shrink-0">
-          {SLIDE_TYPE_LABEL[slide.type]}
-        </span>
-        {slide.type !== 'title' && (
-          <h3 className="text-[15px] font-semibold text-ink truncate"><InlineText text={slide.title} /></h3>
-        )}
-        {overfull && (
-          <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-warning-bg text-warning px-1.5 py-0.5 rounded-sm flex-shrink-0 whitespace-nowrap"
-                title={copy.talk.overfullTip(overfull)}>
-            <AlertTriangle className="w-3 h-3" aria-hidden /> {copy.talk.overfull}
-          </span>
-        )}
-        <div className="ml-auto flex items-center gap-1 flex-shrink-0">
-          {edit && <>
-            <Icon label={copy.talk.edit.up}   disabled={isFirst || edit.busy} onClick={() => edit.onMove(idx, idx - 1)}><ArrowUp className="w-4 h-4" /></Icon>
-            <Icon label={copy.talk.edit.down} disabled={isLast  || edit.busy} onClick={() => edit.onMove(idx, idx + 1)}><ArrowDown className="w-4 h-4" /></Icon>
-            <Icon label={mode === 'edit' ? copy.talk.edit.close : copy.talk.edit.edit} disabled={edit.busy} active={mode === 'edit'} onClick={() => setMode(mode === 'edit' ? 'view' : 'edit')}><Pencil className="w-4 h-4" /></Icon>
-            <Icon label={copy.talk.edit.regenerate} disabled={edit.busy} active={mode === 'regenerate'} onClick={() => setMode(mode === 'regenerate' ? 'view' : 'regenerate')}><RefreshCw className="w-4 h-4" /></Icon>
-            {edit.onUndo && <Icon label={copy.talk.edit.undo} disabled={edit.busy} onClick={() => edit.onUndo!(idx)}><Undo2 className="w-4 h-4" /></Icon>}
-            <Icon label={copy.talk.edit.remove} disabled={edit.busy} danger onClick={() => { if (window.confirm(copy.talk.edit.removeConfirm)) edit.onDelete(idx) }}><Trash2 className="w-4 h-4" /></Icon>
-          </>}
-          <button onClick={copyText} className="h-8 px-2.5 inline-flex items-center gap-1.5 rounded-md text-xs text-ink-secondary border border-border hover:bg-surface-soft hover:text-ink">
-            {copied ? <Check className="w-3.5 h-3.5" aria-hidden /> : <Copy className="w-3.5 h-3.5" aria-hidden />}
-            <span className="hidden sm:inline">{copied ? copy.talk.copied : copy.talk.copy}</span>
-          </button>
-        </div>
-      </header>
+  const cell = 'py-6 border-b border-border min-w-0'
 
-      {edit && mode === 'regenerate' && (
-        <div className="p-4 bg-surface-soft border-b border-border space-y-2">
-          <label htmlFor={`instr-${idx}`} className="block text-xs font-medium text-ink-secondary">{copy.talk.edit.instructionLabel}</label>
-          <div className="flex gap-2">
-            <input id={`instr-${idx}`} className={inputClass} value={instruction} onChange={(e) => setInstruction(e.target.value)}
-                   placeholder={copy.talk.edit.instructionPh} maxLength={500}
-                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void regenerate() } }} />
-            <Button size="md" loading={edit.busy} onClick={() => void regenerate()}>{copy.talk.edit.regenerate}</Button>
+  return (
+    <article className="contents" aria-label={`Слайд ${number}`}>
+      <div className={`${cell} grid grid-cols-[52px_minmax(0,1fr)] gap-x-3`}>
+        {/* The number IS the selection control: a real checkbox in a 44px
+            label, keyboard and screen reader for free, shift-click extends
+            from the last one — forty slides is otherwise forty taps. Selected
+            = marked with the highlighter (the marker token means only this).
+            Without onSelect (the shared view) it is just the number. */}
+        <div className="pt-0.5">
+          {onSelect ? (
+            <label title={copy.talk.selectSlide(number)}
+                   className={`inline-flex items-center justify-center min-w-[44px] h-11 -ml-2 rounded-md font-mono text-sm cursor-pointer transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent/60 ${
+                     selected ? 'bg-marker text-marker-ink' : 'text-ink-secondary hover:bg-surface-soft hover:text-ink'}`}>
+              <input type="checkbox" checked={Boolean(selected)} onChange={() => {}} onClick={(e) => onSelect(idx, { range: e.shiftKey })}
+                     className="sr-only" aria-label={copy.talk.selectSlide(number)} />
+              {selected ? <Check className="w-4 h-4" aria-hidden /> : String(number).padStart(2, '0')}
+            </label>
+          ) : (
+            <span className="inline-flex items-center h-11 font-mono text-sm text-ink-secondary">{String(number).padStart(2, '0')}</span>
+          )}
+          <div className="font-mono text-[11px] text-ink-tertiary -mt-1">/ {String(total).padStart(2, '0')}</div>
+        </div>
+
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1.5">
+            <span className="eyebrow text-accent">{SLIDE_TYPE_LABEL[slide.type]}</span>
+            {overfull && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-warning bg-warning-bg px-1.5 rounded-sm leading-5" title={copy.talk.overfullTip(overfull)}>
+                <AlertTriangle className="w-3 h-3" aria-hidden /> {copy.talk.overfull}
+              </span>
+            )}
+          </div>
+
+          {edit && mode === 'regenerate' && (
+            <div className="mb-4 p-3 bg-surface-soft rounded-md space-y-2">
+              <label htmlFor={`instr-${idx}`} className="block text-xs font-medium text-ink-secondary">{copy.talk.edit.instructionLabel}</label>
+              <div className="flex gap-2">
+                <input id={`instr-${idx}`} className={inputClass} value={instruction} onChange={(e) => setInstruction(e.target.value)}
+                       placeholder={copy.talk.edit.instructionPh} maxLength={500} autoFocus
+                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void regenerate() } }} />
+                <Button size="md" loading={edit.busy} onClick={() => void regenerate()}>{copy.talk.edit.regenerate}</Button>
+              </div>
+            </div>
+          )}
+
+          {edit && mode === 'edit' ? (
+            <SlideEditor slide={slide} notesEnabled={notesEnabled} saving={edit.busy} onCancel={() => setMode('view')}
+                         onSave={(edited) => { edit.onSave(idx, edited); setMode('view') }} />
+          ) : (
+            <>
+              <Body slide={slide} imageSlot={imageSlot} />
+              {slide.type !== 'diagram' && imageSlot && <div className="mt-4">{imageSlot}</div>}
+            </>
+          )}
+
+          {/* Actions: quiet chips, always present (touch has no hover), 32px. */}
+          <div className="flex flex-wrap items-center gap-1 mt-4 -ml-2">
+            {edit && <>
+              <Chip label={copy.talk.edit.edit} icon={<Pencil className="w-3.5 h-3.5" />} active={mode === 'edit'} disabled={edit.busy} onClick={() => setMode(mode === 'edit' ? 'view' : 'edit')} />
+              <Chip label={copy.talk.edit.regenerate} icon={<RefreshCw className="w-3.5 h-3.5" />} active={mode === 'regenerate'} disabled={edit.busy} onClick={() => setMode(mode === 'regenerate' ? 'view' : 'regenerate')} />
+              {edit.onUndo && <Chip label={copy.talk.edit.undo} icon={<Undo2 className="w-3.5 h-3.5" />} disabled={edit.busy} onClick={() => edit.onUndo!(idx)} />}
+              <Chip label={copy.talk.edit.up}   icon={<ArrowUp className="w-3.5 h-3.5" />}   iconOnly disabled={isFirst || edit.busy} onClick={() => edit.onMove(idx, idx - 1)} />
+              <Chip label={copy.talk.edit.down} icon={<ArrowDown className="w-3.5 h-3.5" />} iconOnly disabled={isLast  || edit.busy} onClick={() => edit.onMove(idx, idx + 1)} />
+            </>}
+            <Chip label={copied ? copy.talk.copied : copy.talk.copy} icon={copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />} onClick={copyText} />
+            {edit && <Chip label={copy.talk.edit.remove} icon={<Trash2 className="w-3.5 h-3.5" />} iconOnly danger disabled={edit.busy}
+                           onClick={() => { if (window.confirm(copy.talk.edit.removeConfirm)) edit.onDelete(idx) }} className="ml-auto" />}
           </div>
         </div>
-      )}
-
-      {edit && mode === 'edit' && (
-        <SlideEditor slide={slide} notesEnabled={notesEnabled} saving={edit.busy} onCancel={() => setMode('view')}
-                     onSave={(edited) => { edit.onSave(idx, edited); setMode('view') }} />
-      )}
-
-      <div className={notesEnabled ? 'grid md:grid-cols-[3fr_2fr]' : ''}>
-        <div className={notesEnabled ? 'md:border-r border-border' : ''}>
-          <Body slide={slide} imageSlot={imageSlot} />
-          {slide.type !== 'diagram' && imageSlot && <div className="px-4 pb-4">{imageSlot}</div>}
-        </div>
-        {notesEnabled && (
-          <aside className="p-4 bg-surface-soft">
-            <div className="text-[11px] font-semibold text-ink-secondary uppercase tracking-wider mb-2">{copy.talk.notes}</div>
-            {slide.notes
-              ? <p className="text-[13px] text-ink-secondary leading-relaxed whitespace-pre-line"><InlineText text={slide.notes} /></p>
-              : <p className="text-[13px] text-ink-tertiary">{copy.talk.noNotes}</p>}
-          </aside>
-        )}
       </div>
+
+      {notesEnabled && (
+        <aside className={`${cell} lg:pl-0`}>
+          <div className="flex items-baseline justify-between gap-3 mb-2">
+            <span className="eyebrow text-ink-tertiary">{copy.talk.notes}</span>
+            {slide.notes && <span className="font-mono text-[11px] text-ink-tertiary tabular-nums">{copy.talk.seconds(speakingSeconds(slide.notes, language))}</span>}
+          </div>
+          {slide.notes
+            ? <p className="font-display text-[15px] text-ink-secondary leading-relaxed whitespace-pre-line max-w-[44ch]"><InlineText text={slide.notes} /></p>
+            : <p className="font-display italic text-[15px] text-ink-tertiary max-w-[40ch]">{copy.talk.noNotes}</p>}
+        </aside>
+      )}
     </article>
   )
 }
 
-function Icon({ children, label, onClick, disabled, danger, active }: { children: React.ReactNode; label: string; onClick: () => void; disabled?: boolean; danger?: boolean; active?: boolean }) {
+function Chip({ label, icon, onClick, disabled, danger, active, iconOnly, className = '' }: {
+  label: string; icon: React.ReactNode; onClick: () => void; disabled?: boolean; danger?: boolean; active?: boolean; iconOnly?: boolean; className?: string
+}) {
   return (
     <button type="button" onClick={onClick} disabled={disabled} aria-label={label} title={label}
-      className={`w-8 h-8 inline-flex items-center justify-center rounded-md border transition-colors disabled:opacity-30 disabled:cursor-default ${
-        active ? 'border-accent bg-accent-light text-accent'
-        : danger ? 'border-transparent text-ink-secondary hover:text-danger hover:bg-danger-bg'
-        : 'border-transparent text-ink-secondary hover:text-ink hover:bg-surface-soft'}`}>
-      {children}
+      className={`h-8 ${iconOnly ? 'w-8 justify-center' : 'px-2.5'} inline-flex items-center gap-1.5 rounded-md text-xs transition-colors disabled:opacity-30 disabled:cursor-default ${
+        active ? 'bg-accent-light text-accent'
+        : danger ? 'text-ink-secondary hover:text-danger hover:bg-danger-bg'
+        : 'text-ink-secondary hover:text-ink hover:bg-surface-soft'} ${className}`}>
+      {icon}{!iconOnly && <span>{label}</span>}
     </button>
   )
 }
@@ -188,7 +214,7 @@ function ImageSlot({ query, image, busy, onUpload, onRemove }: {
     )
   }
   return (
-    <div className="border border-dashed border-border-strong rounded-md px-3 py-3 flex flex-wrap items-center gap-3 text-xs text-ink-secondary">
+    <div className="border border-dashed border-border-strong rounded-md px-3 py-2.5 flex flex-wrap items-center gap-3 text-xs text-ink-secondary">
       <span className="inline-flex items-center gap-2"><ImageIcon className="w-4 h-4 flex-shrink-0" aria-hidden /> {query ? copy.talk.imageSlot(query) : copy.talk.image.hint}</span>
       {onUpload && <label className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-border bg-surface cursor-pointer hover:bg-surface-soft hover:text-ink ml-auto">
         <Upload className="w-3.5 h-3.5" aria-hidden /> {copy.talk.image.upload}{fileInput}
@@ -197,9 +223,11 @@ function ImageSlot({ query, image, busy, onUpload, onRemove }: {
   )
 }
 
+const H = ({ children }: { children: React.ReactNode }) => <h3 className="display text-[21px] font-medium leading-snug text-ink mb-3">{children}</h3>
+
 const Bullet = ({ children, muted }: { children: React.ReactNode; muted?: boolean }) => (
-  <li className={`flex gap-2 leading-relaxed ${muted ? 'text-[13px] text-ink-secondary' : 'text-sm text-ink'}`}>
-    <span className="text-accent mt-0.5 flex-shrink-0 select-none" aria-hidden>•</span>
+  <li className={`flex gap-2.5 leading-relaxed ${muted ? 'text-[14px] text-ink-secondary' : 'text-[15px] text-ink'}`}>
+    <span className="w-1 h-1 rounded-full bg-accent mt-[0.65em] flex-shrink-0" aria-hidden />
     <span>{children}</span>
   </li>
 )
@@ -208,24 +236,26 @@ function Body({ slide, imageSlot }: { slide: Slide; imageSlot: React.ReactNode }
   switch (slide.type) {
     case 'title':
       return (
-        <div className="p-8 text-center">
-          <h2 className="text-2xl font-semibold text-ink tracking-tight"><InlineText text={slide.title} /></h2>
-          {slide.body.subtitle && <p className="text-sm text-ink-secondary mt-2">{slide.body.subtitle}</p>}
-          {slide.body.presenter && <p className="text-xs text-ink-secondary mt-4">{slide.body.presenter}</p>}
+        <div>
+          <h3 className="display font-semibold text-[30px] leading-tight text-ink"><InlineText text={slide.title} /></h3>
+          {slide.body.subtitle && <p className="text-[15px] text-ink-secondary mt-2 max-w-[60ch]">{slide.body.subtitle}</p>}
+          {slide.body.presenter && <p className="text-xs text-ink-secondary mt-3">{slide.body.presenter}</p>}
         </div>
       )
     case 'bullets':
-      return <ul className="p-4 space-y-2">{slide.body.items.map((b, i) => <Bullet key={i}><InlineText text={b} /></Bullet>)}</ul>
+      return <div><H><InlineText text={slide.title} /></H><ul className="space-y-1.5">{slide.body.items.map((b, i) => <Bullet key={i}><InlineText text={b} /></Bullet>)}</ul></div>
     case 'concept':
       return (
-        <div className="p-4">
-          <p className="text-[15px] text-ink leading-relaxed border-l-2 border-accent pl-3 mb-3"><InlineText text={slide.body.definition} /></p>
+        <div>
+          <H><InlineText text={slide.title} /></H>
+          <p className="font-display text-[17px] text-ink leading-relaxed border-l-2 border-accent pl-3 mb-3 max-w-[60ch]"><InlineText text={slide.body.definition} /></p>
           <ul className="space-y-1.5">{slide.body.supporting.map((s, i) => <Bullet key={i} muted><InlineText text={s} /></Bullet>)}</ul>
         </div>
       )
     case 'formula':
       return (
-        <div className="p-4">
+        <div>
+          <H><InlineText text={slide.title} /></H>
           <div className="bg-surface-soft rounded-md py-3 px-4 space-y-3">
             {slide.body.formulas.map((f, i) => (
               <div key={i}>
@@ -234,47 +264,54 @@ function Body({ slide, imageSlot }: { slide: Slide; imageSlot: React.ReactNode }
               </div>
             ))}
           </div>
-          {slide.body.explanation && <p className="text-[13px] text-ink-secondary leading-relaxed mt-3"><InlineText text={slide.body.explanation} /></p>}
+          {slide.body.explanation && <p className="text-[14px] text-ink-secondary leading-relaxed mt-3 max-w-[60ch]"><InlineText text={slide.body.explanation} /></p>}
         </div>
       )
     case 'comparison':
       return (
-        <div className="p-4 grid gap-3" style={{ gridTemplateColumns: `repeat(${slide.body.columns.length}, minmax(0, 1fr))` }}>
-          {slide.body.columns.map((c, i) => (
-            <div key={i} className="border border-border rounded-md overflow-hidden min-w-0">
-              <div className="px-3 py-1.5 bg-surface-soft text-[11px] font-semibold text-ink uppercase tracking-wide border-b border-border"><InlineText text={c.header} /></div>
-              <ul className="p-3 space-y-1.5">{c.items.map((it, j) => <Bullet key={j} muted><InlineText text={it} /></Bullet>)}</ul>
-            </div>
-          ))}
+        <div>
+          <H><InlineText text={slide.title} /></H>
+          <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${slide.body.columns.length}, minmax(0, 1fr))` }}>
+            {slide.body.columns.map((c, i) => (
+              <div key={i} className="min-w-0 border-t-2 border-ink pt-2">
+                <div className="eyebrow text-ink mb-2"><InlineText text={c.header} /></div>
+                <ul className="space-y-1.5">{c.items.map((it, j) => <Bullet key={j} muted><InlineText text={it} /></Bullet>)}</ul>
+              </div>
+            ))}
+          </div>
         </div>
       )
     case 'diagram':
       return (
-        <div className="p-4">
+        <div>
+          <H><InlineText text={slide.title} /></H>
           {imageSlot}
-          {slide.body.caption && <p className="text-sm text-ink text-center mt-2"><InlineText text={slide.body.caption} /></p>}
+          {slide.body.caption && <p className="text-[15px] text-ink mt-2"><InlineText text={slide.body.caption} /></p>}
           {slide.body.points.length > 0 && <ul className="mt-3 space-y-1.5">{slide.body.points.map((p, i) => <Bullet key={i} muted><InlineText text={p} /></Bullet>)}</ul>}
         </div>
       )
     case 'discussion':
       return (
-        <div className="p-4">
-          <p className="text-lg font-semibold text-ink leading-snug"><InlineText text={slide.body.question} /></p>
+        <div>
+          <H><InlineText text={slide.title} /></H>
+          <p className="font-display text-[19px] text-ink leading-snug max-w-[50ch]"><InlineText text={slide.body.question} /></p>
           <ul className="mt-3 space-y-1.5">{slide.body.prompts.map((p, i) => <Bullet key={i} muted><InlineText text={p} /></Bullet>)}</ul>
         </div>
       )
     case 'cta':
       return (
-        <div className="p-6">
-          <p className="text-xl font-semibold text-ink leading-snug"><InlineText text={slide.body.action} /></p>
+        <div>
+          <H><InlineText text={slide.title} /></H>
+          <p className="font-display text-[21px] text-ink leading-snug max-w-[50ch]"><InlineText text={slide.body.action} /></p>
           <ul className="mt-3 space-y-1.5">{slide.body.reasons.map((r, i) => <Bullet key={i}><InlineText text={r} /></Bullet>)}</ul>
           {slide.body.contact && <p className="text-sm text-accent mt-4">{slide.body.contact}</p>}
         </div>
       )
     case 'summary':
       return (
-        <div className="p-4">
-          <ul className="space-y-2">{slide.body.takeaways.map((t, i) => <Bullet key={i}><InlineText text={t} /></Bullet>)}</ul>
+        <div>
+          <H><InlineText text={slide.title} /></H>
+          <ul className="space-y-1.5">{slide.body.takeaways.map((t, i) => <Bullet key={i}><InlineText text={t} /></Bullet>)}</ul>
           {slide.body.next_steps.length > 0 && (
             <ul className="mt-3 pt-3 border-t border-border space-y-1.5">{slide.body.next_steps.map((t, i) => <Bullet key={i} muted><InlineText text={t} /></Bullet>)}</ul>
           )}
