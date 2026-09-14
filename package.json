@@ -3,16 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "workspaces": [
-    "backend"
+    "backend",
+    "frontend"
   ],
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "dev": "npm run dev --workspace=backend",
-    "build": "npm run build --workspace=backend",
-    "test": "npm run test --workspace=backend",
-    "typecheck": "npm run typecheck --workspace=backend",
+    "dev": "concurrently -n api,web \"npm run dev --workspace=backend\" \"npm run dev --workspace=frontend\"",
+    "build": "npm run build --workspace=backend && npm run build --workspace=frontend",
+    "test": "npm run test --workspace=backend && npm run test --workspace=frontend",
+    "typecheck": "npm run typecheck --workspace=backend && npm run typecheck --workspace=frontend",
     "migrate": "npm run migrate --workspace=backend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
   }
 }

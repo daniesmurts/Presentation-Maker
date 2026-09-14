@@ -1,0 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* KaTeX styles are imported from the package in main.tsx. */
+
+:root {
+  /* Colour tokens as RGB channels so Tailwind can apply opacity modifiers.
+     Every pair that carries text is MEASURED (CLAUDE.md §3.8), the number
+     is written here, and the floor is 4.5:1. Re-measure when any token
+     moves — contrast is symmetric, so a change to a ground moves every
+     text colour on it. Measured 2026-09-14 with the WCAG 2.x formula. */
+
+  /* Surfaces */
+  --c-bg:            244 246 247;   /* #F4F6F7 page ground */
+  --c-surface:       255 255 255;   /* #FFFFFF cards */
+  --c-surface-soft:  238 243 243;   /* #EEF3F3 notes column, muted panels */
+
+  /* Text
+     ink            #16201F  on white 16.66 · on bg 15.37
+     ink-secondary  #57635F  on white 6.26 · on bg 5.77 · on surface-soft 5.59 · on accent-light 5.40
+     ink-tertiary   #8A9793  on white 3.03 — captions and graphics ONLY, never
+                             text a user must read (CLAUDE.md §6) */
+  --c-ink:           22 32 31;
+  --c-ink-secondary: 87 99 95;
+  --c-ink-tertiary:  138 151 147;
+
+  /* Accent — teal, hue 178°. The lightest teal that clears 4.5 on every
+     ground it lands on: the pair that fails LAST is accent text on
+     accent-light (tinted chips), so that is the one to re-check for any new
+     accent.
+     accent        #0F6E6E  on white 6.04 · white on it 6.04 · on bg 5.57 · on accent-light 5.21
+     accent-deep   #0B5454  hover of a solid accent surface: white on it 8.71 —
+                            hover DARKENS; contrast rises (the parent's
+                            hover:opacity-90 lowered it)
+     accent-light  #E3F1F0  tinted ground for a secondary emphasis */
+  --c-accent:        15 110 110;
+  --c-accent-deep:   11 84 84;
+  --c-accent-light:  227 241 240;
+
+  /* Semantic — each ink measured on white and on its own tinted ground
+     success  #1B6F3F  on white 6.19 · on success-bg 5.63
+     warning  #7F5300  on white 6.69 · on warning-bg 6.20
+     danger   #B42318  on white 6.57 · on danger-bg 5.91 */
+  --c-success:       27 111 63;
+  --c-success-bg:    235 247 239;
+  --c-warning:       127 83 0;
+  --c-warning-bg:    254 246 224;
+  --c-danger:        180 35 24;
+  --c-danger-bg:     253 240 238;
+
+  /* Borders — translucent black, used as-is */
+  --c-border:        rgba(0, 0, 0, 0.09);
+  --c-border-strong: rgba(0, 0, 0, 0.2);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background-color: rgb(var(--c-bg));
+  color: rgb(var(--c-ink));
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.appear { animation: fadeIn 250ms ease forwards; }
+@media (prefers-reduced-motion: reduce) { .appear { animation: none; } }

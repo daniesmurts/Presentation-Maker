@@ -3,28 +3,29 @@
 Legend: ✅ shipped · 🚧 in progress · 📋 planned. Grouped by the role that
 uses it. A 📋 item is marked, never implied. See `docs/WORKFLOW.md` §1.
 
-Last updated: TODO A Phase 1 — generation pipeline + outline gate via the API (no UI yet)
+Last updated: TODO A Phase 2 — web app: form, outline gate, viewer
 
 ---
 
 ## Anyone with an account (free tier)
 
-- 🚧 **Create a talk from talking points.** *(API only — UI is Phase 2.)*
-  Paste тезисы, pick intent (inform · persuade · teach · pitch · report ·
+- ✅ **Create a talk from talking points.** Paste тезисы, pick intent (inform · persuade · teach · pitch · report ·
   workshop) and audience (executives · customers · team · conference ·
   classroom · investors), set length in minutes or an explicit slide count
   (3–60); speaker notes on/off per talk, defaulting per intent. Russian or
   English. Generation is an async job the client polls.
-- 🚧 **Approve the outline before writing.** *(API only.)* The plan (type +
+- ✅ **Approve the outline before writing.** The plan (type +
   title + brief per slide) comes back first; reorder, retype, add, delete,
   then confirm to expand. A plan left unconfirmed for 24 h expires.
-- 🚧 **Only from my material.** *(API only.)* With a brief supplied, the
+- ✅ **Only from my material.** With a brief supplied, the
   talk contains only what the brief says — fewer slides rather than
   invented content.
-- 🚧 **Sign up / sign in** with e-mail and password; one workspace per
+- ✅ **Sign up / sign in** with e-mail and password; one workspace per
   account.
-- 📋 **View the talk.** One card per slide by type; slides that will not fit
-  a 16:9 frame are flagged in the viewer.
+- ✅ **View the talk.** One card per slide by type, formulas rendered,
+  speaker notes beside the slide when the talk has them; slides that will
+  not fit a 16:9 frame carry a «Много текста» flag. Copy any slide as text.
+  Works on a phone.
 - 📋 **Edit one slide.** Rewrite from an instruction («короче», «добавь
   числовой пример»), move, delete, insert — without regenerating the rest.
 - 📋 **Images** — search, upload. *(TODO B)*

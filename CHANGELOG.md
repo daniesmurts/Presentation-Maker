@@ -6,6 +6,45 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
 ## [Unreleased]
 
 ### Added
+- **Веб-приложение: форма, план, просмотр.** TODO A Phase 2. Vite + React
+  18 + Tailwind + TanStack Query; pages for sign-in/up, the talk list, the
+  new-talk form, the job page (polling, the outline editor at the gate, the
+  failure card) and the viewer. All user-facing strings in one `copy.ts`
+  with the three nouns and a three-form plural helper.
+  - **A new palette, every text pair measured** (CLAUDE.md §3.8). Accent
+    teal `#0F6E6E`: 6.04:1 on white in both directions, 5.57 on the page
+    ground, 5.21 on accent-light — the pair that fails last. Hover
+    `#0B5454` darkens to 8.71. ink-secondary `#57635F` 6.26 on white, 5.59
+    on the notes ground. ink-tertiary 3.03 — graphics only. Numbers are in
+    `index.css` next to the tokens.
+  - **Verified in the browser at 1280×800 and 375×812**, measured from the
+    DOM: first slide top 142px, bottom 344px of 800 (above the fold); the
+    scrolling element is `HTML` and the header stays at top 0 at scrollY
+    1135 — sticky is not captured by a wrapper (CLAUDE.md §6); no
+    horizontal overflow on a phone. Full flow driven live: form → plan in
+    ~8 s → moved one slide, inserted one, confirmed → six-slide talk with
+    notes; KaTeX rendered the formula slide with zero error spans; a failed
+    job shows the stored copy and a way back.
+  - **Three bugs the browser check found that the unit tests could not.**
+    (1) The job poll stopped the moment the tab was hidden — TanStack
+    pauses `refetchInterval` in a background tab, and refetch-on-focus was
+    off, so a user who switched away would come back to a spinner:
+    `refetchIntervalInBackground` is on for the job query. (2) After
+    confirming the outline the page never polled again: the cached job
+    still said `outline_ready`, so the interval function returned false —
+    the confirm response now replaces the cached job. (3) On a phone the
+    header CTA wrapped to two lines and pushed sign-out off-screen, and the
+    talk title truncated to «Контроль кач…»: icon-only buttons under `sm`
+    and a two-line clamp.
+  - **Fonts are the system stack for now.** The parent self-hosted DM Sans
+    + Playfair after Google Fonts proved unreliable on Russian ISPs; this
+    product wants its own pairing, and choosing it is a design decision to
+    make with a brand kit (TODO E), not a default to inherit.
+  - Not verified: a genuine network failure on the job page (the harness
+    keeps the tab hidden, where TanStack pauses retries) — the component
+    path is exercised via a failed row instead; Enter-to-submit on the
+    login form (clicking works; the harness's Return key did not fire
+    submit and it is unclear which side that is).
 - **Тезисы → план → слайды: генерация работает через API.** TODO A Phase 1.
   `POST /api/talks/jobs` starts a job; the worker runs the outline pass and
   parks the job at `outline_ready`; `POST /api/talks/jobs/:id/outline`

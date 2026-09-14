@@ -1,0 +1,34 @@
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import AppShell from './components/layout/AppShell'
+import AuthPage from './pages/AuthPage'
+import TalksPage from './pages/TalksPage'
+import NewTalkPage from './pages/NewTalkPage'
+import JobPage from './pages/JobPage'
+import TalkPage from './pages/TalkPage'
+import Spinner from './components/ui/Spinner'
+import { useAuth } from './lib/auth'
+
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth()
+  const location = useLocation()
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><Spinner /></div>
+  if (!user) return <Navigate to="/login" state={{ from: location }} replace />
+  return <>{children}</>
+}
+
+export default function App() {
+  const { user, loading } = useAuth()
+  return (
+    <Routes>
+      <Route path="/login"    element={!loading && user ? <Navigate to="/talks" replace /> : <AuthPage mode="login" />} />
+      <Route path="/register" element={!loading && user ? <Navigate to="/talks" replace /> : <AuthPage mode="register" />} />
+      <Route element={<RequireAuth><AppShell /></RequireAuth>}>
+        <Route path="/talks"      element={<TalksPage />} />
+        <Route path="/talks/new"  element={<NewTalkPage />} />
+        <Route path="/talks/:id"  element={<TalkPage />} />
+        <Route path="/jobs/:id"   element={<JobPage />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/talks" replace />} />
+    </Routes>
+  )
+}

@@ -67,7 +67,7 @@ spent four months finding out where they were wrong (CLAUDE.md §3 is the list).
   (a JSON answer cut mid-string — *not* our own output) produces a
   user-readable "shorten the request", never a parser message.
 
-- **Phase 2 — Viewer + outline editor (frontend).** Effort M.
+- **Phase 2 — Viewer + outline editor (frontend).** Effort M. 🟢 SHIPPED (2026-09-14)
   Vite app with the app shell (`min-h-screen`, sticky toolbar audited — §6),
   RU-first strings with the three nouns from CLAUDE.md §1 enforced by a
   single `copy.ts`; pluralisation helper. Pages: new talk form (тезисы,
