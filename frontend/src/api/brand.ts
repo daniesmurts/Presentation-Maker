@@ -1,6 +1,6 @@
 import { client } from './client'
 
-export interface ThemeSwatch { id: string; name: string; bg: string; ink: string; accent: string; panel: string }
+export interface ThemeSwatch { id: string; name: string; bg: string; ink: string; ink2: string; accent: string; panel: string }
 export interface BrandContrast { theme: string; ratio: number; textSafe: boolean }
 export interface Brand {
   accent:   string | null                          // 6-digit hex, no '#'

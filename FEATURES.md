@@ -3,7 +3,7 @@
 Legend: ✅ shipped · 🚧 in progress · 📋 planned. Grouped by the role that
 uses it. A 📋 item is marked, never implied. See `docs/WORKFLOW.md` §1.
 
-Last updated: design «Редакция» — rail, library rows, manuscript layout, dark theme
+Last updated: themes v2 — the exported deck and the public site's deck are one composition
 
 ---
 
@@ -71,7 +71,7 @@ numbers are the shape of the gate, and the `.pptx` download is open to both.
 - ✅ **Native editable `.pptx` download** — 16:9, a layout per slide type,
   formulas typeset as images, speaker notes in the notes pane; `?slides=`
   downloads a subset.
-- ✅ **Three themes** (Тезариум, Тёмная, Тёплая), chosen per talk.
+- ✅ **Three themes** (Тезариум, Тёмная, Тёплая), chosen per talk — one composition (title low-left under an accent rule, hairline under content titles, «01 / 05» footer, formula and «Что дальше» panels, the question as a large italic), three palettes; the same drawing in the .pptx, the PDF, present mode and the public site.
 - ✅ **Brand kit** per workspace — accent colour, logo, name — applied to
   every download, with a preview on light and dark and the measured
   contrast of the accent on each theme (a pale accent keeps the rules and

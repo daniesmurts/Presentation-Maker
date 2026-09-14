@@ -105,20 +105,22 @@ export default function BrandPage() {
   )
 }
 
-// A 16:9 card mimicking the title slide's geometry and the summary label,
-// coloured from the same data the exporter uses.
+// A 16:9 card mimicking the title slide (themes v2: a short accent rule,
+// the kicker, the title low-left, the brand name in the footer, the logo
+// top-left), coloured from the same data the exporter uses.
 function SlidePreview({ theme, accent, name, logoUrl, caption }: { theme: ThemeSwatch; accent: string | null; name: string; logoUrl: string | null; caption: string }) {
   const a = accent ?? theme.accent
   return (
     <figure className="m-0">
-      <div className="aspect-video rounded-md border border-border overflow-hidden relative" style={{ background: `#${theme.bg}` }}>
-        <div className="absolute inset-x-0 top-0 h-[3%]" style={{ background: `#${a}` }} />
-        <div className="absolute inset-x-0 bottom-0 h-[9%]" style={{ background: `#${theme.panel}` }} />
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center">
-          {logoUrl && <img src={logoUrl} alt="" className="h-[18%] max-w-[40%] object-contain" />}
-          {name && <div className="text-[10px] tracking-wide" style={{ color: `#${theme.ink}`, opacity: 0.7 }}>{name}</div>}
-          <div className="font-display font-medium text-base leading-tight" style={{ color: `#${theme.ink}` }}>{copy.brandKit.sampleTitle}</div>
-          <div className="h-[2px] w-10" style={{ background: `#${a}` }} />
+      <div className="aspect-video rounded-md border border-border overflow-hidden relative" style={{ background: `#${theme.bg}`, fontFamily: 'Arial, sans-serif' }}>
+        {logoUrl && <img src={logoUrl} alt="" className="absolute left-[6%] top-[6%] h-[12%] max-w-[22%] object-contain" />}
+        <div className="absolute left-[6%] right-[6%] bottom-[11%]">
+          <div className="h-[3px] w-[9%] mb-[3%]" style={{ background: `#${a}` }} />
+          <div className="text-[7px] tracking-[0.14em] uppercase font-bold mb-[1.6%]" style={{ color: `#${theme.ink2}` }}>{copy.brandKit.sampleLabel}</div>
+          <div className="font-semibold text-[15px] leading-tight max-w-[80%]" style={{ color: `#${theme.ink}`, fontFamily: 'Georgia, serif' }}>{copy.brandKit.sampleTitle}</div>
+        </div>
+        <div className="absolute left-[6%] right-[6%] bottom-[3.2%] flex justify-between text-[6px]" style={{ color: `#${theme.ink2}` }}>
+          <span>{name}</span><span className="font-mono">01 / 12</span>
         </div>
       </div>
       <figcaption className="mt-1 text-xs text-ink-secondary">{caption}</figcaption>

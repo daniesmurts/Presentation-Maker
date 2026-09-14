@@ -9,11 +9,14 @@ import type {
   Talk, Slide, SlideImage, TitleSlide, BulletsSlide, ConceptSlide, FormulaSlide,
   ComparisonSlide, DiagramSlide, DiscussionSlide, CtaSlide, SummarySlide, TalkLanguage,
 } from '../../../shared/types'
+import { G, inch, titleLines } from '../../../shared/slideGeometry'
 
 // Native .pptx export — ported from the parent's presentationExport.ts
 // (CLAUDE.md §2), restructured so the THEME is data (themes.ts) and no
 // module state carries between exports: everything a layout reads comes
-// through `Ctx`. A layout per slide type; formulas rendered to PNG via
+// through `Ctx`. Themes v2 (TODO J): every number is shared/slideGeometry.ts,
+// the same source the PDF, the React stage and the public site draw from —
+// the landing shows a deck, and this is what makes the download match it. A layout per slide type; formulas rendered to PNG via
 // MathJax → resvg with a Unicode fallback; images fitted by intrinsic size
 // (§3.5). pptxgenjs is imported lazily so the backend boots without it.
 
@@ -38,11 +41,17 @@ interface Ctx {
   theme:    AppliedTheme
   language: TalkLanguage
   margin:   number
+  title:    string                       // the talk's title, for the footer
+  pos:      { index: number; total: number }
 }
+
+// Percent of width → inches, and → points for font sizes (1 unit = 7.2 pt).
+const I  = (v: number) => inch(v, SLIDE_W)
+const PT = (v: number) => Math.round(v * 7.2)
 
 const L = {
   ru: { imageMissing: 'Изображение недоступно для экспорта', imageNone: (q: string) => `Изображение не выбрано: «${q}»`, key: 'ГЛАВНОЕ', next: 'ЧТО ДАЛЬШЕ', author: 'Тезариум' },
-  en: { imageMissing: 'Image unavailable for export',         imageNone: (q: string) => `No image chosen: “${q}”`,       key: 'KEY POINTS', next: 'NEXT',        author: 'Tezarium' },
+  en: { imageMissing: 'Image unavailable for export',         imageNone: (q: string) => `No image chosen: “${q}”`,       key: 'KEY POINTS', next: 'WHAT NEXT',   author: 'Tezarium' },
 }
 
 export interface ExportOptions {
@@ -55,7 +64,7 @@ export async function generateTalkPptx(talk: Pick<Talk, 'title' | 'slides' | 'la
   if (!slides || slides.length === 0) throw new Error('No slides to export')
 
   const theme = applyBrand(getTheme(opts.themeId ?? talk.theme_id), opts.brand ?? null, contrastRatio, textOn)
-  const ctx: Ctx = { theme, language: talk.language, margin: theme.margin }
+  const ctx: Ctx = { theme, language: talk.language, margin: theme.margin, title: talk.title, pos: { index: 0, total: slides.length } }
   if (opts.brand?.accent && theme.labelColor !== theme.palette.accent) {
     logger.info({ message: '[PPTX export] brand accent below 4.5:1 on the theme ground — labels fall back to ink2', accent: opts.brand.accent, theme: theme.id, ratio: contrastRatio(opts.brand.accent, theme.palette.bg).toFixed(2) })
   }
@@ -69,7 +78,7 @@ export async function generateTalkPptx(talk: Pick<Talk, 'title' | 'slides' | 'la
 
   // Sequential, not Promise.all — pptxgenjs slides render in call order and
   // an image fetch has no reason to race the others.
-  for (const slide of slides) await addSlide(pptx, slide, ctx)
+  for (const [i, slide] of slides.entries()) await addSlide(pptx, slide, { ...ctx, pos: { index: i, total: slides.length } })
 
   const data = await pptx.write({ outputType: 'nodebuffer' })
   return fixDanglingSlideMasterEntries(data as Buffer)
@@ -126,15 +135,17 @@ function addImagePlaceholder(s: Pptx, ctx: Ctx, box: { x: number; y: number; w: 
 // right-hand column, shrinking the text region rather than overlapping it.
 const SIDE_IMAGE_W = 3.0
 const SIDE_IMAGE_GAP = 0.3
+// Content must end here (G.bottom above the edge); the footer sits below.
+const BOTTOM = SLIDE_H - I(G.bottom)
 
 function contentRegion(ctx: Ctx, hasImage: boolean): { x: number; w: number } {
   const fullW = SLIDE_W - ctx.margin * 2
   return { x: ctx.margin, w: hasImage ? fullW - SIDE_IMAGE_W - SIDE_IMAGE_GAP : fullW }
 }
 
-async function addSideImage(s: Pptx, ctx: Ctx, image: SlideImage | null | undefined): Promise<void> {
+async function addSideImage(s: Pptx, ctx: Ctx, image: SlideImage | null | undefined, top: number): Promise<void> {
   if (!image) return
-  const box = { x: SLIDE_W - ctx.margin - SIDE_IMAGE_W, y: 1.3, w: SIDE_IMAGE_W, h: SLIDE_H - 1.6 }
+  const box = { x: SLIDE_W - ctx.margin - SIDE_IMAGE_W, y: top, w: SIDE_IMAGE_W, h: BOTTOM - top }
   const img = await fetchImageAsDataUri(image.url)
   if (img) addFittedImage(s, img, box)
   else addImagePlaceholder(s, ctx, box, L[ctx.language].imageMissing)
@@ -160,271 +171,316 @@ function addNotes(s: Pptx, notes: string): void {
   if (notes) s.addNotes(cleanForSlide(notes))
 }
 
-// Shared header used by every non-title slide — accent rule + title, so the
-// deck reads as one system rather than one layout per type.
-function addHeader(s: Pptx, ctx: Ctx, title: string): void {
+const pad2 = (n: number) => String(n).padStart(2, '0')
+
+// The footer on every slide: the talk's title left (the brand name on the
+// title slide, where the title is the slide), «01 / 05» right in mono.
+function addFooter(s: Pptx, ctx: Ctx, left: string | null): void {
   const { palette: p, fonts } = ctx.theme
+  const m = ctx.margin
+  const h = 0.3
+  const y = SLIDE_H - I(G.footerY) - h / 2
+  if (left) s.addText(cleanForSlide(left), { x: m, y, w: SLIDE_W - m * 2 - 1.6, h, fontSize: PT(G.footerSize), color: p.ink2, fontFace: fonts.body, valign: 'middle' })
+  // «01 / 05» as text; PowerPoint's own number field would show the bare
+  // index. The importer treats anything in the bottom strip as furniture,
+  // so our own decks round-trip clean (pptxImport.ts isFooterShape).
+  s.addText(`${pad2(ctx.pos.index + 1)} / ${pad2(ctx.pos.total)}`, { x: SLIDE_W - m - 1.5, y, w: 1.5, h, align: 'right', fontSize: PT(G.footerSize), color: p.ink2, fontFace: fonts.mono, valign: 'middle' })
+}
+
+// Shared header of every non-title slide: the title in the display face
+// over a hairline in the accent, then the footer. Returns the y where the
+// body starts. pptxgenjs cannot measure text, so the title box height comes
+// from an estimate of its line count (shared/slideGeometry.ts).
+function addHeader(s: Pptx, ctx: Ctx, title: string): number {
+  const { palette: p, fonts } = ctx.theme
+  const m = ctx.margin
   s.background = { color: p.bg }
-  s.addShape('rect', { x: 0, y: 0, w: SLIDE_W, h: 0.12, fill: { color: p.accent } })
+  const lines = Math.min(2, titleLines(title))
+  const titleH = I(G.titleSize * G.titleLine) * lines
+  const y = I(G.top)
   s.addText(cleanForSlide(title), {
-    x: ctx.margin, y: 0.3, w: SLIDE_W - ctx.margin * 2, h: 0.7,
-    fontFace: fonts.display, fontSize: 24, bold: true, color: p.ink,
+    x: m, y, w: SLIDE_W - m * 2, h: titleH, fontFace: fonts.display, fontSize: PT(G.titleSize), bold: true, color: p.ink, valign: 'bottom', fit: 'shrink',
   })
+  const ruleY = y + titleH + I(G.titlePad)
+  s.addShape('rect', { x: m, y: ruleY, w: SLIDE_W - m * 2, h: I(G.rule), fill: { color: p.accent } })
+  addFooter(s, ctx, ctx.title)
+  return ruleY + I(G.rule) + I(G.titleGap)
+}
+
+function kick(s: Pptx, ctx: Ctx, text: string, x: number, y: number, w: number, color?: string): number {
+  const h = I(G.kickSize) * 1.6
+  s.addText(cleanForSlide(text).toUpperCase(), { x, y, w, h, fontSize: PT(G.kickSize), bold: true, charSpacing: 2, color: color ?? ctx.theme.labelColor, fontFace: ctx.theme.fonts.body, valign: 'middle' })
+  return h
 }
 
 function bulletList(items: string[]) {
-  return items.map((t) => ({ text: cleanForSlide(t), options: { bullet: true, breakLine: true } }))
+  return items.map((t) => ({ text: cleanForSlide(t), options: { bullet: { code: '25CF' }, breakLine: true } }))
 }
 
 function body(ctx: Ctx, extra: Record<string, unknown> = {}) {
-  return { fontFace: ctx.theme.fonts.body, color: ctx.theme.palette.ink, valign: 'top', lineSpacingMultiple: 1.3, ...extra }
+  return { fontFace: ctx.theme.fonts.body, color: ctx.theme.palette.ink, valign: 'top', lineSpacingMultiple: G.bodyLine, paraSpaceAfter: PT(G.bodyGap) * 0.6, ...extra }
 }
 
+// Title slide: a short accent rule, the kicker (subtitle), the title large
+// and low-left, the presenter under it — the block anchored to the bottom.
+// The brand logo sits top-left; the brand name takes the footer's left.
 function addTitleSlide(pptx: Pptx, slide: TitleSlide, ctx: Ctx): void {
   const s = pptx.addSlide()
-  const { palette: p, fonts, titleStyle } = ctx.theme
+  const { palette: p, fonts } = ctx.theme
   const m = ctx.margin
-
-  if (titleStyle === 'band') {
-    s.background = { color: p.bg }
-    s.addShape('rect', { x: 0, y: 1.2, w: SLIDE_W, h: 2.6, fill: { color: p.accent } })
-    if (slide.body.subtitle) {
-      s.addText(cleanForSlide(slide.body.subtitle).toUpperCase(), {
-        x: m, y: 1.4, w: SLIDE_W - m * 2, h: 0.35, align: 'center', fontSize: 11, bold: true, charSpacing: 1.5, color: p.accentText, fontFace: fonts.body,
-      })
-    }
-    s.addText(cleanForSlide(slide.title), {
-      x: m, y: 1.8, w: SLIDE_W - m * 2, h: 1.7, align: 'center', valign: 'middle', fontFace: fonts.display, fontSize: 30, bold: true, color: p.accentText,
-    })
-    if (slide.body.presenter) {
-      s.addText(cleanForSlide(slide.body.presenter), { x: m, y: 4.1, w: SLIDE_W - m * 2, h: 0.4, align: 'center', fontSize: 12, color: p.ink2, fontFace: fonts.body })
-    }
-    const brand = ctx.theme.brand
-    if (brand?.logo) {
-      const fit = containFit(brand.logo.buffer, 1.8, 0.6)
-      s.addImage({ data: brand.logo.dataUri, x: m, y: 0.4, w: fit?.w ?? 1.8, h: fit?.h ?? 0.6 })
-    }
-    if (brand?.name) {
-      s.addText(cleanForSlide(brand.name), { x: m, y: SLIDE_H - 0.7, w: SLIDE_W - m * 2, h: 0.35, align: 'center', fontSize: 11, color: p.ink2, fontFace: fonts.body })
-    }
-    addNotes(s, slide.notes)
-    return
-  }
-
-  // Light: the accent appears as GRAPHICS, never as text — reading the
-  // title never depends on the accent clearing a text ratio.
+  const w = SLIDE_W - m * 2
   s.background = { color: p.bg }
-  s.addShape('rect', { x: 0, y: 0, w: SLIDE_W, h: 0.14, fill: { color: p.accent } })
-  s.addShape('rect', { x: 0, y: SLIDE_H - 0.5, w: SLIDE_W, h: 0.5, fill: { color: p.panel } })
 
-  let y = 0.75
   const brand = ctx.theme.brand
   if (brand?.logo) {
     // Drawn at the image's own aspect ratio: pptxgenjs stretches to the
     // frame when given w/h with `sizing: contain`, which is what squashed a
     // wide logo in the parent; containFit computes the true fit.
-    const BOX_W = 2.6, BOX_H = 0.85
+    const BOX_W = 2.2, BOX_H = 0.7
     const fit = containFit(brand.logo.buffer, BOX_W, BOX_H)
-    const w = fit?.w ?? BOX_W, h = fit?.h ?? BOX_H
-    s.addImage({ data: brand.logo.dataUri, x: (SLIDE_W - w) / 2, y, w, h })
-    y += h + 0.25
-  } else {
-    y = 1.1
+    s.addImage({ data: brand.logo.dataUri, x: m, y: I(G.top), w: fit?.w ?? BOX_W, h: fit?.h ?? BOX_H })
   }
-  if (brand?.name) {
-    s.addText(cleanForSlide(brand.name), { x: m, y, w: SLIDE_W - m * 2, h: 0.3, align: 'center', fontSize: 11, color: p.ink2, fontFace: fonts.body })
-    y += 0.4
-  }
-  if (slide.body.subtitle) {
-    s.addText(cleanForSlide(slide.body.subtitle).toUpperCase(), {
-      x: m, y, w: SLIDE_W - m * 2, h: 0.3, align: 'center', fontSize: 11, bold: true, charSpacing: 1.5, color: p.ink2, fontFace: fonts.body,
-    })
-    y += 0.4
-  }
-  s.addText(cleanForSlide(slide.title), {
-    x: m, y, w: SLIDE_W - m * 2, h: 1.5, align: 'center', valign: 'middle', fontFace: fonts.display, fontSize: 30, bold: true, color: p.ink,
-  })
-  y += 1.6
-  s.addShape('rect', { x: (SLIDE_W - 1.1) / 2, y, w: 1.1, h: 0.045, fill: { color: p.accent } })
+
+  // Stack upward from the bottom anchor.
+  let bottom = SLIDE_H - I(G.tsBottom)
   if (slide.body.presenter) {
-    s.addText(cleanForSlide(slide.body.presenter), { x: m, y: y + 0.3, w: SLIDE_W - m * 2, h: 0.4, align: 'center', fontSize: 12, color: p.ink2, fontFace: fonts.body })
+    const h = I(G.tsWhoSize) * 1.5
+    s.addText(cleanForSlide(slide.body.presenter), { x: m, y: bottom - h, w, h, fontSize: PT(G.tsWhoSize), color: p.ink2, fontFace: fonts.body, valign: 'middle' })
+    bottom -= h + I(G.tsTitleGap)
   }
+  const titleW = w * (G.tsMaxW / 100)
+  const lines = Math.min(3, titleLines(slide.title, (100 - G.marginX * 2) * (G.tsMaxW / 100), G.tsTitleSize))
+  const titleH = I(G.tsTitleSize * G.titleLine) * lines
+  s.addText(cleanForSlide(slide.title), { x: m, y: bottom - titleH, w: titleW, h: titleH, fontFace: fonts.display, fontSize: PT(G.tsTitleSize), bold: true, color: p.ink, valign: 'bottom', fit: 'shrink' })
+  bottom -= titleH
+  if (slide.body.subtitle) {
+    bottom -= I(G.tsKickGap)
+    const h = I(G.kickSize) * 1.6
+    s.addText(cleanForSlide(slide.body.subtitle).toUpperCase(), { x: m, y: bottom - h, w, h, fontSize: PT(G.kickSize), bold: true, charSpacing: 2, color: p.ink2, fontFace: fonts.body, valign: 'middle' })
+    bottom -= h
+  }
+  bottom -= I(G.tsRuleGap)
+  s.addShape('rect', { x: m, y: bottom - I(G.tsRuleH), w: I(G.tsRuleW), h: I(G.tsRuleH), fill: { color: p.accent } })
+
+  addFooter(s, ctx, brand?.name ?? null)
   addNotes(s, slide.notes)
 }
 
 async function addBulletsSlide(pptx: Pptx, slide: BulletsSlide, ctx: Ctx): Promise<void> {
   const s = pptx.addSlide()
-  addHeader(s, ctx, slide.title)
+  const top = addHeader(s, ctx, slide.title)
   const r = contentRegion(ctx, Boolean(slide.image))
   if (slide.body.items.length > 0) {
-    s.addText(bulletList(slide.body.items), { x: r.x, y: 1.3, w: r.w, h: SLIDE_H - 1.6, fontSize: 16, ...body(ctx) })
+    s.addText(bulletList(slide.body.items), { x: r.x, y: top, w: r.w, h: clampH(BOTTOM - top), fontSize: PT(G.bodySize), ...body(ctx) })
   }
-  await addSideImage(s, ctx, slide.image)
+  await addSideImage(s, ctx, slide.image, top)
   addNotes(s, slide.notes)
 }
 
 async function addConceptSlide(pptx: Pptx, slide: ConceptSlide, ctx: Ctx): Promise<void> {
   const s = pptx.addSlide()
-  addHeader(s, ctx, slide.title)
-  const p = ctx.theme.palette
+  const top = addHeader(s, ctx, slide.title)
+  const { palette: p, fonts } = ctx.theme
   const r = contentRegion(ctx, Boolean(slide.image))
+  const defH = 1.2
+  s.addShape('rect', { x: r.x, y: top, w: r.w, h: defH, fill: { color: p.panel }, rectRadius: I(G.fRadius) })
   s.addText(cleanForSlide(slide.body.definition), {
-    x: r.x, y: 1.3, w: r.w, h: 1.2, fontSize: 18, italic: true, ...body(ctx, { lineSpacingMultiple: 1.2 }), fill: { color: p.panel },
+    x: r.x + I(G.fPadX) / 2, y: top, w: r.w - I(G.fPadX), h: defH, fontSize: PT(G.bodySize), fontFace: fonts.display, color: p.ink, valign: 'middle', lineSpacingMultiple: 1.2,
   })
   if (slide.body.supporting.length > 0) {
-    s.addText(bulletList(slide.body.supporting), { x: r.x, y: 2.7, w: r.w, h: SLIDE_H - 3.0, fontSize: 14, ...body(ctx, { color: p.ink2 }) })
+    s.addText(bulletList(slide.body.supporting), { x: r.x, y: top + defH + I(G.fExGap), w: r.w, h: clampH(BOTTOM - top - defH - I(G.fExGap)), fontSize: PT(G.subSize), ...body(ctx, { color: p.ink2 }) })
   }
-  await addSideImage(s, ctx, slide.image)
+  await addSideImage(s, ctx, slide.image, top)
   addNotes(s, slide.notes)
 }
 
-// Formula-slide vertical layout. A rendered formula IMAGE is far taller than
-// the line of text it replaced, so per-formula height is budgeted against
-// the slide rather than taken as a flat cap: four formulas at a flat 1.8"
-// cap ran `y` to 9.57" on a 5.63" slide and the explanation box got a
-// NEGATIVE height. Budget first, then clamp.
-const FORMULA_IMG_MAX_H   = 1.8
-const FORMULA_IMG_MIN_H   = 0.3
-const FORMULA_TOP         = 1.4
-const FORMULA_BOTTOM_PAD  = 0.3
-const FORMULA_CAPTION_H   = 0.35
-const FORMULA_GAP         = 0.08
-const EXPLANATION_RESERVE = 0.9
+// Formula: the formulas in a panel, each as its MathJax picture (or the
+// Unicode fallback) with its short form under it in mono; the explanation
+// below the panel. A rendered formula IMAGE is far taller than the line of
+// text it replaced, so per-formula height is budgeted against the slide
+// rather than taken as a flat cap: four formulas at a flat 1.8" cap once ran
+// `y` to 9.57" on a 5.63" slide and the explanation got a NEGATIVE height.
+const FORMULA_IMG_MAX_H = 1.6
+const FORMULA_IMG_MIN_H = 0.3
+const FORMULA_GAP       = 0.08
+const EXPLANATION_H     = 0.9
 
 async function addFormulaSlide(pptx: Pptx, slide: FormulaSlide, ctx: Ctx): Promise<void> {
   const s = pptx.addSlide()
-  addHeader(s, ctx, slide.title)
+  const top = addHeader(s, ctx, slide.title)
   const { palette: p, fonts } = ctx.theme
   const r = contentRegion(ctx, Boolean(slide.image))
   const formulas = slide.body.formulas
   const hasExplanation = Boolean(slide.body.explanation)
+  const padY = I(G.fPadY), padX = I(G.fPadX)
+  const capH = I(G.fCapSize) * 1.5
 
-  const available = SLIDE_H - FORMULA_TOP - FORMULA_BOTTOM_PAD - (hasExplanation ? EXPLANATION_RESERVE : 0)
-  const perFormula = formulas.length > 0 ? available / formulas.length : available
+  const panelMaxH = BOTTOM - top - (hasExplanation ? EXPLANATION_H + I(G.fExGap) : 0)
+  const innerAvail = panelMaxH - padY * 2
+  const perFormula = formulas.length > 0 ? innerAvail / formulas.length : innerAvail
 
-  let y = FORMULA_TOP
+  // Lay out first to know the panel's height, then draw the panel, then the content on it.
+  const items: Array<{ kind: 'img'; data: string; w: number; h: number } | { kind: 'text'; text: string; h: number }> = []
+  const caps: Array<string | null> = []
+  let used = 0
   for (const f of formulas) {
-    const captionH = f.caption ? FORMULA_CAPTION_H : 0
-    const bodyBudget = Math.max(FORMULA_IMG_MIN_H, perFormula - captionH - FORMULA_GAP)
-
+    const ch = f.caption ? capH + I(G.fCapGap) : 0
+    const budget = Math.max(FORMULA_IMG_MIN_H, perFormula - ch - FORMULA_GAP)
     const rendered = await renderFormulaToPng(f.latex, `#${p.ink}`)
     if (rendered && Number.isFinite(rendered.aspect) && rendered.aspect > 0) {
-      const maxH = Math.min(FORMULA_IMG_MAX_H, bodyBudget)
-      let w = r.w * 0.85
+      const maxH = Math.min(FORMULA_IMG_MAX_H, budget)
+      let w = r.w - padX * 2
       let h = w / rendered.aspect
       if (h > maxH) { h = maxH; w = h * rendered.aspect }
-      s.addImage({ data: rendered.dataUri, x: r.x + (r.w - w) / 2, y, w, h })
-      y += h + FORMULA_GAP
+      items.push({ kind: 'img', data: rendered.dataUri, w, h }); used += h
     } else {
-      const h = Math.min(0.7, bodyBudget)
-      s.addText(latexToPlainText(f.latex), { x: r.x, y, w: r.w, h: clampH(h), align: 'center', fontFace: fonts.math, fontSize: 20, color: p.ink })
-      y += h + FORMULA_GAP
+      const h = Math.min(0.6, budget)
+      items.push({ kind: 'text', text: latexToPlainText(f.latex), h }); used += h
     }
-    if (f.caption) {
-      s.addText(cleanForSlide(f.caption), { x: r.x, y, w: r.w, h: FORMULA_CAPTION_H, align: 'center', fontSize: 12, italic: true, color: p.ink3, fontFace: fonts.body })
-      y += captionH
-    }
+    caps.push(f.caption || null); used += ch + FORMULA_GAP
   }
+  const panelH = clampH(Math.min(panelMaxH, used + padY * 2))
+  s.addShape('rect', { x: r.x, y: top, w: r.w, h: panelH, fill: { color: p.panel }, rectRadius: I(G.fRadius) })
+
+  let y = top + padY
+  items.forEach((it, i) => {
+    if (it.kind === 'img') { s.addImage({ data: it.data, x: r.x + padX, y, w: it.w, h: it.h }); y += it.h }
+    else { s.addText(it.text, { x: r.x + padX, y, w: r.w - padX * 2, h: clampH(it.h), fontFace: fonts.math, fontSize: PT(G.fSize), color: p.ink, valign: 'middle' }); y += it.h }
+    const cap = caps[i]
+    if (cap) { y += I(G.fCapGap); s.addText(cleanForSlide(cap), { x: r.x + padX, y, w: r.w - padX * 2, h: capH, fontSize: PT(G.fCapSize), color: p.ink2, fontFace: fonts.mono, valign: 'middle' }); y += capH }
+    y += FORMULA_GAP
+  })
   if (hasExplanation) {
+    const ey = top + panelH + I(G.fExGap)
     s.addText(cleanForSlide(slide.body.explanation!), {
-      x: r.x, y: y + 0.1, w: r.w, h: clampH(SLIDE_H - y - 0.1 - FORMULA_BOTTOM_PAD), fontSize: 14, ...body(ctx, { color: p.ink2, lineSpacingMultiple: 1.2 }),
+      x: r.x, y: ey, w: r.w * 0.8, h: clampH(BOTTOM - ey), fontSize: PT(G.subSize), ...body(ctx, { color: p.ink2, lineSpacingMultiple: 1.3, paraSpaceAfter: 0 }),
     })
   }
-  await addSideImage(s, ctx, slide.image)
+  await addSideImage(s, ctx, slide.image, top)
   addNotes(s, slide.notes)
 }
 
 async function addComparisonSlide(pptx: Pptx, slide: ComparisonSlide, ctx: Ctx): Promise<void> {
   const s = pptx.addSlide()
-  addHeader(s, ctx, slide.title)
-  const { palette: p, fonts } = ctx.theme
+  const top = addHeader(s, ctx, slide.title)
+  const { palette: p } = ctx.theme
   const r = contentRegion(ctx, Boolean(slide.image))
   const cols = slide.body.columns
-  const gap = 0.3
+  const gap = I(G.sGap)
   const colW = (r.w - gap * (cols.length - 1)) / cols.length
   cols.forEach((c, i) => {
     const x = r.x + i * (colW + gap)
-    s.addShape('rect', { x, y: 1.3, w: colW, h: 0.5, fill: { color: p.panel }, line: { color: p.border, width: 0.5 } })
-    s.addText(cleanForSlide(c.header).toUpperCase(), { x, y: 1.3, w: colW, h: 0.5, align: 'center', valign: 'middle', fontSize: 12, bold: true, color: ctx.theme.labelColor, fontFace: fonts.body })
+    // A rule over each column and its header as a kicker — a table without a cage.
+    s.addShape('rect', { x, y: top, w: colW, h: I(G.rule) * 1.6, fill: { color: p.ink } })
+    const kh = kick(s, ctx, c.header, x, top + I(G.rule) * 1.6 + 0.05, colW, ctx.theme.labelColor)
+    const by = top + I(G.rule) * 1.6 + 0.05 + kh + 0.1
     if (c.items.length > 0) {
-      s.addText(bulletList(c.items), { x, y: 1.9, w: colW, h: SLIDE_H - 2.2, fontSize: 12, ...body(ctx, { lineSpacingMultiple: 1.2 }) })
+      s.addText(bulletList(c.items), { x, y: by, w: colW, h: clampH(BOTTOM - by), fontSize: PT(G.subSize), ...body(ctx, { lineSpacingMultiple: 1.25 }) })
     }
   })
-  await addSideImage(s, ctx, slide.image)
+  await addSideImage(s, ctx, slide.image, top)
   addNotes(s, slide.notes)
 }
 
 async function addDiagramSlide(pptx: Pptx, slide: DiagramSlide, ctx: Ctx): Promise<void> {
   const s = pptx.addSlide()
-  addHeader(s, ctx, slide.title)
+  const top = addHeader(s, ctx, slide.title)
   const { palette: p, fonts } = ctx.theme
   const m = ctx.margin
-  const box = { x: m, y: 1.3, w: SLIDE_W - m * 2, h: 2.9 }
+  const extra = (slide.body.caption ? 0.4 : 0) + (slide.body.points.length > 0 ? 0.9 : 0)
+  const box = { x: m, y: top, w: SLIDE_W - m * 2, h: clampH(BOTTOM - top - extra) }
   const img = slide.body.image ? await fetchImageAsDataUri(slide.body.image.url) : null
   if (img) addFittedImage(s, img, box)
   else addImagePlaceholder(s, ctx, box, slide.body.image ? L[ctx.language].imageMissing : L[ctx.language].imageNone(cleanForSlide(slide.body.image_query)))
 
-  let y = box.y + box.h + 0.15
+  let y = box.y + box.h + 0.1
   if (slide.body.caption) {
-    s.addText(cleanForSlide(slide.body.caption), { x: m, y, w: SLIDE_W - m * 2, h: 0.35, align: 'center', fontSize: 12, bold: true, color: p.ink, fontFace: fonts.body })
-    y += 0.35
+    s.addText(cleanForSlide(slide.body.caption), { x: m, y, w: SLIDE_W - m * 2, h: 0.35, fontSize: PT(G.subSize), bold: true, color: p.ink, fontFace: fonts.body })
+    y += 0.4
   }
   if (slide.body.points.length > 0) {
-    s.addText(bulletList(slide.body.points), { x: m, y, w: SLIDE_W - m * 2, h: clampH(SLIDE_H - y - 0.2), fontSize: 11, ...body(ctx, { color: p.ink2, lineSpacingMultiple: 1.1 }) })
+    s.addText(bulletList(slide.body.points), { x: m, y, w: SLIDE_W - m * 2, h: clampH(BOTTOM - y), fontSize: PT(G.subSize * 0.85), ...body(ctx, { color: p.ink2, lineSpacingMultiple: 1.15, paraSpaceAfter: 0 }) })
   }
   addNotes(s, slide.notes)
 }
 
+// Question: no header rule — the slide's title becomes the kicker, the
+// question is the slide, large and italic; the prompts sit under it quieter.
 async function addDiscussionSlide(pptx: Pptx, slide: DiscussionSlide, ctx: Ctx): Promise<void> {
   const s = pptx.addSlide()
-  addHeader(s, ctx, slide.title)
   const { palette: p, fonts } = ctx.theme
+  s.background = { color: p.bg }
   const r = contentRegion(ctx, Boolean(slide.image))
-  s.addText(cleanForSlide(slide.body.question), { x: r.x, y: 1.3, w: r.w, h: 1.0, fontFace: fonts.display, fontSize: 20, bold: true, color: p.ink, valign: 'top' })
+  const top = I(G.top) + 0.5
+  const kh = kick(s, ctx, slide.title, r.x, top, r.w)
+  const qy = top + kh + I(G.tsKickGap)
+  const lines = Math.min(3, titleLines(slide.body.question, (100 - G.marginX * 2) * (G.qMaxW / 100), G.qSize))
+  const qh = I(G.qSize * G.titleLine) * lines
+  s.addText(cleanForSlide(slide.body.question), { x: r.x, y: qy, w: r.w * (G.qMaxW / 100), h: qh, fontFace: fonts.display, fontSize: PT(G.qSize), italic: true, color: p.ink, valign: 'top', fit: 'shrink' })
   if (slide.body.prompts.length > 0) {
-    s.addText(bulletList(slide.body.prompts), { x: r.x, y: 2.4, w: r.w, h: SLIDE_H - 2.7, fontSize: 14, ...body(ctx, { color: p.ink2 }) })
+    const py = qy + qh + I(G.titleGap)
+    s.addText(bulletList(slide.body.prompts), { x: r.x, y: py, w: r.w, h: clampH(BOTTOM - py), fontSize: PT(G.subSize), ...body(ctx, { color: p.ink2 }) })
   }
-  await addSideImage(s, ctx, slide.image)
+  addFooter(s, ctx, ctx.title)
+  await addSideImage(s, ctx, slide.image, qy)
   addNotes(s, slide.notes)
 }
 
 // Call to action: the ask set large in the display face, the reasons under
-// it, the contact line in the accent. One ask per slide, so nothing competes.
+// it, the contact line in the label colour. One ask per slide, so nothing competes.
 function addCtaSlide(pptx: Pptx, slide: CtaSlide, ctx: Ctx): void {
   const s = pptx.addSlide()
-  addHeader(s, ctx, slide.title)
   const { palette: p, fonts } = ctx.theme
+  s.background = { color: p.bg }
   const m = ctx.margin
   const w = SLIDE_W - m * 2
-  s.addText(cleanForSlide(slide.body.action), { x: m, y: 1.35, w, h: 1.3, fontFace: fonts.display, fontSize: 26, bold: true, color: p.ink, valign: 'middle' })
-  s.addShape('rect', { x: m, y: 2.75, w: 1.1, h: 0.045, fill: { color: p.accent } })
-  let y = 2.95
+  const top = I(G.top) + 0.5
+  const kh = kick(s, ctx, slide.title, m, top, w)
+  const ay = top + kh + I(G.tsKickGap)
+  const lines = Math.min(3, titleLines(slide.body.action, (100 - G.marginX * 2) * (G.qMaxW / 100), G.qSize))
+  const ah = I(G.qSize * G.titleLine) * lines
+  s.addText(cleanForSlide(slide.body.action), { x: m, y: ay, w: w * (G.qMaxW / 100), h: ah, fontFace: fonts.display, fontSize: PT(G.qSize), bold: true, color: p.ink, valign: 'top', fit: 'shrink' })
+  let y = ay + ah + I(G.titleGap)
   if (slide.body.reasons.length > 0) {
-    const h = slide.body.contact ? 1.6 : SLIDE_H - y - 0.3
-    s.addText(bulletList(slide.body.reasons), { x: m, y, w, h: clampH(h), fontSize: 14, ...body(ctx, { color: p.ink2 }) })
-    y += h + 0.1
+    const h = slide.body.contact ? Math.max(0.6, BOTTOM - y - 0.5) : BOTTOM - y
+    s.addText(bulletList(slide.body.reasons), { x: m, y, w, h: clampH(h), fontSize: PT(G.subSize), ...body(ctx, { color: p.ink2 }) })
+    y += h + 0.05
   }
   if (slide.body.contact) {
-    s.addText(cleanForSlide(slide.body.contact), { x: m, y, w, h: clampH(SLIDE_H - y - 0.3), fontSize: 14, bold: true, color: ctx.theme.labelColor, fontFace: fonts.body, valign: 'top' })
+    s.addText(cleanForSlide(slide.body.contact), { x: m, y, w, h: clampH(BOTTOM - y), fontSize: PT(G.subSize), bold: true, color: ctx.theme.labelColor, fontFace: fonts.body, valign: 'top' })
   }
+  addFooter(s, ctx, ctx.title)
   addNotes(s, slide.notes)
 }
 
+// Summary: the takeaways left, «Что дальше» in a panel on the right.
 function addSummarySlide(pptx: Pptx, slide: SummarySlide, ctx: Ctx): void {
   const s = pptx.addSlide()
-  addHeader(s, ctx, slide.title)
-  const { palette: p, fonts } = ctx.theme
+  const top = addHeader(s, ctx, slide.title)
+  const { palette: p } = ctx.theme
   const m = ctx.margin
-  const half = (SLIDE_W - m * 2 - 0.3) / 2
   const t = L[ctx.language]
+  const w = SLIDE_W - m * 2
+  const gap = I(G.sGap)
+  const [a, b] = G.sCols
+  const leftW = ((w - gap) * a) / (a + b)
+  const rightW = w - gap - leftW
   if (slide.body.takeaways.length > 0) {
-    s.addText(t.key, { x: m, y: 1.3, w: half, h: 0.35, fontSize: 11, bold: true, color: ctx.theme.labelColor, fontFace: fonts.body })
-    s.addText(bulletList(slide.body.takeaways), { x: m, y: 1.7, w: half, h: SLIDE_H - 2.0, fontSize: 13, ...body(ctx, { lineSpacingMultiple: 1.2 }) })
+    s.addText(bulletList(slide.body.takeaways), { x: m, y: top, w: slide.body.next_steps.length > 0 ? leftW : w, h: clampH(BOTTOM - top), fontSize: PT(G.bodySize), ...body(ctx) })
   }
   if (slide.body.next_steps.length > 0) {
-    const x = m + half + 0.3
-    s.addText(t.next, { x, y: 1.3, w: half, h: 0.35, fontSize: 11, bold: true, color: ctx.theme.labelColor, fontFace: fonts.body })
-    s.addText(bulletList(slide.body.next_steps), { x, y: 1.7, w: half, h: SLIDE_H - 2.0, fontSize: 13, ...body(ctx, { color: p.ink2, lineSpacingMultiple: 1.2 }) })
+    const x = m + leftW + gap
+    const padY = I(G.sPanelPadY), padX = I(G.sPanelPadX)
+    // The panel's height follows its content: the kicker plus each step's
+    // estimated lines (the inner width in percent of the slide, less the
+    // bullet indent), with the list's own leading and spacing.
+    const innerPct = ((rightW - padX * 2) / SLIDE_W) * 100 - G.bulletIndent
+    const stepLines = slide.body.next_steps.reduce((n, t) => n + titleLines(t, innerPct, G.subSize), 0)
+    const est = padY * 2 + I(G.kickSize) * 1.6 + 0.15 + stepLines * I(G.subSize * G.bodyLine) + slide.body.next_steps.length * I(G.bodyGap)
+    const h = clampH(Math.min(BOTTOM - top, est))
+    s.addShape('rect', { x, y: top, w: rightW, h, fill: { color: p.panel }, rectRadius: I(G.fRadius) })
+    const kh = kick(s, ctx, t.next, x + padX, top + padY, rightW - padX * 2)
+    s.addText(bulletList(slide.body.next_steps), { x: x + padX, y: top + padY + kh + 0.1, w: rightW - padX * 2, h: clampH(h - padY * 2 - kh - 0.1), fontSize: PT(G.subSize), ...body(ctx, { lineSpacingMultiple: 1.25 }) })
   }
   addNotes(s, slide.notes)
 }

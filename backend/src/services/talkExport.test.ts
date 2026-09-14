@@ -92,6 +92,18 @@ describe('generateTalkPptx', () => {
     expect((xa.match(/<p:sp>/g) ?? []).length).toBe((xb.match(/<p:sp>/g) ?? []).length)
   }, 30_000)
 
+  it('themes v2: the title sits in the lower half of the title slide, and every slide carries «NN / NN»', async () => {
+    const zip = await unzip(await generateTalkPptx(talk(DECK)))
+    const first = await zip.file('ppt/slides/slide1.xml')!.async('string')
+    // The shape whose text is the title: its frame's y offset (EMU) must be past half the slide (5.63 in → 2.815 in).
+    const sp = first.split('<p:sp>').find((x) => x.includes('Заголовок'))!
+    const y = Number(sp.match(/<a:off x="\d+" y="(\d+)"/)![1]) / 914400
+    expect(y).toBeGreaterThan(2.815)
+    expect(first).toContain(`01 / ${String(DECK.length).padStart(2, '0')}`)
+    const last = await zip.file(`ppt/slides/slide${DECK.length}.xml`)!.async('string')
+    expect(last).toContain(`${String(DECK.length).padStart(2, '0')} / ${String(DECK.length).padStart(2, '0')}`)
+  }, 30_000)
+
   it('an unknown theme id falls back to the default rather than throwing', async () => {
     await expect(generateTalkPptx(talk(DECK.slice(0, 1), 'no-such-theme'))).resolves.toBeInstanceOf(Buffer)
   })
@@ -132,7 +144,8 @@ describe('brand kit applied to a theme', () => {
     const zip = await unzip(await generateTalkPptx(talk(deck), { brand: pale }))
     const xml = await zip.file('ppt/slides/slide1.xml')!.async('string')
     expect(xml).toContain('F4C55A')                       // the header rule, a graphic
-    const label = xml.slice(xml.indexOf('ГЛАВНОЕ') - 600, xml.indexOf('ГЛАВНОЕ'))
+    // Themes v2: the only label on a summary slide is the «ЧТО ДАЛЬШЕ» kicker.
+    const label = xml.slice(xml.indexOf('ЧТО ДАЛЬШЕ') - 600, xml.indexOf('ЧТО ДАЛЬШЕ'))
     expect(label).toContain('57635F')                     // ink2 carries the label text
     expect(label).not.toContain('F4C55A')
   }, 30_000)

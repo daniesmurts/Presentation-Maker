@@ -137,16 +137,38 @@ function maxFontSize(node: unknown): number {
   return best
 }
 
-function isTitlePlaceholder(shape: Node): boolean {
+function placeholderType(shape: Node): string | undefined {
   const ph = ((shape['p:nvSpPr'] as Node | undefined)?.['p:nvPr'] as Node | undefined)?.['p:ph'] as Node | undefined
-  const type = ph?.['@type']
+  return ph?.['@type'] as string | undefined
+}
+
+function isTitlePlaceholder(shape: Node): boolean {
+  const type = placeholderType(shape)
   return type === 'title' || type === 'ctrTitle'
+}
+
+// Slide furniture that is text: the footer, the date, the slide number — as
+// placeholders (what PowerPoint makes) or as plain text boxes parked in the
+// bottom strip of the slide (what themes v2 draws for the talk's title; the
+// number is a real sldNum placeholder). Importing our own deck read «02 /
+// 03» back as a bullet on every slide until this rule existed.
+const FOOTER_PH = new Set(['ftr', 'sldNum', 'dt'])
+const FOOTER_ZONE = 0.86   // fraction of the slide height; a text box starting below it is furniture
+const SLIDE_H_EMU = 5.63 * 914400   // 16:9 at 10 in — close enough for 4:3 too (7.5 in → the strip is a little higher)
+
+function isFooterShape(shape: Node): boolean {
+  const type = placeholderType(shape)
+  if (type && FOOTER_PH.has(type)) return true
+  const off = ((shape['p:spPr'] as Node | undefined)?.['a:xfrm'] as Node | undefined)?.['a:off'] as Node | undefined
+  const y = Number(off?.['@y'])
+  return Number.isFinite(y) && y >= SLIDE_H_EMU * FOOTER_ZONE
 }
 
 function parseSlideXml(xml: string): { title: string; bullets: string[] } {
   const doc    = parser.parse(breaksToSpaceRuns(xml)) as Node
   const spTree = ((doc['p:sld'] as Node | undefined)?.['p:cSld'] as Node | undefined)?.['p:spTree'] as Node | undefined
   const shapes = asArray(spTree?.['p:sp'] as Node[] | undefined)
+    .filter((shape) => !isFooterShape(shape))
     .map((shape) => ({ shape, lines: paragraphLines(shape['p:txBody']) }))
     .filter((s) => s.lines.length > 0)
 

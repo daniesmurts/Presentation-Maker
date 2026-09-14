@@ -6,6 +6,7 @@ import { imageSize } from '../lib/imageSize'
 import { contrastRatio, textOn } from '../lib/brandColor'
 import { getTheme, applyBrand, type AppliedTheme, type BrandKit } from './themes'
 import type { Slide, Talk, TalkLanguage } from '../../../shared/types'
+import { G, pt as pctPt } from '../../../shared/slideGeometry'
 
 // A SLIDES PDF (CLAUDE.md §5.5): one landscape 16:9 page per slide, the same
 // theme data the .pptx uses — not the parent's reading-order handout. The
@@ -26,11 +27,16 @@ import type { Slide, Talk, TalkLanguage } from '../../../shared/types'
 const PAGE_W = 720   // pt — 10in × 72, the exporter's 16:9 geometry
 const PAGE_H = 405.36
 const PT_PER_IN = 72
+// Themes v2: percent-of-width (shared/slideGeometry.ts) → points on this page.
+const U = (v: number) => pctPt(v, PAGE_W)
+const BOTTOM = PAGE_H - U(G.bottom)
 
 const FONT_DIR = path.join(process.cwd(), 'assets', 'fonts')
 const FONTS = {
   serif:  path.join(FONT_DIR, 'PTSerif-Bold.ttf'),
   serifR: path.join(FONT_DIR, 'PTSerif-Regular.ttf'),
+  serifI: path.join(FONT_DIR, 'PTSerif-Italic.ttf'),
+  mono:   path.join(FONT_DIR, 'PTMono-Regular.ttf'),
   sans:   path.join(FONT_DIR, 'PTSans-Regular.ttf'),
   sansB:  path.join(FONT_DIR, 'PTSans-Bold.ttf'),
   serifX:  path.join(FONT_DIR, 'DejaVuSerif-Bold.ttf'),
@@ -38,8 +44,8 @@ const FONTS = {
   sansX:   path.join(FONT_DIR, 'DejaVuSans.ttf'),
   sansBX:  path.join(FONT_DIR, 'DejaVuSans-Bold.ttf'),
 }
-type FontName = 'serif' | 'serifR' | 'sans' | 'sansB'
-const FALLBACK: Record<FontName, keyof typeof FONTS> = { serif: 'serifX', serifR: 'serifRX', sans: 'sansX', sansB: 'sansBX' }
+type FontName = 'serif' | 'serifR' | 'serifI' | 'sans' | 'sansB' | 'mono'
+const FALLBACK: Record<FontName, keyof typeof FONTS> = { serif: 'serifX', serifR: 'serifRX', serifI: 'serifRX', sans: 'sansX', sansB: 'sansBX', mono: 'sansX' }
 
 // Greek, arrows, mathematical operators — what PT lacks. Sub/superscript
 // digits are NOT here: latexToPlainText emits them constantly and PT has them.
@@ -109,7 +115,7 @@ export async function generateTalkPdf(talk: Pick<Talk, 'title' | 'slides' | 'lan
     doc.on('end', () => resolve(Buffer.concat(chunks)))
     doc.on('error', reject)
 
-    const r = new Renderer(doc, theme, talk.language, prepared)
+    const r = new Renderer(doc, theme, talk.language, prepared, talk.title, slides.length)
     slides.forEach((slide, i) => {
       r.slide(slide, i)
       if (opts.notes && slide.notes.trim()) r.notesPage(slide, i)
@@ -126,59 +132,95 @@ class Renderer {
   private M: number
   private display: 'serif' | 'sans'
   private body: 'serif' | 'sans'
-  constructor(private doc: Doc, private theme: AppliedTheme, private language: TalkLanguage, private prepared: Prepared) {
+  constructor(private doc: Doc, private theme: AppliedTheme, private language: TalkLanguage, private prepared: Prepared, private talkTitle: string, private total: number) {
     this.p = theme.palette
     this.M = theme.margin * PT_PER_IN
     this.display = family(theme.fonts.display)
     this.body = family(theme.fonts.body)
   }
 
-  private font(kind: 'display' | 'body' | 'bodyBold'): FontName {
+  private font(kind: 'display' | 'displayItalic' | 'body' | 'bodyBold' | 'mono'): FontName {
+    if (kind === 'mono') return 'mono'
     if (kind === 'display') return this.display === 'serif' ? 'serif' : 'sansB'
+    if (kind === 'displayItalic') return 'serifI'
     if (kind === 'bodyBold') return this.body === 'serif' ? 'serif' : 'sansB'
     return this.body === 'serif' ? 'serifR' : 'sans'
   }
 
   /** Height `text` would take, without drawing — for panels drawn behind text. */
-  private measure(s: string, kind: 'display' | 'body' | 'bodyBold', size: number, w: number, maxH?: number): number {
+  private measure(s: string, kind: 'display' | 'displayItalic' | 'body' | 'bodyBold' | 'mono', size: number, w: number, maxH?: number, lineGap = 2): number {
     const clean = cleanForSlide(s)
     if (!clean) return 0
     this.doc.font(faceFor(this.font(kind), clean)).fontSize(size)
-    return Math.min(this.doc.heightOfString(clean, { width: w, lineGap: 2 }), maxH ?? Infinity)
+    return Math.min(this.doc.heightOfString(clean, { width: w, lineGap }), maxH ?? Infinity)
   }
 
   /** Draw text, face chosen per paragraph; returns the height used. */
-  private text(s: string, kind: 'display' | 'body' | 'bodyBold', size: number, color: string, x: number, y: number, w: number, o: { align?: 'left' | 'center'; maxH?: number; lineGap?: number } = {}): number {
+  private text(s: string, kind: 'display' | 'displayItalic' | 'body' | 'bodyBold' | 'mono', size: number, color: string, x: number, y: number, w: number, o: { align?: 'left' | 'center' | 'right'; maxH?: number; lineGap?: number; tracking?: number } = {}): number {
     const clean = cleanForSlide(s)
     if (!clean) return 0
     const f = this.font(kind)
     this.doc.font(faceFor(f, clean)).fontSize(size).fillColor(hex(color))
-    const opts = { width: w, align: o.align ?? 'left', lineGap: o.lineGap ?? 2, ...(o.maxH ? { height: o.maxH, ellipsis: true } : {}) }
+    const opts = { width: w, align: o.align ?? 'left', lineGap: o.lineGap ?? 2, characterSpacing: o.tracking ?? 0, ...(o.maxH ? { height: o.maxH, ellipsis: true } : {}) }
     const h = Math.min(this.doc.heightOfString(clean, opts), o.maxH ?? Infinity)
     this.doc.text(clean, x, y, opts)
     return h
   }
 
+  /** PT's natural line height at `size` (≈1.29–1.33 × size). The CSS spec
+   *  sets 1.12 for titles and 1.35 for body; the gap that reaches the body
+   *  figure is a point or two, and titles simply take PT's own leading — an
+   *  added gap on top of it doubled the leading and pushed a summary off the
+   *  page (first render of the demo talk). */
+  private lineH(kind: 'display' | 'displayItalic' | 'body' | 'bodyBold' | 'mono', size: number): number {
+    this.doc.font(this.font(kind)).fontSize(size)
+    return this.doc.currentLineHeight(true)
+  }
+  private bodyGap(size: number): number { return Math.max(0, size * G.bodyLine - this.lineH('body', size)) }
+  private maxLines(kind: 'display' | 'displayItalic' | 'body' | 'bodyBold' | 'mono', size: number, n: number, gap = 0): number { return this.lineH(kind, size) * n + gap * (n - 1) + 1 }
+
+  /** The uppercase label with tracking (slide type, column header, «Что дальше»). */
+  private kick(s: string, x: number, y: number, w: number, color = this.theme.labelColor): number {
+    return this.text(s.toUpperCase(), 'bodyBold', U(G.kickSize), color, x, y, w, { tracking: 1.2, maxH: U(G.kickSize) * 1.6 })
+  }
+
   private bullets(items: string[], x: number, y: number, w: number, size: number, color: string, maxY: number): number {
     let yy = y
+    const dot = U(G.bullet), indent = U(G.bulletIndent)
     for (const item of items) {
       if (yy >= maxY - size) break
-      this.doc.font(faceFor(this.font('body'), '•')).fontSize(size).fillColor(hex(this.p.accent)).text('•', x, yy, { width: 12, lineBreak: false })
-      yy += this.text(item, 'body', size, color, x + 14, yy, w - 14, { maxH: maxY - yy }) + 5
+      this.doc.circle(x + dot / 2, yy + size * 0.55, dot / 2).fill(hex(this.p.accent))
+      yy += this.text(item, 'body', size, color, x + indent, yy, w - indent, { maxH: maxY - yy, lineGap: this.bodyGap(size) }) + U(G.bodyGap)
     }
     return yy - y
   }
 
-  private header(title: string): number {
+  private footer(left: string | null, index: number): void {
+    const { p, M } = this
+    const size = U(G.footerSize)
+    const y = PAGE_H - U(G.footerY) - size
+    if (left) this.text(left, 'body', size, p.ink2, M, y, PAGE_W - M * 2 - 110, { maxH: size * 1.4 })
+    this.text(`${String(index + 1).padStart(2, '0')} / ${String(this.total).padStart(2, '0')}`, 'mono', size, p.ink2, PAGE_W - M - 100, y, 100, { align: 'right' })
+  }
+
+  /** Content-slide header: the title over a hairline; returns where the body starts. */
+  private header(title: string, index: number): number {
     const { doc, p, M } = this
-    doc.rect(0, 0, PAGE_W, 0.12 * PT_PER_IN).fill(hex(p.accent))
-    this.text(title, 'display', 24, p.ink, M, 0.3 * PT_PER_IN, PAGE_W - M * 2, { maxH: 0.75 * PT_PER_IN })
-    return 1.3 * PT_PER_IN
+    const size = U(G.titleSize)
+    const h = this.text(title, 'display', size, p.ink, M, U(G.top), PAGE_W - M * 2, { maxH: this.maxLines('display', size, 2), lineGap: 0 })
+    const ruleY = U(G.top) + h + U(G.titlePad)
+    doc.rect(M, ruleY, PAGE_W - M * 2, U(G.rule)).fill(hex(p.accent))
+    this.footer(this.talkTitle, index)
+    return ruleY + U(G.rule) + U(G.titleGap)
   }
 
   private page(): void {
     this.doc.addPage()
     this.doc.rect(0, 0, PAGE_W, PAGE_H).fill(hex(this.p.bg))
+  }
+
+  private panel(x: number, y: number, w: number, h: number): void {
+    this.doc.roundedRect(x, y, w, h, U(G.fRadius)).fill(hex(this.p.panel))
   }
 
   private picture(index: number, box: { x: number; y: number; w: number; h: number }, placeholder: string): void {
@@ -202,103 +244,139 @@ class Renderer {
     const hasSide = Boolean(image) && slide.type !== 'diagram' && !['title', 'summary', 'cta'].includes(slide.type)
     const cw = hasSide ? W - 3.3 * PT_PER_IN : W
     const L = this.language === 'ru'
-      ? { key: 'ГЛАВНОЕ', next: 'ЧТО ДАЛЬШЕ', none: (q: string) => `Изображение не выбрано: «${q}»`, missing: 'Изображение недоступно' }
-      : { key: 'KEY POINTS', next: 'NEXT', none: (q: string) => `No image chosen: “${q}”`, missing: 'Image unavailable' }
+      ? { next: 'Что дальше', none: (q: string) => `Изображение не выбрано: «${q}»`, missing: 'Изображение недоступно' }
+      : { next: 'What next', none: (q: string) => `No image chosen: “${q}”`, missing: 'Image unavailable' }
+    const bodySize = U(G.bodySize), subSize = U(G.subSize)
 
     if (slide.type === 'title') {
-      doc.rect(0, 0, PAGE_W, 0.14 * PT_PER_IN).fill(hex(p.accent))
-      doc.rect(0, PAGE_H - 0.5 * PT_PER_IN, PAGE_W, 0.5 * PT_PER_IN).fill(hex(p.panel))
-      let y = 1.1 * PT_PER_IN
+      // Anchored to the bottom, stacked upward: presenter, title, kicker, rule.
       const brand = this.theme.brand
       if (brand?.logo) {
         const size = imageSize(brand.logo.buffer)
         if (size) {
-          const scale = Math.min((2.6 * PT_PER_IN) / size.width, (0.85 * PT_PER_IN) / size.height)
-          const w = size.width * scale, h = size.height * scale
-          doc.image(brand.logo.buffer, (PAGE_W - w) / 2, 0.75 * PT_PER_IN, { width: w, height: h })
-          y = 0.75 * PT_PER_IN + h + 0.25 * PT_PER_IN
+          const scale = Math.min((2.2 * PT_PER_IN) / size.width, (0.7 * PT_PER_IN) / size.height)
+          doc.image(brand.logo.buffer, M, U(G.top), { width: size.width * scale, height: size.height * scale })
         }
       }
-      if (brand?.name) y += this.text(brand.name, 'body', 11, p.ink2, M, y, W, { align: 'center' }) + 8
-      if (slide.body.subtitle) y += this.text(slide.body.subtitle.toUpperCase(), 'bodyBold', 11, p.ink2, M, y, W, { align: 'center' }) + 10
-      y += this.text(slide.title, 'display', 30, p.ink, M, y, W, { align: 'center', maxH: 1.5 * PT_PER_IN }) + 14
-      doc.rect((PAGE_W - 1.1 * PT_PER_IN) / 2, y, 1.1 * PT_PER_IN, 3).fill(hex(p.accent))
-      if (slide.body.presenter) this.text(slide.body.presenter, 'body', 12, p.ink2, M, y + 16, W, { align: 'center' })
+      let bottom = PAGE_H - U(G.tsBottom)
+      if (slide.body.presenter) {
+        const h = this.measure(slide.body.presenter, 'body', U(G.tsWhoSize), W)
+        this.text(slide.body.presenter, 'body', U(G.tsWhoSize), p.ink2, M, bottom - h, W)
+        bottom -= h + U(G.tsTitleGap)
+      }
+      const tSize = U(G.tsTitleSize), tw = W * (G.tsMaxW / 100), tMax = this.maxLines('display', tSize, 3)
+      const th = this.measure(slide.title, 'display', tSize, tw, tMax, 0)
+      this.text(slide.title, 'display', tSize, p.ink, M, bottom - th, tw, { maxH: tMax, lineGap: 0 })
+      bottom -= th
+      if (slide.body.subtitle) {
+        bottom -= U(G.tsKickGap)
+        const h = U(G.kickSize) * 1.6
+        this.kick(slide.body.subtitle, M, bottom - h + U(G.kickSize) * 0.3, W, p.ink2)
+        bottom -= h
+      }
+      bottom -= U(G.tsRuleGap)
+      doc.rect(M, bottom - U(G.tsRuleH), U(G.tsRuleW), U(G.tsRuleH)).fill(hex(p.accent))
+      this.footer(brand?.name ?? null, index)
       return
     }
 
-    const top = this.header(slide.title)
-    const maxY = PAGE_H - 0.3 * PT_PER_IN
-    if (hasSide) this.picture(index, { x: PAGE_W - M - 3 * PT_PER_IN, y: top, w: 3 * PT_PER_IN, h: maxY - top }, L.missing)
+    if (slide.type === 'discussion' || slide.type === 'cta') {
+      // No header rule: the title is the kicker, the question / the ask is the slide.
+      const top = U(G.top) + 36
+      const kh = this.kick(slide.title, M, top, cw)
+      const qy = top + kh + U(G.tsKickGap)
+      const qSize = U(G.qSize), qw = cw * (G.qMaxW / 100)
+      const main = slide.type === 'discussion' ? slide.body.question : slide.body.action
+      const qKind = slide.type === 'discussion' ? 'displayItalic' as const : 'display' as const
+      const qh = this.text(main, qKind, qSize, p.ink, M, qy, qw, { maxH: this.maxLines(qKind, qSize, 3), lineGap: 0 })
+      let y = qy + qh + U(G.titleGap)
+      if (slide.type === 'discussion') {
+        this.bullets(slide.body.prompts, M, y, cw, subSize, p.ink2, BOTTOM)
+        if (hasSide) this.picture(index, { x: PAGE_W - M - 3 * PT_PER_IN, y: qy, w: 3 * PT_PER_IN, h: BOTTOM - qy }, L.missing)
+      } else {
+        y += this.bullets(slide.body.reasons, M, y, W, subSize, p.ink2, BOTTOM - (slide.body.contact ? 30 : 0))
+        if (slide.body.contact) this.text(slide.body.contact, 'bodyBold', subSize, this.theme.labelColor, M, y + 4, W, { maxH: 24 })
+      }
+      this.footer(this.talkTitle, index)
+      return
+    }
+
+    const top = this.header(slide.title, index)
+    if (hasSide) this.picture(index, { x: PAGE_W - M - 3 * PT_PER_IN, y: top, w: 3 * PT_PER_IN, h: BOTTOM - top }, L.missing)
 
     switch (slide.type) {
       case 'bullets':
-        this.bullets(slide.body.items, M, top, cw, 16, p.ink, maxY); break
+        this.bullets(slide.body.items, M, top, cw, bodySize, p.ink, BOTTOM); break
       case 'concept': {
         // Panel first, then the text on it — measured, not drawn twice.
-        const defH = this.measure(slide.body.definition, 'body', 18, cw - 20, 1.2 * PT_PER_IN)
-        doc.rect(M, top, cw, defH + 16).fill(hex(p.panel))
-        this.text(slide.body.definition, 'body', 18, p.ink, M + 10, top + 8, cw - 20, { maxH: 1.2 * PT_PER_IN })
-        this.bullets(slide.body.supporting, M, top + defH + 30, cw, 14, p.ink2, maxY); break
+        const padX = U(G.fPadX) / 2, padY = 12
+        const defH = this.measure(slide.body.definition, 'display', bodySize, cw - padX * 2, 1.2 * PT_PER_IN, 4)
+        this.panel(M, top, cw, defH + padY * 2)
+        this.text(slide.body.definition, 'display', bodySize, p.ink, M + padX, top + padY, cw - padX * 2, { maxH: 1.2 * PT_PER_IN, lineGap: 4 })
+        this.bullets(slide.body.supporting, M, top + defH + padY * 2 + U(G.fExGap), cw, subSize, p.ink2, BOTTOM); break
       }
       case 'formula': {
+        const padY = U(G.fPadY), padX = U(G.fPadX)
+        const capH = U(G.fCapSize) * 1.5
+        const reserve = slide.body.explanation ? 0.9 * PT_PER_IN + U(G.fExGap) : 0
+        const panelMax = BOTTOM - top - reserve
         const n = slide.body.formulas.length || 1
-        const reserve = slide.body.explanation ? 0.9 * PT_PER_IN : 0
-        const per = (maxY - top - reserve) / n
-        let y = top
-        for (const f of slide.body.formulas) {
+        const per = (panelMax - padY * 2) / n
+        // Measure the stack, draw the panel, then the stack on it.
+        const rows = slide.body.formulas.map((f) => {
           const r = this.prepared.formulas.get(f.latex)
-          const capH = f.caption ? 18 : 0
-          const budget = Math.max(20, per - capH - 6)
-          if (r) {
-            let w = cw * 0.85, h = w / r.aspect
-            if (h > Math.min(budget, 1.8 * PT_PER_IN)) { h = Math.min(budget, 1.8 * PT_PER_IN); w = h * r.aspect }
-            doc.image(r.buffer, M + (cw - w) / 2, y, { width: w, height: h }); y += h + 6
-          } else {
-            y += this.text(f.latex, 'body', 20, p.ink, M, y, cw, { align: 'center', maxH: budget }) + 6
-          }
-          if (f.caption) y += this.text(f.caption, 'body', 12, p.ink3, M, y, cw, { align: 'center' }) + 4
+          const ch = f.caption ? capH + U(G.fCapGap) : 0
+          const budget = Math.max(20, per - ch - 6)
+          if (r) { let w = cw - padX * 2, h = w / r.aspect; const cap = Math.min(budget, 1.6 * PT_PER_IN); if (h > cap) { h = cap; w = h * r.aspect } return { f, r, w, h, ch } }
+          return { f, r: null, w: cw - padX * 2, h: Math.min(budget, 44), ch }
+        })
+        const stackH = rows.reduce((a, x) => a + x.h + x.ch + 6, 0)
+        const panelH = Math.min(panelMax, stackH + padY * 2)
+        this.panel(M, top, cw, panelH)
+        let y = top + padY
+        for (const row of rows) {
+          if (row.r) doc.image(row.r.buffer, M + padX, y, { width: row.w, height: row.h })
+          else this.text(row.f.latex, 'display', U(G.fSize), p.ink, M + padX, y, row.w, { maxH: row.h })
+          y += row.h
+          if (row.f.caption) { y += U(G.fCapGap); this.text(row.f.caption, 'mono', U(G.fCapSize), p.ink2, M + padX, y, row.w, { maxH: capH }); y += capH }
+          y += 6
         }
-        if (slide.body.explanation) this.text(slide.body.explanation, 'body', 14, p.ink2, M, y + 6, cw, { maxH: maxY - y - 6 }); break
+        if (slide.body.explanation) { const ey = top + panelH + U(G.fExGap); this.text(slide.body.explanation, 'body', subSize, p.ink2, M, ey, cw * 0.8, { maxH: BOTTOM - ey, lineGap: this.bodyGap(subSize) }) }
+        break
       }
       case 'comparison': {
-        const cols = slide.body.columns, gap = 0.3 * PT_PER_IN
+        const cols = slide.body.columns, gap = U(G.sGap)
         const colW = (cw - gap * (cols.length - 1)) / cols.length
         cols.forEach((c, i) => {
           const x = M + i * (colW + gap)
-          doc.rect(x, top, colW, 0.5 * PT_PER_IN).fill(hex(p.panel))
-          this.text(c.header.toUpperCase(), 'bodyBold', 12, this.theme.labelColor, x, top + 12, colW, { align: 'center', maxH: 24 })
-          this.bullets(c.items, x, top + 0.6 * PT_PER_IN, colW, 12, p.ink, maxY)
+          doc.rect(x, top, colW, U(G.rule) * 1.6).fill(hex(p.ink))
+          const kh = this.kick(c.header, x, top + U(G.rule) * 1.6 + 6, colW)
+          this.bullets(c.items, x, top + U(G.rule) * 1.6 + 6 + kh + 8, colW, subSize, p.ink, BOTTOM)
         }); break
       }
       case 'diagram': {
-        const box = { x: M, y: top, w: W, h: 2.9 * PT_PER_IN }
+        const extra = (slide.body.caption ? 28 : 0) + (slide.body.points.length > 0 ? 64 : 0)
+        const box = { x: M, y: top, w: W, h: BOTTOM - top - extra }
         this.picture(index, box, slide.body.image ? L.missing : L.none(slide.body.image_query))
-        let y = box.y + box.h + 10
-        if (slide.body.caption) y += this.text(slide.body.caption, 'bodyBold', 12, p.ink, M, y, W, { align: 'center' }) + 6
-        this.bullets(slide.body.points, M, y, W, 11, p.ink2, maxY); break
-      }
-      case 'discussion': {
-        const qh = this.text(slide.body.question, 'display', 20, p.ink, M, top, cw, { maxH: 1.0 * PT_PER_IN })
-        this.bullets(slide.body.prompts, M, top + qh + 16, cw, 14, p.ink2, maxY); break
-      }
-      case 'cta': {
-        const ah = this.text(slide.body.action, 'display', 26, p.ink, M, top, W, { maxH: 1.3 * PT_PER_IN })
-        doc.rect(M, top + ah + 10, 1.1 * PT_PER_IN, 3).fill(hex(p.accent))
-        let y = top + ah + 24
-        y += this.bullets(slide.body.reasons, M, y, W, 14, p.ink2, maxY - (slide.body.contact ? 30 : 0))
-        if (slide.body.contact) this.text(slide.body.contact, 'bodyBold', 14, this.theme.labelColor, M, y + 6, W, { maxH: 24 }); break
+        let y = box.y + box.h + 8
+        if (slide.body.caption) y += this.text(slide.body.caption, 'bodyBold', subSize, p.ink, M, y, W) + 6
+        this.bullets(slide.body.points, M, y, W, subSize * 0.85, p.ink2, BOTTOM); break
       }
       case 'summary': {
-        const half = (W - 0.3 * PT_PER_IN) / 2
-        if (slide.body.takeaways.length) {
-          this.text(L.key, 'bodyBold', 11, this.theme.labelColor, M, top, half)
-          this.bullets(slide.body.takeaways, M, top + 22, half, 13, p.ink, maxY)
-        }
-        if (slide.body.next_steps.length) {
-          const x = M + half + 0.3 * PT_PER_IN
-          this.text(L.next, 'bodyBold', 11, this.theme.labelColor, x, top, half)
-          this.bullets(slide.body.next_steps, x, top + 22, half, 13, p.ink2, maxY)
+        const gap = U(G.sGap)
+        const [a, b] = G.sCols
+        const leftW = ((W - gap) * a) / (a + b), rightW = W - gap - leftW
+        const hasNext = slide.body.next_steps.length > 0
+        if (slide.body.takeaways.length) this.bullets(slide.body.takeaways, M, top, hasNext ? leftW : W, bodySize, p.ink, BOTTOM)
+        if (hasNext) {
+          const x = M + leftW + gap, padY = U(G.sPanelPadY), padX = U(G.sPanelPadX)
+          // Measure the steps to size the panel, then draw panel → kicker → steps.
+          const stepsH = slide.body.next_steps.reduce((acc, t) => acc + this.measure(t, 'body', subSize, rightW - padX * 2 - U(G.bulletIndent), undefined, this.bodyGap(subSize)) + U(G.bodyGap), 0)
+          const kickH = U(G.kickSize) * 1.6 + 8
+          const h = Math.min(BOTTOM - top, padY * 2 + kickH + stepsH)
+          this.panel(x, top, rightW, h)
+          this.kick(L.next, x + padX, top + padY, rightW - padX * 2)
+          this.bullets(slide.body.next_steps, x + padX, top + padY + kickH, rightW - padX * 2, subSize, p.ink, top + h - padY)
         }
         break
       }

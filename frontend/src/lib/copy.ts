@@ -195,7 +195,7 @@ export const copy = {
     contrast:  (theme: string, ratio: number, ok: boolean) => `${theme}: ${ratio.toFixed(1)}:1 — ${ok ? 'подписи цветом' : 'подписи тёмным'}`,
     saved:     'Сохранено',
     sampleTitle:  'Название выступления',
-    sampleLabel:  'ГЛАВНОЕ',
+    sampleLabel:  'Подзаголовок выступления',
   },
   theme: {
     label: 'Тема',

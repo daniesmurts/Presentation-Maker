@@ -198,26 +198,22 @@ bilingual; pricing shown as Free / Pro — скоро. Done: skeleton, hero
 replay (four steps: тезисы → план → выступление → слайды, the last a
 16:9 stage of the same talk in the three themes with a thumbnail strip),
 how-it-works, pricing, FAQ with JSON-LD, sitemap/robots, Caddy two-roots
-routing, web image. **Ship gate: the site must not go live before J** —
-the slides it shows are the spec, and the .pptx must match. Next: an OG image (`/og.png` is referenced,
+routing, web image. Ship gate (J) lifted 2026-09-14 — the .pptx matches. Next: an OG image (`/og.png` is referenced,
 not yet drawn); `/examples/<intent>/<audience>` from real generated talks
 (three by hand first); blog scaffold; Метрика + Webmaster verification;
 the 404 page.
 
-### J. Themes v2 — the deck must look like the landing · Effort: L · 📋
-The exporter's three themes are Georgia/Arial with a top rule and a
-footer band — plain, and the first thing a visitor judges. The landing's
-`Deck.astro` now draws the compositions the deck should have: the title
-low-left under a short accent rule with a kicker; content titles with a
-hairline under; a footer with the talk title and «01 / 05»; the formula
-in a panel with its short form in mono; the question slide as a large
-italic serif with quieter prompts; the summary as takeaways + a «Что
-дальше» panel. Port to `talkExport.ts` (pptxgenjs), `talkPdf.ts` and
-`SlideStage.tsx` from the same numbers (cqw → inches at 13.33 in), keep
-the safe faces (Georgia/Arial — a .pptx cannot embed Literata), re-check
-`slideFit` budgets against the new title sizes, and add the test that a
-theme's title slide places the title in the lower half. Then the same
-brand kit logic on top. Until J ships, the site does not deploy (I).
+### J. Themes v2 — the deck looks like the landing · Effort: L · 🟢 SHIPPED (2026-09-14)
+`shared/slideGeometry.ts` is the one source; pptx, PDF, the stage and
+the site's deck agree; verified in PowerPoint. The ship gate on I is
+lifted. Follow-ups: `Deck.astro` carries a copy of the numbers (the site
+is its own workspace) — a build step that generates its CSS from the
+shared file would remove the drift risk; the concept, comparison and
+diagram slides got the v2 header/footer but their bodies were not
+redesigned with the same care; a fourth theme (a bold, high-contrast
+one for pitches) is the next thing a designer would ask for; the brand
+logo now sits top-left on the title slide — the "logo on every slide"
+option is still open.
 
 ### The plan is built. What is next is not more building.
 Every item in CLAUDE.md §8 is shipped and deployed. The next TODO entries

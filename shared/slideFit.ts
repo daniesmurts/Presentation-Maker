@@ -25,17 +25,20 @@ export interface SlideFit {
   reason: string
 }
 
+// Themes v2 (2026-09-14): titles went 24 → 32 pt and body 16 → 18 pt
+// (shared/slideGeometry.ts), so every budget came down ~15%. Checked
+// against the landing's demo talk (five slides, all within budget) and
+// the PowerPoint render of the same deck.
 const BUDGETS: Record<Slide['type'], { chars: number; lines: number }> = {
-  // ~28pt body over ~4in of usable height, less when an image takes the right column.
-  title:      { chars: 200,  lines: 3 },
-  bullets:    { chars: 520,  lines: 7 },
-  concept:    { chars: 620,  lines: 8 },
-  formula:    { chars: 420,  lines: 6 },
-  comparison: { chars: 700,  lines: 12 },  // two columns share the width
-  diagram:    { chars: 340,  lines: 5 },   // the image takes most of the slide
-  discussion: { chars: 520,  lines: 7 },
-  cta:        { chars: 360,  lines: 5 },   // one big ask, set large
-  summary:    { chars: 620,  lines: 9 },
+  title:      { chars: 160,  lines: 3 },
+  bullets:    { chars: 440,  lines: 6 },
+  concept:    { chars: 520,  lines: 7 },
+  formula:    { chars: 360,  lines: 5 },
+  comparison: { chars: 600,  lines: 10 },  // columns share the width
+  diagram:    { chars: 300,  lines: 4 },   // the image takes most of the slide
+  discussion: { chars: 420,  lines: 6 },   // the question is set at 40 pt
+  cta:        { chars: 300,  lines: 5 },   // one big ask, set large
+  summary:    { chars: 540,  lines: 8 },
 }
 
 /** The visible text of a slide — speaker notes excluded, they are never

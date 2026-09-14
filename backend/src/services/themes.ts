@@ -23,6 +23,7 @@ export interface ThemePalette {
 export interface ThemeFonts {
   display: string   // titles
   body:    string   // everything else
+  mono:    string   // slide numbers, a formula's short form
   math:    string   // the Unicode fallback for formulas
 }
 
@@ -32,12 +33,12 @@ export interface Theme {
   palette: ThemePalette
   fonts:   ThemeFonts
   // Inches, 16:9. The one geometry a theme may vary is the margin; slide
-  // size is fixed so slideFit's budgets stay true across themes.
+  // size is fixed so slideFit's budgets stay true across themes. Every other
+  // number is shared/slideGeometry.ts — themes v2 is one composition in
+  // three palettes (the dark 'band' title of v1 is gone: the palette does
+  // the theming, the layout stays the same, and a lit room is kinder to a
+  // pale title slide anyway).
   margin:  number
-  // Title slide: 'light' keeps a white field with an accent rule (the
-  // parent's users disliked a dark slab — it is the slide projected longest,
-  // often in a lit room). 'band' draws a full accent band behind the title.
-  titleStyle: 'light' | 'band'
 }
 
 // Default — the web app's palette carried to the slide. Measured (WCAG):
@@ -51,9 +52,8 @@ export const DEFAULT_THEME: Theme = {
     bg: 'FFFFFF', panel: 'EEF3F3', ink: '16201F', ink2: '57635F', ink3: '8A9793',
     accent: '0F6E6E', accentText: 'FFFFFF', border: 'D9E0E0',
   },
-  fonts: { display: 'Georgia', body: 'Arial', math: 'Cambria Math' },
+  fonts: { display: 'Georgia', body: 'Arial', mono: 'Courier New', math: 'Cambria Math' },
   margin: 0.6,
-  titleStyle: 'light',
 }
 
 // Dark — for a dim room. Measured:
@@ -66,9 +66,8 @@ export const DARK_THEME: Theme = {
     bg: '15211F', panel: '20302D', ink: 'F4F6F7', ink2: 'C5CFCC', ink3: '9AA8A4',
     accent: '5FC4BE', accentText: '15211F', border: '2E3F3B',
   },
-  fonts: { display: 'Georgia', body: 'Arial', math: 'Cambria Math' },
+  fonts: { display: 'Georgia', body: 'Arial', mono: 'Courier New', math: 'Cambria Math' },
   margin: 0.6,
-  titleStyle: 'band',
 }
 
 // Warm — a serif, paper-toned deck for talks that want to feel considered
@@ -83,16 +82,15 @@ export const WARM_THEME: Theme = {
     bg: 'FBF8F2', panel: 'F3ECDF', ink: '1F1A14', ink2: '5C554B', ink3: '8C8378',
     accent: '8A5C06', accentText: 'FFFFFF', border: 'E2D9C8',
   },
-  fonts: { display: 'Georgia', body: 'Georgia', math: 'Cambria Math' },
-  margin: 0.7,
-  titleStyle: 'light',
+  fonts: { display: 'Georgia', body: 'Georgia', mono: 'Courier New', math: 'Cambria Math' },
+  margin: 0.6,
 }
 
 export const THEMES: Record<string, Theme> = { default: DEFAULT_THEME, dark: DARK_THEME, warm: WARM_THEME }
 
 /** For the picker: id, name, and the colours a swatch needs. */
-export function listThemes(): Array<{ id: string; name: string; bg: string; ink: string; accent: string; panel: string }> {
-  return Object.values(THEMES).map((t) => ({ id: t.id, name: t.name, bg: t.palette.bg, ink: t.palette.ink, accent: t.palette.accent, panel: t.palette.panel }))
+export function listThemes(): Array<{ id: string; name: string; bg: string; ink: string; ink2: string; accent: string; panel: string }> {
+  return Object.values(THEMES).map((t) => ({ id: t.id, name: t.name, bg: t.palette.bg, ink: t.palette.ink, ink2: t.palette.ink2, accent: t.palette.accent, panel: t.palette.panel }))
 }
 
 // ─── Brand kit → theme ──────────────────────────────────────────────────────

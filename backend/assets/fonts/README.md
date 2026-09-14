@@ -15,6 +15,11 @@ missing too. pdfkit draws a missing glyph as a tofu box with no warning, so
 `P = ρgQH` silently printed as `P = ⌷gQH` in every formula until this was
 caught by rendering a handout and looking at it.
 
+`PTSerif-Italic.ttf` (the question slide, themes v2) and `PTMono-Regular.ttf`
+(slide numbers, a formula's short form) were added 2026-09-14 from
+google/fonts `ofl/ptserif` and `ofl/ptmono` (PT_Serif-Web-Italic.ttf,
+PTM55FT.ttf) — OFL, same family as the four above.
+
 ## DejaVu Sans / DejaVu Serif — the fallback for formulas
 
 Covers Latin, Cyrillic, the full Greek alphabet, the math operators

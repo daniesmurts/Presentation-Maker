@@ -104,6 +104,28 @@ describe('slide order comes from <p:sldIdLst>, not file names', () => {
   })
 })
 
+describe('footer furniture — the slide number, the date, the footer text (hand-built, the shapes PowerPoint makes)', () => {
+  it('drops ftr/sldNum/dt placeholders and a text box parked in the bottom strip; keeps the body', async () => {
+    const JSZip = (await import('jszip')).default
+    const zip = new JSZip()
+    const sp = (t: string, extra = '', off = '') => `<p:sp><p:nvSpPr><p:cNvPr id="1" name="x"/><p:cNvSpPr/><p:nvPr>${extra}</p:nvPr></p:nvSpPr><p:spPr>${off}</p:spPr><p:txBody><a:p><a:r><a:t>${t}</a:t></a:r></a:p></p:txBody></p:sp>`
+    const xml = `<p:sld xmlns:p="p" xmlns:a="a"><p:cSld><p:spTree>${
+      sp('Заголовок', '<p:ph type="title"/>')}${
+      sp('пункт')}${
+      sp('Компания · конференция', '<p:ph type="ftr"/>')}${
+      sp('7', '<p:ph type="sldNum"/>')}${
+      sp('14.09.2026', '<p:ph type="dt"/>')}${
+      sp('02 / 03', '', '<a:xfrm><a:off x="7000000" y="4700000"/><a:ext cx="1000000" cy="200000"/></a:xfrm>')
+    }</p:spTree></p:cSld></p:sld>`
+    zip.file('ppt/presentation.xml', '<p:presentation xmlns:p="p" xmlns:r="r"><p:sldIdLst><p:sldId id="1" r:id="rA"/></p:sldIdLst></p:presentation>')
+    zip.file('ppt/_rels/presentation.xml.rels', '<Relationships><Relationship Id="rA" Target="slides/slide1.xml"/></Relationships>')
+    zip.file('ppt/slides/slide1.xml', xml)
+    const [slide] = await extractPptxSlides(await zip.generateAsync({ type: 'nodebuffer' }))
+    expect(slide.title).toBe('Заголовок')
+    expect(slide.bullets).toEqual(['пункт'])
+  })
+})
+
 describe('template furniture — the same picture on many slides (real deck, 2026-09-14)', () => {
   const png = (w: number, h: number): Buffer => {
     const buf = Buffer.alloc(33)

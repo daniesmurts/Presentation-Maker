@@ -93,7 +93,7 @@ export default function PresentPage() {
     return (
       <div className="fixed inset-0 bg-black text-white" onClick={(e) => go(e.clientX > window.innerWidth / 3 ? idx + 1 : idx - 1)}>
         <div ref={stageRef} className="absolute inset-0 flex items-center justify-center">
-          {slide && <SlideStage slide={slide} theme={theme} scale={scale} />}
+          {slide && <SlideStage slide={slide} theme={theme} scale={scale} index={idx} total={slides.length} talkTitle={talk.title} />}
         </div>
         <div className="absolute bottom-3 right-4 text-xs opacity-40 select-none">{idx + 1} / {slides.length}</div>
         <div className="absolute top-3 right-3 flex gap-2" onClick={(e) => e.stopPropagation()}>
@@ -123,7 +123,7 @@ export default function PresentPage() {
           into a sliver (seen in the first browser check). */}
       <div className="grid grid-cols-[3fr_2fr] gap-4 min-h-0 min-w-0">
         <div className="flex flex-col gap-4 min-h-0 min-w-0">
-          <div ref={stageRef} className="flex-1 min-h-0 min-w-0 overflow-hidden flex items-start justify-center">{slide && <SlideStage slide={slide} theme={theme} scale={scale} />}</div>
+          <div ref={stageRef} className="flex-1 min-h-0 min-w-0 overflow-hidden flex items-start justify-center">{slide && <SlideStage slide={slide} theme={theme} scale={scale} index={idx} total={slides.length} talkTitle={talk.title} />}</div>
           <div className="text-xs opacity-60">{copy.present.next}: {next ? next.title : '—'}</div>
         </div>
         <div className="min-h-0 min-w-0 overflow-y-auto rounded-md bg-white/5 p-5">

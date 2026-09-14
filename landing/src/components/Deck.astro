@@ -3,8 +3,10 @@
 // three themes the exporter ships, from the exporter's own palettes
 // (backend/src/services/themes.ts — keep in step). Faces are the ones a
 // .pptx can carry without embedding (Georgia / Arial), so what is drawn
-// here is what opens in PowerPoint. The compositions are the spec for the
-// exporter's themes v2: this component and talkExport.ts must agree.
+// here is what opens in PowerPoint. The numbers in the CSS below are
+// shared/slideGeometry.ts (percent of width = cqw) — the exporter, the PDF
+// and the app's stage read the same file; this one is a copy because the
+// site is a separate workspace. Change them there first.
 // Sizes are in container-query units, so the same markup is the big stage
 // and the thumbnail strip.
 import talk from '../data/demo-talk.json'
@@ -34,7 +36,8 @@ const vars = (t: typeof THEMES[number]) => `--s-bg:${t.bg};--s-panel:${t.panel};
   <div class="stage-wrap">
     {slides.map((s, i) => (
       <div class="slide" data-i={i} aria-hidden={i === 0 ? 'false' : 'true'}>
-        <div class="foot"><span class="ft">{talk.title}</span><span class="fn">{pad(i + 1)} / {pad(slides.length)}</span></div>
+        {/* The exporter puts the BRAND name on the title slide's footer, the talk's title on every other. */}
+        <div class="foot"><span class="ft">{s.type === 'title' ? '' : talk.title}</span><span class="fn">{pad(i + 1)} / {pad(slides.length)}</span></div>
         {s.type === 'title' ? (
           <div class="lay title">
             <div class="rule"></div>
@@ -64,7 +67,7 @@ const vars = (t: typeof THEMES[number]) => `--s-bg:${t.bg};--s-panel:${t.panel};
     {slides.map((s, i) => (
       <button type="button" role="tab" class="thumb" data-go={i} aria-selected={i === 0 ? 'true' : 'false'} aria-label={`Слайд ${i + 1}: ${s.title}`}>
         <div class="slide mini" aria-hidden="true">
-          <div class="foot"><span class="ft">{talk.title}</span><span class="fn">{pad(i + 1)} / {pad(slides.length)}</span></div>
+          <div class="foot"><span class="ft">{s.type === 'title' ? '' : talk.title}</span><span class="fn">{pad(i + 1)} / {pad(slides.length)}</span></div>
           {s.type === 'title' ? (
             <div class="lay title"><div class="rule"></div><div class="kick">{s.body.subtitle}</div><h3 class="h">{s.title}</h3></div>
           ) : s.type === 'discussion' ? (

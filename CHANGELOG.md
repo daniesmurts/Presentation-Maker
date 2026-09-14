@@ -33,6 +33,43 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 
 ## [Unreleased]
 
+### Changed
+- **Themes v2 — the deck looks like the landing** (TODO J). One geometry
+  file, `shared/slideGeometry.ts`, in percent-of-width units (a CSS `cqw`;
+  1 = 7.2 pt at 10 in), read by the .pptx exporter, the PDF, the React
+  stage and — as a copy, it is a separate workspace — the site's
+  `Deck.astro`. The compositions the landing showed: the title low-left
+  under a short accent rule with a kicker, the presenter under it, the
+  block anchored to the bottom; content titles at 32 pt over a hairline;
+  a footer on every slide with the talk's title (the brand name on the
+  title slide) and «01 / 05» in mono; the formula in a rounded panel with
+  its short form in mono under it; the question slide as a 40 pt italic
+  serif with the slide's title as the kicker; the summary as takeaways +
+  a «Что дальше» panel; comparison columns under a rule instead of a
+  boxed header. The dark theme's title band is gone — one composition,
+  three palettes. Faces stay Georgia / Arial / Courier New in the .pptx
+  (nothing can be embedded); PT Serif Italic and PT Mono vendored for the
+  PDF (google/fonts, OFL).
+  - **Verified against the real files** (§3.10): the landing's demo talk
+    rendered through both exporters in all three themes, the PDF
+    rasterised with pdftoppm, the .pptx exported to PDF by PowerPoint
+    itself via AppleScript. Three things only the render showed: (1) the
+    PDF's leading was doubled — pdfkit's natural line height for PT is
+    already ≈1.3× and a lineGap of 0.35× on top pushed a five-bullet
+    summary off the page; the gap is now the difference to the target
+    (a point or two), titles take PT's own leading; (2) PowerPoint set
+    the demo title in three lines where the estimator said two, and the
+    title climbed into the rule — average Cyrillic glyph width is ≈0.55×
+    the size, not 0.5; (3) the «Что дальше» panel was sized for one line
+    per step — it now estimates lines per step. `slideFit` budgets came
+    down ~15% for the larger type; a test asserts the title sits in the
+    lower half and every slide carries «NN / NN».
+  - **Importer**: a deck's footer, date and slide-number placeholders, and
+    any text box parked in the bottom 14% of the slide, are furniture and
+    are skipped — importing our own deck read «02 / 03» back as a bullet
+    on every slide, and a real PowerPoint deck's footers would have done
+    the same. Hand-built fixture with all four shapes.
+
 ### Added
 - **Public site skeleton and hero** (`landing/`, TODO I). Astro, static
   HTML — the SPA is invisible to Yandex, and the first customers search
