@@ -3,6 +3,34 @@
 Engineering log — what changed and, above all, *why*. Dated sections are
 dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
 
+## [0.1.0] — 2026-09-14
+
+First production deploy: https://tezarium.ru, one Yandex Cloud VM (2 vCPU
+50% / 4 GB), Postgres on the VM (compose profile `local-db`), Object
+Storage for media, images in Yandex Container Registry, Caddy for TLS.
+`0.1.0 (2026-09-14+48c2590)` on both API replicas and the bundle.
+
+### Deploy day
+- **Two bugs the first real deploy found.** (1) The CI images job read
+  `${{ secrets.REGISTRY_PASSWORD }}` inline in a shell `if`; the value is
+  a JSON key full of double quotes, so the test silently failed and every
+  run said "not configured" with all four secrets present — secrets now
+  go through `env`. (2) `IMAGE_REPO` had a stale registry id ("Registry
+  … not found" on push) — fixed by setting the secret to the exact value.
+- **SSH from the founding machine is flaky over the home network + VPN**
+  (kex closed / SYN timeouts, alternating with VPN on/off; the ИСПУМ host
+  showed the same). Off-VPN works. `deploy.sh` lost its step [6/7] to one
+  such drop after everything had already succeeded; the checks were
+  repeated from the public side. Steps are idempotent, re-running is safe.
+- **Yandex specifics recorded**: burstable database classes exist only on
+  Broadwell/Cascade Lake (`b2.*`), not Ice Lake; the cluster form
+  pre-fills two hosts, doubling the quote; a VM's internal 10.x address
+  is not reachable from outside.
+- **Verified on production**: migrations 001–007 applied by the one-shot
+  container; register → generate (ready in 9 s) → image upload (201 to
+  the bucket) → `.pptx` export (200, 70 KB). Certificate issued by Caddy
+  on first start.
+
 ## [Unreleased]
 
 ### Added
