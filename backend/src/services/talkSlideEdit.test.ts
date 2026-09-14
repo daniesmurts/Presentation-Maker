@@ -12,7 +12,11 @@ const TALK: Talk = {
   slides: [bullets('a', ['1']), bullets('b', ['2']), bullets('c', ['3']), bullets('d', ['4'])], sources: [], approved_at: null, created_at: '', updated_at: '',
 }
 
-beforeEach(() => vi.mocked(chatJSON).mockReset())
+// Braces, not an expression body: mockReset() returns the mock, and vitest
+// treats a function RETURNED from a hook as a cleanup to call afterwards —
+// which called chatJSON() with no arguments and broke a mockImplementation
+// that read its messages (2026-09-14).
+beforeEach(() => { vi.mocked(chatJSON).mockReset() })
 
 describe('applySlideMove — splice semantics, not swap', () => {
   const s = TALK.slides!
@@ -78,5 +82,25 @@ describe('regenerateSlide', () => {
     expect(await regenerateSlide({ talk: TALK, slideIdx: 99 })).toBeNull()
     vi.mocked(chatJSON).mockResolvedValueOnce({ slides: [] })
     expect(await regenerateSlide({ talk: TALK, slideIdx: 0 })).toBeNull()
+  })
+})
+
+describe('rewriteTalk — the per-slide rewrite, looped', () => {
+  it('rewrites every slide in batches with the instruction, keeps types and titles, keeps alignment on a short answer', async () => {
+    const talk = { ...TALK, slides: Array.from({ length: 7 }, (_, i) => bullets(`s${i}`, [`old ${i}`])) }
+    vi.mocked(chatJSON).mockImplementation(async (messages) => {
+      const user = messages[1].content
+      const titles = [...user.matchAll(/^\d+\. \[bullets\] (s\d+)$/gm)].map((m) => m[1])
+      // Second batch answers one slide short — that slide must keep its original.
+      const answer = titles.length === 5 ? titles : titles.slice(0, -1)
+      return { slides: answer.map((t) => ({ type: 'bullets', title: t, notes: 'n', body: { items: ['new'] } })) }
+    })
+    const { rewriteTalk } = await import('./talks')
+    const out = await rewriteTalk(talk, 'формальнее')
+    expect(vi.mocked(chatJSON)).toHaveBeenCalledTimes(2)   // 5 + 2
+    expect(out.map((s) => s.title)).toEqual(talk.slides.map((s) => s.title))
+    expect(out.slice(0, 6).every((s) => (s as { body: { items: string[] } }).body.items[0] === 'new')).toBe(true)
+    expect((out[6] as { body: { items: string[] } }).body.items[0]).toBe('old 6')
+    expect(vi.mocked(chatJSON).mock.calls[0][0][1].content).toContain('формальнее')
   })
 })

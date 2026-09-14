@@ -224,7 +224,9 @@ export interface TalkJob {
   id:            string
   talk_id:       string | null
   status:        TalkJobStatus
+  kind:          'generate' | 'rewrite'
   outline:       OutlineSlide[] | null
+  proposal:      Slide[] | null
   error_message: string | null
   created_at:    string
   updated_at:    string

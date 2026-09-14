@@ -7,7 +7,7 @@ import { NotFoundError, ValidationError } from '../errors/AppError'
 import { getJobQueue } from '../services/jobQueue'
 import { TALK_JOB_QUEUE, type TalkJobPayload } from '../services/talkJobWorker'
 import { normaliseEditedOutline, normaliseEditedSlide, regenerateSlide, applySlideMove, type GenerateParams } from '../services/talks'
-import { createTalkJob, getTalkJobById, confirmTalkJobOutline, type TalkJobRow } from '../db/queries/talkJobs'
+import { createTalkJob, getTalkJobById, confirmTalkJobOutline, createRewriteJob, clearRewriteProposal, type TalkJobRow } from '../db/queries/talkJobs'
 import { findTalkById, listTalks, deleteTalk, replaceSlides, countTalksThisMonth, createTalk, setShareToken } from '../db/queries/talks'
 import { recordTalkEvent } from '../db/queries/talkEvents'
 import { generateTalkPptx } from '../services/talkExport'
@@ -99,8 +99,10 @@ function toJobResponse(job: TalkJobRow) {
   return {
     id:            job.id,
     status:        job.status,
+    kind:          job.kind,
     talk_id:       job.talk_id,
     outline:       job.outline,
+    proposal:      job.proposal,
     error_message: job.error_message,
     created_at:    job.created_at,
     updated_at:    job.updated_at,
@@ -230,6 +232,25 @@ talksRouter.patch('/:id/slides/:idx', asyncHandler(async (req, res) => {
   if (!edited) throw new ValidationError('Некорректные данные слайда')
   if (!talk.notes_enabled) edited.notes = ''
   res.json({ talk: await persist(talk, slides.map((s, i) => (i === idx ? edited : s)), req.user.workspace_id) })
+}))
+
+// PUT /api/talks/:id/slides { slides } — replace the whole array, each slide
+// through the same coercion boundary as a single edit. Exists for the undo
+// of a deck-level rewrite; a client should not use it for ordinary edits
+// (the per-slide routes are what keep concurrent edits from clobbering).
+talksRouter.put('/:id/slides', asyncHandler(async (req, res) => {
+  const talk = await findTalkById(req.params.id, req.user.workspace_id)
+  if (!talk?.slides) throw new NotFoundError('Выступление не найдено')
+  const raw = (req.body as { slides?: unknown })?.slides
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > MAX_SLIDE_COUNT) throw new ValidationError('Некорректные данные слайдов')
+  const slides: Slide[] = []
+  for (const r of raw) {
+    const s = normaliseEditedSlide(r, talk.sources ?? [], talk.language)
+    if (!s) throw new ValidationError('Некорректные данные слайда')
+    if (!talk.notes_enabled) s.notes = ''
+    slides.push(s)
+  }
+  res.json({ talk: await persist(talk, slides, req.user.workspace_id) })
 }))
 
 // POST /api/talks/:id/slides/:idx/regenerate  { instruction? } — one call,
@@ -398,6 +419,46 @@ talksRouter.get('/:id/export.pdf', asyncHandler(async (req, res) => {
     talkId: talk.id, workspaceId: req.user.workspace_id, userId: req.user.id, event: 'exported', format: 'pdf',
     metadata: { slides: (selection ?? talk.slides).length, of: talk.slides.length, theme: talk.theme_id, notes },
   })
+}))
+
+// ─── Deck-level rewrite ─────────────────────────────────────────────────────
+
+// POST /api/talks/:id/rewrite { instruction } → a job. Same limiter and cap
+// as generation: it is one call per five slides.
+talksRouter.post('/:id/rewrite', generationLimiter, asyncHandler(async (req, res) => {
+  const talk = await findTalkById(req.params.id, req.user.workspace_id)
+  if (!talk?.slides?.length) throw new NotFoundError('Выступление не найдено')
+  const raw = (req.body as { instruction?: unknown })?.instruction
+  const instruction = typeof raw === 'string' ? raw.trim().slice(0, 500) : ''
+  if (!instruction) throw new ValidationError('Напишите, что изменить во всём выступлении')
+  await checkSpendCap(req.user.workspace_id)
+  const job = await createRewriteJob({ talkId: talk.id, instruction, userId: req.user.id, workspaceId: req.user.workspace_id })
+  await getJobQueue().send(TALK_JOB_QUEUE, { jobId: job.id, stage: 'rewrite' } satisfies TalkJobPayload)
+  res.status(202).json(toJobResponse(job))
+}))
+
+// POST /api/talks/:id/rewrite/:jobId/apply { accept: number[] } — write the
+// accepted slides from the proposal, keep the rest. The proposal is then
+// gone; the previous slides come back in the response for a one-step undo.
+talksRouter.post('/:id/rewrite/:jobId/apply', asyncHandler(async (req, res) => {
+  const talk = await findTalkById(req.params.id, req.user.workspace_id)
+  if (!talk?.slides) throw new NotFoundError('Выступление не найдено')
+  const job = await getTalkJobById(req.params.jobId, req.user.workspace_id)
+  if (!job || job.kind !== 'rewrite' || job.talk_id !== talk.id || !job.proposal) throw new NotFoundError('Предложение не найдено')
+  const acceptRaw = (req.body as { accept?: unknown })?.accept
+  const accept = new Set(Array.isArray(acceptRaw) ? acceptRaw.map(Number).filter((n) => Number.isInteger(n) && n >= 0) : [])
+  // The talk may have been edited since the proposal was made; only
+  // positions that still exist on both sides are replaced.
+  const next = talk.slides.map((s, i) => (accept.has(i) && job.proposal![i] ? job.proposal![i] : s))
+  const before = talk.slides
+  const updated = await persist(talk, next, req.user.workspace_id)
+  await clearRewriteProposal(job.id, req.user.workspace_id)
+  res.json({ talk: updated, before })
+}))
+
+talksRouter.delete('/:id/rewrite/:jobId', asyncHandler(async (req, res) => {
+  await clearRewriteProposal(req.params.jobId, req.user.workspace_id)
+  res.status(204).end()
 }))
 
 // ─── Sharing ────────────────────────────────────────────────────────────────

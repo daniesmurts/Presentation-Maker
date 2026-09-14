@@ -61,3 +61,9 @@ export const setTalkTheme = (id: string, theme_id: string) => client.patch<{ tal
 export const shareTalk   = (id: string) => client.post<{ talk: Talk; share_url: string }>(`/api/talks/${id}/share`).then((r) => r.data)
 export const unshareTalk = (id: string) => client.delete<{ talk: Talk }>(`/api/talks/${id}/share`).then(unwrap)
 export const getSharedTalk = (token: string) => client.get<{ talk: SharedTalk; themes: unknown[] }>(`/api/shared/${token}`).then((r) => r.data.talk)
+
+// ─── Deck-level rewrite ─────────────────────────────────────────────────────
+export const startRewrite = (id: string, instruction: string) => client.post<TalkJob>(`/api/talks/${id}/rewrite`, { instruction }).then((r) => r.data)
+export const applyRewrite = (id: string, jobId: string, accept: number[]) => client.post<{ talk: Talk; before: Slide[] }>(`/api/talks/${id}/rewrite/${jobId}/apply`, { accept }).then((r) => r.data)
+export const replaceTalkSlides = (id: string, slides: Slide[]) => client.put<{ talk: Talk }>(`/api/talks/${id}/slides`, { slides }).then(unwrap)
+export const dismissRewrite = (id: string, jobId: string) => client.delete(`/api/talks/${id}/rewrite/${jobId}`).then(() => undefined)

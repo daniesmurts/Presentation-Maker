@@ -1,5 +1,5 @@
 import { pool } from '../connection'
-import type { TalkJobStatus, OutlineSlide } from '../../../../shared/types'
+import type { TalkJobStatus, OutlineSlide, Slide } from '../../../../shared/types'
 import type { GenerateParams } from '../../services/talks'
 
 export interface TalkJobRow {
@@ -12,6 +12,8 @@ export interface TalkJobRow {
   // outline — the client cannot swap the brief between the two halves of
   // one generation.
   request:       GenerateParams
+  kind:          'generate' | 'rewrite'
+  proposal:      Slide[] | null
   outline:       OutlineSlide[] | null
   error_message: string | null
   attempts:      number
@@ -25,6 +27,25 @@ export async function createTalkJob(params: GenerateParams): Promise<TalkJobRow>
     [params.workspaceId, params.userId, JSON.stringify(params)],
   )
   return rows[0]
+}
+
+export interface RewriteRequest { talkId: string; instruction: string; userId: string; workspaceId: string }
+
+export async function createRewriteJob(req: RewriteRequest): Promise<TalkJobRow> {
+  const { rows } = await pool.query<TalkJobRow>(
+    `INSERT INTO talk_jobs (workspace_id, user_id, talk_id, kind, request) VALUES ($1, $2, $3, 'rewrite', $4) RETURNING *`,
+    [req.workspaceId, req.userId, req.talkId, JSON.stringify(req)],
+  )
+  return rows[0]
+}
+
+export async function completeRewriteJob(id: string, proposal: Slide[]): Promise<void> {
+  await pool.query(`UPDATE talk_jobs SET status = 'ready', proposal = $2, updated_at = NOW() WHERE id = $1`, [id, JSON.stringify(proposal)])
+}
+
+/** The proposal is consumed once: applied or dismissed, the row loses it. */
+export async function clearRewriteProposal(id: string, workspaceId: string): Promise<void> {
+  await pool.query(`UPDATE talk_jobs SET proposal = NULL, updated_at = NOW() WHERE id = $1 AND workspace_id = $2`, [id, workspaceId])
 }
 
 export async function getTalkJobById(id: string, workspaceId: string): Promise<TalkJobRow | null> {

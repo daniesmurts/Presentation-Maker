@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Trash2, Download, Plus, Link2, Check, ChevronDown, Copy, Play } from 'lucide-react'
-import { getTalk, deleteTalk, updateSlide, regenerateSlide, deleteSlide, insertSlide, moveSlide, uploadSlideImage, removeSlideImage, setTalkTheme, shareTalk, unshareTalk } from '../api/talks'
+import { Trash2, Download, Plus, Link2, Check, ChevronDown, Copy, Play, Wand2 } from 'lucide-react'
+import { getTalk, deleteTalk, updateSlide, regenerateSlide, deleteSlide, insertSlide, moveSlide, uploadSlideImage, removeSlideImage, setTalkTheme, shareTalk, unshareTalk, startRewrite, applyRewrite, dismissRewrite, replaceTalkSlides, getJob } from '../api/talks'
+import RewriteReview from '../components/talks/RewriteReview'
 import { remapAfterMove, remapAfterDelete, remapAfterInsert, toSlideNumbers, rangeBetween } from '../lib/slideSelection'
 import { getBrand } from '../api/brand'
 import { inputClass } from '../components/ui/Field'
@@ -43,13 +44,23 @@ export default function TalkPage() {
   const [anchor, setAnchor] = useState<number | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  // Deck-level rewrite: an instruction box → a job → a proposal to review.
+  const [rewriteOpen, setRewriteOpen] = useState(false)
+  const [instruction, setInstruction] = useState('')
+  const [rewriteJob, setRewriteJob] = useState<string | null>(null)
+  const [beforeRewrite, setBeforeRewrite] = useState<Slide[] | null>(null)
+  const { data: rewrite } = useQuery({
+    queryKey: ['job', rewriteJob], queryFn: () => getJob(rewriteJob!), enabled: Boolean(rewriteJob),
+    refetchInterval: (q) => (q.state.data?.status === 'pending' || q.state.data?.status === 'processing' ? 2000 : false),
+    refetchIntervalInBackground: true,
+  })
 
   const apply = (updated: Talk) => qc.setQueryData(['talk', id], updated)
   async function run(fn: () => Promise<Talk>, clearsPrevious = true) {
     setBusy(true)
     try {
       apply(await fn())
-      if (clearsPrevious) setPrevious(new Map())
+      if (clearsPrevious) { setPrevious(new Map()); setBeforeRewrite(null) }
     } catch (err) {
       toast(errorMessage(err), 'error')
     } finally {
@@ -80,6 +91,19 @@ export default function TalkPage() {
     onUpload:      (idx, file) => void run(() => uploadSlideImage(id, idx, file), false),
     onRemoveImage: (idx) => void run(() => removeSlideImage(id, idx), false),
   }
+  async function beginRewrite() {
+    if (!instruction.trim()) return
+    setBusy(true)
+    try { const job = await startRewrite(id, instruction.trim()); setRewriteJob(job.id); setRewriteOpen(false) }
+    catch (err) { toast(errorMessage(err), 'error') } finally { setBusy(false) }
+  }
+  async function acceptRewrite(accept: number[]) {
+    if (!rewriteJob) return
+    // clearsPrevious=false: `run` would otherwise wipe the undo snapshot it just set.
+    await run(async () => { const r = await applyRewrite(id, rewriteJob, accept); setBeforeRewrite(r.before); return r.talk }, false)
+    toast(copy.rewrite.applied(accept.length), 'success'); setRewriteJob(null); setInstruction('')
+  }
+  function dismiss() { if (rewriteJob) void dismissRewrite(id, rewriteJob).catch(() => null); setRewriteJob(null) }
   const insertAfter = (idx: number) => void run(() => insertSlide(id, idx)).then(() => setSelected((s) => remapAfterInsert(s, idx)))
 
   function toggleSelect(idx: number, opts: { range: boolean }) {
@@ -136,6 +160,9 @@ export default function TalkPage() {
             </select>
           </label>
         )}
+        <Button variant="ghost" size="md" onClick={() => setRewriteOpen((o) => !o)} disabled={busy || Boolean(rewriteJob)} title={copy.rewrite.lead} aria-label={copy.rewrite.button}>
+          <Wand2 className="w-4 h-4" aria-hidden /> <span className="hidden lg:inline">{copy.rewrite.button}</span>
+        </Button>
         <Link to={`/talks/${id}/present`} title={copy.present.hint}
               className="h-10 px-3 inline-flex items-center gap-1.5 rounded-md text-sm font-medium bg-accent-light text-accent hover:bg-accent hover:text-white flex-shrink-0">
           <Play className="w-4 h-4" aria-hidden /> <span className="hidden md:inline">{copy.present.button}</span>
@@ -183,6 +210,32 @@ export default function TalkPage() {
         </Button>
       </header>
 
+      {rewriteOpen && !rewriteJob && (
+        <form className="bg-surface border border-border rounded-lg p-4 space-y-2" onSubmit={(e) => { e.preventDefault(); void beginRewrite() }}>
+          <label htmlFor="rw" className="block text-sm font-medium text-ink">{copy.rewrite.title}</label>
+          <p className="text-xs text-ink-secondary max-w-[70ch]">{copy.rewrite.lead}</p>
+          <div className="flex gap-2">
+            <input id="rw" value={instruction} onChange={(e) => setInstruction(e.target.value)} placeholder={copy.rewrite.placeholder} maxLength={500} className={inputClass} autoFocus />
+            <Button type="submit" loading={busy} disabled={!instruction.trim()}>{copy.rewrite.start}</Button>
+          </div>
+        </form>
+      )}
+      {rewriteJob && rewrite && (rewrite.status === 'pending' || rewrite.status === 'processing') && (
+        <div className="bg-surface border border-border rounded-lg p-4 flex items-center gap-3"><Spinner /><span className="text-sm text-ink-secondary">{copy.rewrite.working}</span></div>
+      )}
+      {rewriteJob && rewrite?.status === 'failed' && (
+        <div className="bg-surface border border-border rounded-lg p-4 flex items-center gap-3"><p role="alert" className="text-sm text-danger">{rewrite.error_message}</p><Button size="sm" variant="ghost" onClick={dismiss}>{copy.rewrite.dismiss}</Button></div>
+      )}
+      {rewriteJob && rewrite?.status === 'ready' && rewrite.proposal && (
+        <RewriteReview current={slides} proposal={rewrite.proposal} language={talk.language} busy={busy} onApply={(a) => void acceptRewrite(a)} onDismiss={dismiss} />
+      )}
+      {beforeRewrite && !rewriteJob && (
+        // One-step undo of the applied rewrite: the previous array, held in
+        // memory, written back through the same boundary (§5: no history).
+        <div className="flex items-center gap-3 text-sm text-ink-secondary">
+          <Button size="sm" variant="ghost" onClick={() => { const b = beforeRewrite; setBeforeRewrite(null); void run(() => replaceTalkSlides(id, b)).then(() => toast(copy.rewrite.undone, 'success')) }}>{copy.rewrite.undo}</Button>
+        </div>
+      )}
       <div className="space-y-4">
         {slides.map((s, i) => (
           <div key={i} className="group">

@@ -992,3 +992,42 @@ export function applySlideMove(slides: Slide[], from: number, to: number): Slide
   next.splice(to, 0, moved)
   return next
 }
+
+// ─── Deck-level rewrite ─────────────────────────────────────────────────────
+//
+// «Сделай всё формальнее»: the per-slide rewrite, looped — batches of
+// EXPANSION_BATCH_SIZE through the same expansion prompt, every slide its
+// own brief, the instruction applied to all. Types and titles stay; only
+// content and notes move. Returns the proposal; the caller persists it on
+// the job and the user decides per slide (CLAUDE.md §5.7: a loop with a
+// diff view — the diff is the product, not the loop).
+
+export async function rewriteTalk(talk: Talk, instruction: string): Promise<Slide[]> {
+  const slides = talk.slides ?? []
+  const params = paramsFromTalk(talk)
+  const L = COPY[params.language]
+  const context = callContextFor(params, 'slide_edit')
+  const validIdx = new Set((talk.sources ?? []).map((s) => s.idx))
+  const batches = chunkArray(slides.map((s, i) => ({ s, i })), EXPANSION_BATCH_SIZE)
+
+  const rewritten = await mapWithConcurrency(batches, EXPANSION_CONCURRENCY, async (batch) => {
+    const specs: OutlineSlide[] = batch.map(({ s }) => ({ type: s.type, title: s.title, brief: briefFromSlide(s, params.language, instruction) }))
+    const raw = await chatJSON<{ slides: unknown[] }>(
+      [
+        { role: 'system', content: L.expansionSystem(params) },
+        { role: 'user',   content: buildExpansionPrompt(specs, params, instruction) },
+      ],
+      'slides',
+      { context, maxTokens: expansionBatchMaxTokens(batch.length, params.language, params.notesEnabled) },
+    )
+    const out = normaliseSlides(raw?.slides, validIdx, params.language, params.notesEnabled)
+    // Keep the batch aligned by position; a short answer keeps the originals.
+    return batch.map(({ s }, k) => {
+      const next = out[k]
+      if (!next || next.type !== s.type) return s
+      const existingImage = s.type === 'diagram' ? s.body.image : s.image
+      return existingImage && !hasSlideImage(next) ? withSlideImage(next, existingImage) : next
+    })
+  })
+  return rewritten.flat()
+}

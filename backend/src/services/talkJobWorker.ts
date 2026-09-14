@@ -4,11 +4,11 @@
 // decks generate at once.
 
 import type PgBoss from 'pg-boss'
-import { generateTalk, planTalk, expandTalk, type GenerateParams } from './talks'
-import { createTalk } from '../db/queries/talks'
+import { generateTalk, planTalk, expandTalk, rewriteTalk, type GenerateParams } from './talks'
+import { createTalk, findTalkById } from '../db/queries/talks'
 import {
   getTalkJobByIdUnscoped, setTalkJobProcessing, setTalkJobOutlineReady,
-  completeTalkJob, failTalkJob, expireStaleTalkOutlines,
+  completeTalkJob, failTalkJob, expireStaleTalkOutlines, completeRewriteJob, type RewriteRequest,
 } from '../db/queries/talkJobs'
 import { scheduleWithLease } from './schedulerLease'
 import { logger } from '../lib/logger'
@@ -24,7 +24,7 @@ export const TALK_JOB_QUEUE = 'talk-job'
 // One queue with a stage discriminator: the concurrency ceiling that
 // matters is "decks generating at once", and two queues would each need
 // their own share of it.
-export type TalkJobStage = 'full' | 'outline' | 'expand'
+export type TalkJobStage = 'full' | 'outline' | 'expand' | 'rewrite'
 
 export interface TalkJobPayload {
   jobId: string          // talk_jobs row id (NOT the pg-boss job id)
@@ -68,6 +68,16 @@ export async function registerTalkJobWorker(boss: PgBoss): Promise<void> {
         const existing = await getTalkJobByIdUnscoped(jobId)
         if (!existing || existing.status === 'ready') return
         if (stage === 'outline' && existing.status === 'outline_ready') return
+
+        if (stage === 'rewrite') {
+          // Deck-level rewrite: N calls, ends in a proposal on the row.
+          const req = existing.request as unknown as RewriteRequest
+          const talk = await findTalkById(req.talkId, req.workspaceId)
+          if (!talk?.slides) throw new ValidationError('Выступление не найдено')
+          await setTalkJobProcessing(jobId)
+          await completeRewriteJob(jobId, await rewriteTalk(talk, req.instruction))
+          return
+        }
 
         // The request is read from the row, never from the message: the
         // row is what the route validated, and it is what the sweep clears.
