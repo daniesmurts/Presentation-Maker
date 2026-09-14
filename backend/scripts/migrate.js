@@ -17,7 +17,11 @@ const path     = require('path')
 async function migrate(connectionString = process.env.DATABASE_URL) {
   if (!connectionString) throw new Error('DATABASE_URL is not set')
 
-  const pool = new Pool({ connectionString })
+  // Same TLS rule as src/db/connection.ts — the migrate one-shot runs in
+  // the same container with the same env.
+  const caPath = process.env.DATABASE_SSL_CA
+  const ssl = caPath ? { ca: fs.readFileSync(caPath, 'utf8'), rejectUnauthorized: true } : undefined
+  const pool = new Pool({ connectionString, ssl })
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS migrations (

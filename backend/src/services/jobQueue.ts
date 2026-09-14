@@ -17,6 +17,7 @@
 import PgBoss from 'pg-boss'
 import { logger } from '../lib/logger'
 import { config } from '../lib/config'
+import { databaseSsl } from '../db/connection'
 
 let boss: PgBoss | null = null
 
@@ -24,6 +25,7 @@ export async function startJobQueue(): Promise<PgBoss> {
   if (boss) return boss
   const instance = new PgBoss({
     connectionString: config.db.url,
+    ssl: databaseSsl(),
     // Small pool — it polls; it must not eat into DB_POOL_MAX's budget.
     max: 4,
   })

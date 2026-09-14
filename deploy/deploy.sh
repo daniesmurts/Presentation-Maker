@@ -52,7 +52,7 @@ ssh "$VM_HOST" "set -e; for img in ${IMAGE_REPO}-api:${IMAGE_TAG} ${IMAGE_REPO}-
 
 # ── [3/7] Sync compose + Caddyfile ──────────────────────────────────────────
 echo "▶ [3/7] Syncing compose file → ${VM_HOST}:${APP_DIR}"
-ssh "$VM_HOST" "mkdir -p ${APP_DIR}/uploads"
+ssh "$VM_HOST" "mkdir -p ${APP_DIR}/uploads ${APP_DIR}/certs"
 scp -q deploy/docker-compose.yml "${VM_HOST}:${APP_DIR}/docker-compose.yml"
 
 # ── [4/7] Pull, migrate, rolling restart ────────────────────────────────────

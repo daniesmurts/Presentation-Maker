@@ -29,6 +29,8 @@ x-api: &api
     # Local-disk fallback for uploads when STORAGE_* is unset. Both replicas
     # mount the SAME host path — they are stateless siblings.
     - ./uploads:/app/uploads
+    # The managed database's CA (DATABASE_SSL_CA=/app/certs/root.crt in .env).
+    - ./certs:/app/certs:ro
 
 services:
   api:
@@ -58,6 +60,8 @@ services:
   migrate:
     image: ${IMAGE_REPO}-api:${IMAGE_TAG}
     env_file: .env
+    volumes:
+      - ./certs:/app/certs:ro
     profiles: ["tools"]
     command: ["node", "scripts/migrate.js"]
 
