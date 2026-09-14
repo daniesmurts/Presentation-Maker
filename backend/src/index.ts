@@ -6,6 +6,10 @@ import { config } from './lib/config'
 import { logger } from './lib/logger'
 import { pool } from './db/connection'
 import { AppError } from './errors/AppError'
+import { authRouter } from './routes/auth'
+import { talksRouter } from './routes/talks'
+import { startJobQueue, stopJobQueue } from './services/jobQueue'
+import { registerTalkJobWorker, startTalkOutlineSweeper } from './services/talkJobWorker'
 
 const app = express()
 
@@ -27,7 +31,8 @@ app.get('/health', async (_req, res) => {
   }
 })
 
-// Routes mount here (TODO A.1: /api/talks).
+app.use('/api/auth',  authRouter)
+app.use('/api/talks', talksRouter)
 
 app.use((_req, res) => {
   res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Не найдено' } })
@@ -44,6 +49,29 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
   res.status(500).json({ error: { code: 'INTERNAL', message: 'Что-то пошло не так. Попробуйте ещё раз.' } })
 })
 
-app.listen(config.port, () => {
-  logger.info({ message: `Tezarium backend listening on :${config.port}`, env: config.nodeEnv, mode: config.deploymentMode })
+async function main(): Promise<void> {
+  // The worker runs in the API process for now — one deployable. Split it
+  // out when generation load and request load need to scale separately.
+  const boss = await startJobQueue()
+  await registerTalkJobWorker(boss)
+  startTalkOutlineSweeper()
+
+  const server = app.listen(config.port, () => {
+    logger.info({ message: `Tezarium backend listening on :${config.port}`, env: config.nodeEnv, mode: config.deploymentMode })
+  })
+
+  const shutdown = async (signal: string) => {
+    logger.info({ message: `Shutting down (${signal})` })
+    server.close()
+    await stopJobQueue().catch(() => null)
+    await pool.end().catch(() => null)
+    process.exit(0)
+  }
+  process.on('SIGTERM', () => void shutdown('SIGTERM'))
+  process.on('SIGINT',  () => void shutdown('SIGINT'))
+}
+
+main().catch((err) => {
+  logger.error({ message: 'Failed to start', error: (err as Error).stack ?? String(err) })
+  process.exit(1)
 })

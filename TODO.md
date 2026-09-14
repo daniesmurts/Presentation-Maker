@@ -50,7 +50,7 @@ spent four months finding out where they were wrong (CLAUDE.md §3 is the list).
   Done when: `npm test` green on the ported suites, `tsc` clean, a
   `/health` route answers.
 
-- **Phase 1 — Generate → outline gate → expand, as a job.** Effort M.
+- **Phase 1 — Generate → outline gate → expand, as a job.** Effort M. 🟢 SHIPPED (2026-09-14)
   Port `presentations.ts` (`planPresentation`, `expandPresentation`,
   the three `normalise*` functions, batch 5 / concurrency 3), the
   `presentationJobWorker.ts` + `jobQueue.ts` (pg-boss, terminal failure only on
@@ -108,6 +108,15 @@ spent four months finding out where they were wrong (CLAUDE.md §3 is the list).
   Spend cap per workspace in the registry; rate limit on `POST /talks`;
   `usage_log` written per LLM call; the full suite + tsc green in CI; the
   four source-of-truth files honest (FEATURES marks 🚧/📋 correctly).
+
+- **Follow-up from the first eval run (2026-09-14) — notes run short.**
+  The prompt asks for 180–220 words; the model writes 145–158 on average
+  and 79–88% of slides fall under the floor (see CHANGELOG). The parent hit
+  the same wall and fixed it with per-batch expansion — which we already
+  have — so the next lever is the prompt itself (a worked example of the
+  length, or a per-slide word count in the plan). Not urgent: nobody has
+  read a deck yet. Do it after Phase 2, when a human can judge whether
+  150 words is actually too short for a talk (it was for a lecture).
 
 **Explicitly not in A** (each is its own entry below): images (B), deploy
 (C), `.pptx` import (D), brand kit + themes (E), PDF / share link / partial

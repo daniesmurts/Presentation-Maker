@@ -14,8 +14,11 @@ export interface ChatMessage {
 export type Feature = 'talk_outline' | 'talk_expand' | 'slide_edit'
 
 export interface CallContext {
-  userId:      string
-  workspaceId: string
+  // Both optional: an offline eval run has no user, and usage_log's columns
+  // are nullable for exactly that row. (Found the first time the eval ran —
+  // a placeholder 'eval' id failed the UUID cast and every row was lost.)
+  userId?:     string
+  workspaceId?: string
   feature:     Feature
   // A sub-dimension within a feature (e.g. language 'ru' | 'en'). Flows
   // straight through to usage_log.variant.

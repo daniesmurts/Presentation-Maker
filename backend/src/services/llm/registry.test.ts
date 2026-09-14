@@ -100,7 +100,7 @@ describe('registry', () => {
     registerWorkspaceResolver(async (id) => (id === 'w-yandex' ? 'yandex' : null))
     otherChatMock.mockResolvedValueOnce('from yandex')
     deepseekChatMock.mockResolvedValueOnce('from deepseek')
-    const ctx = { userId: 'u', feature: 'talk_outline' as const }
+    const ctx = { feature: 'talk_outline' as const }
     await expect(chat([{ role: 'user', content: 'hi' }], { context: { ...ctx, workspaceId: 'w-yandex' } })).resolves.toBe('from yandex')
     await expect(chat([{ role: 'user', content: 'hi' }], { context: { ...ctx, workspaceId: 'w-other' } })).resolves.toBe('from deepseek')
   })

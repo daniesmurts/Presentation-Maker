@@ -3,24 +3,30 @@
 Legend: ✅ shipped · 🚧 in progress · 📋 planned. Grouped by the role that
 uses it. A 📋 item is marked, never implied. See `docs/WORKFLOW.md` §1.
 
-Last updated: TODO A Phase 0 — skeleton, migrations, ported LLM layer (nothing user-facing yet)
+Last updated: TODO A Phase 1 — generation pipeline + outline gate via the API (no UI yet)
 
 ---
 
 ## Anyone with an account (free tier)
 
-- 📋 **Create a talk from talking points.** Paste тезисы, pick intent
-  (inform · persuade · teach · pitch · report · workshop) and audience
-  (executives · customers · team · conference · classroom · investors), set
-  length by minutes, preset, or explicit slide count; toggle speaker notes.
-- 📋 **Approve the outline before writing.** The plan (type + title per
-  slide) is shown first; reorder, retype, add, delete, then expand.
+- 🚧 **Create a talk from talking points.** *(API only — UI is Phase 2.)*
+  Paste тезисы, pick intent (inform · persuade · teach · pitch · report ·
+  workshop) and audience (executives · customers · team · conference ·
+  classroom · investors), set length in minutes or an explicit slide count
+  (3–60); speaker notes on/off per talk, defaulting per intent. Russian or
+  English. Generation is an async job the client polls.
+- 🚧 **Approve the outline before writing.** *(API only.)* The plan (type +
+  title + brief per slide) comes back first; reorder, retype, add, delete,
+  then confirm to expand. A plan left unconfirmed for 24 h expires.
+- 🚧 **Only from my material.** *(API only.)* With a brief supplied, the
+  talk contains only what the brief says — fewer slides rather than
+  invented content.
+- 🚧 **Sign up / sign in** with e-mail and password; one workspace per
+  account.
 - 📋 **View the talk.** One card per slide by type; slides that will not fit
   a 16:9 frame are flagged in the viewer.
 - 📋 **Edit one slide.** Rewrite from an instruction («короче», «добавь
   числовой пример»), move, delete, insert — without regenerating the rest.
-- 📋 **Only from my material.** Generation restricted to the supplied
-  talking points.
 - 📋 **Images** — search, upload. *(TODO B)*
 - 📋 **Import an existing `.pptx`.** *(TODO D)*
 - 📋 **PDF export, partial export, read-only share link.** *(TODO F)*
@@ -37,8 +43,10 @@ Last updated: TODO A Phase 0 — skeleton, migrations, ported LLM layer (nothing
 ## Operator
 
 - 📋 **Spend cap per workspace, usage log per model call.** *(TODO A.5)*
-- 📋 **Offline eval harness** replaying generation against fixed briefs.
-  *(TODO A.1)*
+- ✅ **Offline eval harness** (`npm run eval:talks`) replaying generation
+  against three fixed briefs and printing slide-count, notes-length,
+  type-mix and image-query metrics; every call it makes lands in the usage
+  log like any other.
 - ✅ **Model calls go through one registry** with per-call usage logging,
   multi-account fallback, and truncation detection on every answer; an
   `onprem` deployment mode forbids silent cross-provider fallback.
