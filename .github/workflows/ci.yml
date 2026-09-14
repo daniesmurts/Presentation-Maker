@@ -101,11 +101,20 @@ jobs:
       # Any registry that speaks docker login: set REGISTRY (host), IMAGE_REPO
       # (host/namespace/name — the api/web suffixes are appended),
       # REGISTRY_USER and REGISTRY_PASSWORD as repository secrets.
+      # Secrets are passed through env, NEVER interpolated into the script:
+      # REGISTRY_PASSWORD is a JSON key full of double quotes, and inlined
+      # into `[ -n "…" ]` it broke the test — every run said "not
+      # configured" with all four secrets present (found on the first real
+      # push attempt, 2026-09-14).
       - name: Registry configured?
         id: registry
+        env:
+          REGISTRY: ${{ secrets.REGISTRY }}
+          IMAGE_REPO: ${{ secrets.IMAGE_REPO }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
         run: |
-          if [ -n "${{ secrets.REGISTRY }}" ] && [ -n "${{ secrets.IMAGE_REPO }}" ] && [ -n "${{ secrets.REGISTRY_PASSWORD }}" ]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"; echo "repo=${{ secrets.IMAGE_REPO }}" >> "$GITHUB_OUTPUT"
+          if [ -n "$REGISTRY" ] && [ -n "$IMAGE_REPO" ] && [ -n "$REGISTRY_PASSWORD" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"; echo "repo=$IMAGE_REPO" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"; echo "repo=tezarium" >> "$GITHUB_OUTPUT"
           fi
