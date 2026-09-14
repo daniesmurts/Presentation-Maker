@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Trash2, Download, Plus, Link2, Check, ChevronDown, Copy } from 'lucide-react'
+import { Trash2, Download, Plus, Link2, Check, ChevronDown, Copy, Play } from 'lucide-react'
 import { getTalk, deleteTalk, updateSlide, regenerateSlide, deleteSlide, insertSlide, moveSlide, uploadSlideImage, removeSlideImage, setTalkTheme, shareTalk, unshareTalk } from '../api/talks'
 import { remapAfterMove, remapAfterDelete, remapAfterInsert, toSlideNumbers, rangeBetween } from '../lib/slideSelection'
 import { getBrand } from '../api/brand'
@@ -136,6 +136,10 @@ export default function TalkPage() {
             </select>
           </label>
         )}
+        <Link to={`/talks/${id}/present`} title={copy.present.hint}
+              className="h-10 px-3 inline-flex items-center gap-1.5 rounded-md text-sm font-medium bg-accent-light text-accent hover:bg-accent hover:text-white flex-shrink-0">
+          <Play className="w-4 h-4" aria-hidden /> <span className="hidden md:inline">{copy.present.button}</span>
+        </Link>
         {/* Plain links, not fetch+blob: the browser streams the file and
             shows its own download UI; the cookie rides along same-origin. */}
         <div className="relative flex-shrink-0">
