@@ -14,6 +14,18 @@
 # CDN.
 set -euo pipefail
 
+# SSH from the founding machine drops connections at random (network + VPN,
+# see CHANGELOG 0.1.0). Every remote step is idempotent, so each one is
+# retried rather than the whole deploy being re-run by hand.
+retry() {
+  local n=1 max=5
+  until "$@"; do
+    if [ "$n" -ge "$max" ]; then echo "❌ failed after ${max} attempts: $*"; return 1; fi
+    echo "  … connection dropped (attempt ${n}/${max}), retrying in 5 s"; n=$((n + 1)); sleep 5
+  done
+}
+SSH="ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3"
+
 VM_HOST="${VM_HOST:?set VM_HOST=user@host}"
 DOMAIN="${DOMAIN:?set DOMAIN=talks.example.com}"
 IMAGE_REPO="${IMAGE_REPO:?set IMAGE_REPO=registry/namespace/tezarium}"
@@ -46,20 +58,22 @@ done
 
 # ── [2/7] Image guard — both images must exist before anything ships ────────
 echo "▶ [2/7] Checking images in the registry…"
-ssh "$VM_HOST" "set -e; for img in ${IMAGE_REPO}-api:${IMAGE_TAG} ${IMAGE_REPO}-web:${IMAGE_TAG}; do
+retry $SSH "$VM_HOST" "set -e; for img in ${IMAGE_REPO}-api:${IMAGE_TAG} ${IMAGE_REPO}-web:${IMAGE_TAG}; do
   docker manifest inspect \"\$img\" >/dev/null 2>&1 || { echo \"❌ \$img not in registry — did CI push it?\"; exit 1; }
   echo \"  ✓ \$img\"; done"
 
 # ── [3/7] Sync compose + Caddyfile ──────────────────────────────────────────
 echo "▶ [3/7] Syncing compose file → ${VM_HOST}:${APP_DIR}"
-ssh "$VM_HOST" "mkdir -p ${APP_DIR}/uploads ${APP_DIR}/certs"
-scp -q deploy/docker-compose.yml "${VM_HOST}:${APP_DIR}/docker-compose.yml"
-scp -q deploy/backup-db.sh "${VM_HOST}:${APP_DIR}/backup-db.sh"
+retry $SSH "$VM_HOST" "mkdir -p ${APP_DIR}/uploads ${APP_DIR}/certs"
+retry scp -q -o ConnectTimeout=15 deploy/docker-compose.yml "${VM_HOST}:${APP_DIR}/docker-compose.yml"
+retry scp -q -o ConnectTimeout=15 deploy/backup-db.sh "${VM_HOST}:${APP_DIR}/backup-db.sh"
 
 # ── [4/7] Pull, migrate, rolling restart ────────────────────────────────────
 echo "▶ [4/7] Pull, migrate, rolling restart…"
 # Unquoted heredoc: IMAGE_TAG etc. are substituted HERE, not on the VM.
-ssh "$VM_HOST" bash -s <<REMOTE
+# Wrapped in a function so a dropped connection retries the whole block —
+# safe: pull, migrate and recreate are all idempotent.
+rollout() { $SSH "$VM_HOST" bash -s <<REMOTE
 set -euo pipefail
 cd "${APP_DIR}"
 export IMAGE_REPO="${IMAGE_REPO}" IMAGE_TAG="${IMAGE_TAG}" DOMAIN="${DOMAIN}"
@@ -92,10 +106,12 @@ for name in tezarium-api tezarium-api-2; do
 done
 docker image prune -f >/dev/null
 REMOTE
+}
+retry rollout
 
 # ── [5/7] Health per replica, from the VM ───────────────────────────────────
 echo "▶ [5/7] Health per replica…"
-ssh "$VM_HOST" 'set -e
+retry $SSH "$VM_HOST" 'set -e
   for name in tezarium-api tezarium-api-2; do
     ok=""
     for i in 1 2 3 4 5 6; do
@@ -111,7 +127,7 @@ ssh "$VM_HOST" 'set -e
 # recreated answers every health check while serving last week's code, and a
 # green backend proves nothing about the bundle.
 echo "▶ [6/7] Confirming ${SHORT_SHA} is what is being served…"
-ssh "$VM_HOST" "set -e
+retry $SSH "$VM_HOST" "set -e
   for name in tezarium-api tezarium-api-2; do
     live=\$(docker exec \"\$name\" node -e \"require('http').get('http://127.0.0.1:3000/health',r=>{let b='';r.on('data',d=>b+=d);r.on('end',()=>process.stdout.write(JSON.parse(b).version))})\")
     case \"\$live\" in *${SHORT_SHA}*) echo \"  ✓ \$name serving \$live\" ;; *) echo \"  ✗ \$name serving '\$live'\"; exit 1 ;; esac
