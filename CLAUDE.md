@@ -1,4 +1,4 @@
-# <ProductName> — AI presentation maker · project context for Claude Code
+# Tezarium (Тезариум) — AI presentation maker · project context for Claude Code
 
 > This file is the successor to ИСПУМ's presentation feature, extracted into a
 > standalone product for a general audience. It carries the architecture and
@@ -10,10 +10,24 @@
 
 ## 1. Identity
 
-**<ProductName>** — turns a topic, a brief, or an existing document into a
-finished slide deck: structured slides, speaker notes, images, and a native
-editable `.pptx` — with the outline shown for approval *before* the expensive
-writing pass, and every slide individually editable afterwards.
+**Tezarium · Тезариум** — turns talking points into a finished talk: an
+approved outline, structured slides, the text to say over them, images, and
+a native editable `.pptx`. The plan is shown for approval *before* the
+expensive writing pass, and every slide is individually editable afterwards.
+
+The name is coined from *тезис* — a talking point — with the suffix of
+аквариум / океанариум: the place where the theses are kept. Wordmark:
+**Тезариум** in Cyrillic, **Tezarium** in Latin — a letter-for-letter
+transliteration, so the name is the same in both scripts and matches the
+domain. One per script, never mixed.
+
+**Positioning (one line):**
+- RU — Тезариум превращает ваши тезисы в готовое выступление: план, слайды, текст для докладчика.
+- EN — Tezarium turns your talking points into a finished talk: outline, slides, and what to say.
+
+*Выступление / talk* is deliberate: the product claims the speaking, not
+only the slides — that is where the parent implementation is genuinely
+stronger than slide-design tools.
 
 Audience: anyone who has to present — sales, consulting, product, internal
 comms, training, students, speakers. **Not** tied to a university, a course,
@@ -22,6 +36,21 @@ version that assumed those things is renamed or removed (§4).
 
 Reference implementation: the ИСПУМ repo, `backend/src/services/presentations.ts`
 and siblings (see §2). Port the *shape*, rewrite the *copy*.
+
+### Product copy — the three nouns (enforced everywhere)
+
+| Concept | RU | EN | Not |
+|---|---|---|---|
+| What the product makes | **выступление** | *talk* (or *deck* in export contexts) | «презентация» — that is the `.pptx` file you *export*, not the thing you make |
+| What the user gives it | **тезисы** | *talking points* / *brief* | «конспект», «текст», «промпт» |
+| The text spoken over a slide | **текст докладчика** | *speaker notes* | «заметки», «комментарии» |
+
+The parent product's copy rule («never ИИ, always ИСПУМ») lived in exactly
+this spot and is what kept 45 pages consistent. Tezarium's equivalent:
+**say what the product does, never what powers it** — no «ИИ», «нейросеть»,
+«AI» in user-facing copy unless a legal or settings context requires it.
+Taglines in use: «От тезисов — к выступлению» (landing), «Слайды, которые
+знают, что сказать» (ads).
 
 ---
 
@@ -142,23 +171,24 @@ like `presentationsPerMonth` (keep the *mechanism*, rename the tiers).
 
 | ИСПУМ concept | New concept |
 |---|---|
-| Лекция / lecture | Deck / presentation |
+| Лекция / lecture | **Выступление** / talk (the artefact); «презентация» only for the exported `.pptx` |
 | Teacher | User / workspace member |
 | Course | Project (optional grouping; brand kit lives here) |
-| Конспект (source text) | Brief / source material — paste, upload PDF/DOCX/PPTX, or paste a URL |
+| Конспект (source text) | **Тезисы** / talking points — paste, upload PDF/DOCX/PPTX, or paste a URL |
 | Audience level (бакалавриат…) | Audience (executives · customers · team · conference · classroom · investors) |
 | Style (`theory_heavy` / `case_study` / `discussion_based`) | Intent (inform · persuade · teach · pitch · report · workshop) |
 | Duration in minutes → slide count | Keep minutes → slides, plus explicit "N slides"; add "talk length" presets |
 | «Строго по конспекту» | "Only from my material" — keep, it's a trust feature |
-| Speaker notes (always) | Speaker notes **optional per deck** — a sales deck read on screen wants none |
+| Speaker notes (always) | **Текст докладчика** / speaker notes — **optional per talk**; a sales deck read on screen wants none |
 | `discussion` slide type | `question` / `cta` — keep a discussion type for workshops, add a call-to-action type for pitches |
 | Institution branding (one accent + logo) | **Brand kit** per workspace/project: palette, logo, fonts, template — first-class, not a settings afterthought |
 | RAG over course documents | RAG over the user's uploaded material for *this* deck / project only — no cross-tenant pool at launch |
 
-**Copy rules that do NOT transfer:** "never say ИИ, say ИСПУМ" was that
-product's voice. Decide this product's voice fresh. The rule that *does*
-transfer: explanatory copy says what happened and what to do, and never
-exposes a component name, an offset, or a stack.
+**Copy rules:** the three nouns and the «say what it does, never what
+powers it» rule are set in §1 and enforced on every user-facing string. The
+rule that transfers unchanged from the parent: explanatory copy says what
+happened and what to do, and never exposes a component name, an offset, or
+a stack.
 
 ---
 
@@ -243,17 +273,17 @@ workspaces(id, name, plan_tier, brand_kit_id)
 users(id, workspace_id, email, …)
 projects(id, workspace_id, name, brand_kit_id?)          -- optional grouping
 brand_kits(id, workspace_id, accent, palette jsonb, logo_path, logo_mime, fonts jsonb)
-decks(id, workspace_id, project_id?, owner_id, title, intent, audience,
+talks(id, workspace_id, project_id?, owner_id, title, intent, audience,      -- «выступление»
       slide_count_target, notes_enabled, theme_id, slides jsonb, sources jsonb,
       approved_at, share_token?, created_at)
-deck_jobs(id, deck_id?, status pending|processing|outline_ready|ready|failed,
+talk_jobs(id, talk_id?, status pending|processing|outline_ready|ready|failed,
           outline jsonb, error_message, …)               -- pollable
-deck_media(id, deck_id, slide_index, storage_path, mime, w, h, bytes)
-deck_events(kind, event, deck_id, user_id, format, metadata jsonb)  -- exports etc.
+talk_media(id, talk_id, slide_index, storage_path, mime, w, h, bytes)
+talk_events(kind, event, talk_id, user_id, format, metadata jsonb)  -- exports etc.
 usage_log(…)                                             -- per-call cost, provider, tokens, success, error_code
 ```
 
-Keep `slides` as JSONB. Keep `sources` on the deck (idx-numbered; slide text
+Keep `slides` as JSONB. Keep `sources` on the talk (idx-numbered; slide text
 carries `[N]` markers, so never renumber sources without rewriting slides).
 
 ---
@@ -279,6 +309,12 @@ Ship in this sequence; each step is usable on its own.
 
 ## 9. Working conventions (same as the parent repo)
 
+The full method — the four source-of-truth files, what an entry looks like
+with real examples, commits, comments, tests, verification, release — is in
+[`docs/WORKFLOW.md`](docs/WORKFLOW.md). Read it once at the start of the
+project and again whenever an entry in one of the files feels like a chore
+rather than a record. The short form:
+
 - `FEATURES.md` / `CHANGELOG.md` / `TODO.md` are the source of truth; update in
   the same commit. CHANGELOG entries explain *why*, with the incident where
   there is one, and record measured numbers.
@@ -303,7 +339,7 @@ Ship in this sequence; each step is usable on its own.
 
 | Decision | Suggested default | Why |
 |---|---|---|
-| Language | Russian-first UI, English generation supported from day one, prompts language-aware | The founding users are Russian-speaking; a "for anyone" product cannot be Russian-only for long |
+| Language | Russian-first UI, English generation from day one, prompts language-aware; the brand is already bilingual (Тезариум / Tezarium) | The founding users are Russian-speaking; a "for anyone" product cannot be Russian-only for long |
 | Provider | Keep the registry; launch on the provider with a strict JSON mode | Providers without one (Yandex) produce the failures in §3.1 more often |
 | Hosting | Same Yandex Cloud posture if the first customers are in Russia (152-ФЗ); the code must not assume it | On-prem was a real deal in the parent product |
 | Pricing gate | Gate the **native `.pptx` download** and deck count, not generation | That was the parent's differentiator and it held |
