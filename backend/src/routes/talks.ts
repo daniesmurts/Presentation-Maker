@@ -7,11 +7,12 @@ import { getJobQueue } from '../services/jobQueue'
 import { TALK_JOB_QUEUE, type TalkJobPayload } from '../services/talkJobWorker'
 import { normaliseEditedOutline, normaliseEditedSlide, regenerateSlide, applySlideMove, type GenerateParams } from '../services/talks'
 import { createTalkJob, getTalkJobById, confirmTalkJobOutline, type TalkJobRow } from '../db/queries/talkJobs'
-import { findTalkById, listTalks, deleteTalk, replaceSlides } from '../db/queries/talks'
+import { findTalkById, listTalks, deleteTalk, replaceSlides, countTalksThisMonth } from '../db/queries/talks'
 import { recordTalkEvent } from '../db/queries/talkEvents'
 import { generateTalkPptx } from '../services/talkExport'
 import { parseSlideSelection, selectSlides, selectionSuffix, SelectionError } from '../lib/slideSelection'
-import { assertPlanFeature } from '../lib/planTier'
+import { assertPlanFeature, assertTalkQuota } from '../lib/planTier'
+import { checkSpendCap } from '../services/spendCap'
 import {
   INTENTS, AUDIENCES, MAX_SLIDE_COUNT, MIN_SLIDE_COUNT, notesDefaultFor,
   type Intent, type Audience, type TalkLanguage, type Talk, type Slide,
@@ -20,9 +21,16 @@ import {
 export const talksRouter = Router()
 talksRouter.use(authenticate)
 
-// Bounds how many outlines a user can start without confirming one. The
-// spend cap (TODO A.5) is the money guard; this is the "runaway client" guard.
-const generationLimiter = rateLimit({ windowMs: 10 * 60 * 1000, limit: 20, standardHeaders: true, legacyHeaders: false })
+// Bounds how many model-backed requests one USER can make — the spend cap
+// (services/spendCap.ts) is the money guard; this is the runaway-client
+// guard. Keyed by user, not IP: an office shares one IP. In-memory store —
+// fine for one process; a second replica makes it ~2×, which is acceptable
+// for a guard whose real ceiling is the shared-DB spend cap.
+const generationLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, limit: 20, standardHeaders: true, legacyHeaders: false,
+  keyGenerator: (req) => req.user?.id ?? req.ip ?? 'anonymous',
+  message: { error: { code: 'RATE_LIMITED', message: 'Слишком много запросов. Подождите несколько минут.', upgrade: false } },
+})
 
 // The brief field's ceiling. Past this the prompt is being fed more than the
 // outline call can use — and it is where CLAUDE.md §3.3's wall is hit first.
@@ -95,6 +103,12 @@ function toJobResponse(job: TalkJobRow) {
 // shouldn't be made to click through.
 talksRouter.post('/jobs', generationLimiter, asyncHandler(async (req, res) => {
   const params = readGenerateParams(req.body, req.user.id, req.user.workspace_id)
+  // Checked at enqueue, counted at completion (a plan abandoned at the gate
+  // produced no talk and must not count). The gap is bounded by the limiter.
+  assertTalkQuota(req.user.plan_tier, await countTalksThisMonth(req.user.workspace_id))
+  // The registry hook enforces the cap on every call regardless; checking
+  // here too means the form says no now, not after the worker's retry cycle.
+  await checkSpendCap(req.user.workspace_id)
   const stage: TalkJobPayload['stage'] = (req.body as { review_outline?: unknown })?.review_outline === false ? 'full' : 'outline'
   const job = await createTalkJob(params)
   await getJobQueue().send(TALK_JOB_QUEUE, { jobId: job.id, stage } satisfies TalkJobPayload)

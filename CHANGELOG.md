@@ -6,6 +6,36 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
 ## [Unreleased]
 
 ### Added
+- **Лимиты расходов и квота выступлений.** TODO A Phase 5 — item A is
+  complete. Per-workspace monthly spend cap (tier default, or the new
+  `workspaces.monthly_spend_cap_usd` override — migration 006) and a
+  platform-wide daily backstop, both enforced as a registry before-call
+  hook so every model call is covered whichever route or job made it; a
+  monthly talk quota checked at enqueue and counted at completion; the
+  generation limiter keyed by user, not IP.
+  - **Fail open on infra, closed on overspend** (parent's rule): a cap
+    check must never be the reason generation breaks, and it must always
+    be the reason a runaway bill stops.
+  - **Checked twice on purpose.** The registry hook is the guarantee; the
+    route also checks at enqueue because the first live test showed the
+    user only learning of the cap after the worker's retry cycle (~20 s).
+    Now `POST /api/talks/jobs` answers 429 with the copy immediately.
+  - **Numbers are judgement** (CLAUDE.md §10): free 10 talks / $3, pro
+    unlimited / $30 — a runaway client on free cannot cost more than a
+    coffee; a heavy pro user with 40-slide decks (~$0.05 each, measured)
+    never meets the cap in normal use. Revisit with usage_log.
+  - **Verified live**: cap override set to $0.001 on a workspace that had
+    spent $0.0037 → job failed with «Достигнут месячный лимит…» and ZERO
+    usage_log rows were written (the hook blocked before DeepSeek); after
+    the enqueue check, the same request returned 429 at once. 21st
+    generation request in ten minutes → 429 `RATE_LIMITED` in the API's
+    error shape. `tsc` clean; backend 163, frontend 17 tests.
+  - Known and accepted: the rate limiter is in-memory, so N replicas give
+    ~N× the ceiling — fine for a guard whose real ceiling is the shared-DB
+    spend cap (the parent moved only the auth limiter to Postgres, for the
+    brute-force case). A cap failure still goes through pg-boss's one
+    retry before the job is marked failed; harmless (the hook blocks
+    again) and not worth a special case.
 - **Правка одного слайда: изменить, переписать, переставить, удалить,
   добавить.** TODO A Phase 4. Five routes under `/api/talks/:id/slides`,
   each replacing the JSONB array and returning the whole talk; a per-type

@@ -10,7 +10,7 @@ copy the module, strip education nouns, keep the tests, rename per CLAUDE.md §4
 
 ---
 
-### A. The spine — talking points → outline gate → slides → `.pptx` · Effort: L (≈ 2 weeks in 6 phases)
+### A. The spine — talking points → outline gate → slides → `.pptx` · Effort: L · 🟢 SHIPPED (2026-09-14, all six phases in one day against the parent's code)
 
 **Why.** CLAUDE.md §8 step 1. Nothing else in the product is testable,
 demoable, or sellable until a user can type тезисы, approve a plan, and
@@ -104,7 +104,7 @@ spent four months finding out where they were wrong (CLAUDE.md §3 is the list).
   40-slide talk survives move/delete/insert/regenerate without touching the
   other 39 (assert by JSON equality on untouched indices).
 
-- **Phase 5 — Hardening pass before anyone outside sees it.** Effort S.
+- **Phase 5 — Hardening pass before anyone outside sees it.** Effort S. 🟢 SHIPPED (2026-09-14)
   Spend cap per workspace in the registry; rate limit on `POST /talks`;
   `usage_log` written per LLM call; the full suite + tsc green in CI; the
   four source-of-truth files honest (FEATURES marks 🚧/📋 correctly).

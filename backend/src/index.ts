@@ -10,6 +10,17 @@ import { authRouter } from './routes/auth'
 import { talksRouter } from './routes/talks'
 import { startJobQueue, stopJobQueue } from './services/jobQueue'
 import { registerTalkJobWorker, startTalkOutlineSweeper } from './services/talkJobWorker'
+import { registerBeforeCall } from './services/llm/registry'
+import { checkSpendCap } from './services/spendCap'
+import { checkGlobalSpendCap } from './services/globalSpendCap'
+
+// Spend caps run before every model call, whichever route or job made it
+// (CLAUDE.md §2: the cap and the fallback are what keep a bad hour from
+// becoming a bad bill). Registered here, not imported by the registry.
+registerBeforeCall(async (ctx) => {
+  await checkGlobalSpendCap()
+  if (ctx?.workspaceId) await checkSpendCap(ctx.workspaceId)
+})
 
 const app = express()
 

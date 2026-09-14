@@ -59,6 +59,14 @@ export async function replaceSlides(id: string, workspaceId: string, slides: Sli
   return (rowCount ?? 0) > 0
 }
 
+/** Talks created this calendar month — the quota's unit (lib/planTier.ts). */
+export async function countTalksThisMonth(workspaceId: string): Promise<number> {
+  const { rows } = await pool.query<{ n: string }>(
+    `SELECT COUNT(*)::text AS n FROM talks WHERE workspace_id = $1 AND created_at >= date_trunc('month', NOW())`, [workspaceId],
+  )
+  return Number(rows[0]?.n ?? 0)
+}
+
 export async function deleteTalk(id: string, workspaceId: string): Promise<boolean> {
   const { rowCount } = await pool.query(`DELETE FROM talks WHERE id = $1 AND workspace_id = $2`, [id, workspaceId])
   return (rowCount ?? 0) > 0

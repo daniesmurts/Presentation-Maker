@@ -3,11 +3,15 @@
 Legend: ✅ shipped · 🚧 in progress · 📋 planned. Grouped by the role that
 uses it. A 📋 item is marked, never implied. See `docs/WORKFLOW.md` §1.
 
-Last updated: TODO A Phase 4 — slide-level editing
+Last updated: TODO A Phase 5 — spend caps, quota, rate limits (item A complete)
 
 ---
 
 ## Anyone with an account (free tier)
+
+Free: 10 talks a month, $3 of model spend a month (a cost circuit breaker,
+not a price). Pro: unlimited talks, $30. No billing exists yet — the
+numbers are the shape of the gate, and the `.pptx` download is open to both.
 
 - ✅ **Create a talk from talking points.** Paste тезисы, pick intent (inform · persuade · teach · pitch · report ·
   workshop) and audience (executives · customers · team · conference ·
@@ -47,7 +51,11 @@ Last updated: TODO A Phase 4 — slide-level editing
 
 ## Operator
 
-- 📋 **Spend cap per workspace, usage log per model call.** *(TODO A.5)*
+- ✅ **Spend cap per workspace** (tier default or a per-workspace override
+  column), **a platform-wide daily backstop** (`GLOBAL_DAILY_SPEND_CAP_USD`,
+  off until set), **usage log per model call**, and per-user rate limits
+  on generation and rewrite (20 per 10 min). Caps fail open on
+  infrastructure errors and closed on real overspend.
 - ✅ **Offline eval harness** (`npm run eval:talks`) replaying generation
   against three fixed briefs and printing slide-count, notes-length,
   type-mix and image-query metrics; every call it makes lands in the usage
