@@ -45,3 +45,11 @@ export function uploadSlideImage(id: string, idx: number, file: File) {
   return client.post<{ talk: Talk }>(`/api/talks/${id}/slides/${idx}/image`, form, { timeout: 60_000 }).then(unwrap)
 }
 export const removeSlideImage = (id: string, idx: number) => client.delete<{ talk: Talk }>(`/api/talks/${id}/slides/${idx}/image`).then(unwrap)
+
+// ─── Import ─────────────────────────────────────────────────────────────────
+export interface ImportResult { talk: Talk; source_slide_count: number; images_imported: number; images_dropped: number }
+export function importPptx(file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  return client.post<ImportResult>('/api/talks/import', form, { timeout: 120_000 }).then((r) => r.data)
+}

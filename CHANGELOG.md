@@ -6,6 +6,41 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
 ## [Unreleased]
 
 ### Added
+- **Загрузить свою презентацию (.pptx).** TODO D — the adoption lever
+  (CLAUDE.md §8 step 4). `POST /api/talks/import` and a «Загрузить .pptx»
+  chip on the list. No model call, no quota.
+  - **Ported from the parent's `pptxImport.ts` with every shipped-bug rule
+    intact**: slide order from `<p:sldIdLst>` (a reordered deck rewrites
+    that, not the file names); notes via each slide's own rels (slide3 may
+    own notesSlide1); `trimValues:false` and `<a:br/>` → space run (a real
+    deck imported as «ВСС на базеЖКВН»); pictures from `<p:pic>` only, not
+    fills; PNG/JPEG only, measured from bytes, furniture under 100 px
+    skipped; title = the placeholder, else the biggest text.
+  - **Format from part layout, not the zip signature** (§3.7,
+    `lib/fileType.ts`): a Word file with an embedded deck is Word; a
+    `.docx` gets «Это документ Word, а не презентация».
+  - **Language detected from the deck's own text** (Cyrillic majority →
+    ru), so later rewrites are prompted in the right language and the
+    fallback title reads right. Notes column on iff the deck brought notes.
+  - **A rule the parent did not have, found on a real file.** A 4.9 MB
+    template photo was inserted as a `<p:pic>` on every content slide of a
+    22-slide deck: it was stored four times (20 MB of furniture), hit the
+    per-deck byte cap, and the deck's actual figures were dropped — 5
+    imported, 13 lost. A media part placed on three or more slides is now
+    template furniture and skipped (`FURNITURE_SLIDE_COUNT`); three, not
+    two, because a figure shown twice is a real case. Re-import: 1 real
+    figure, template gone. Fixture added for both sides of the threshold.
+  - **Verified on files our exporter did not write**: a 6 MB Russian
+    engineering deck → 16/16 slides, 15 pictures, rendered in the viewer
+    with all 15 loaded through the proxy, re-exported to a 2.6 MB `.pptx`;
+    a 6 MB English deck → 22/22, language `en`. Both then deleted with
+    their objects — they are the user's own files, not test data. Round
+    trip through our exporter and the hand-built fixtures pass; `tsc`
+    clean; backend 182, frontend 17 tests.
+  - Not verified: a deck with notes from PowerPoint itself (neither real
+    deck carried any; the notes path is covered by the round-trip and the
+    rels rule); the chip's file picker in the browser (the route was
+    driven with curl).
 - **Загрузка изображения на слайд.** TODO B Phase 1 (upload only — search
   waits for a provider). Object storage behind generic `STORAGE_*` vars
   with a local-disk fallback (CLAUDE.md §10), `talk_media` with the

@@ -147,9 +147,16 @@ Parent's `deploy.sh` shape (§9): CI gate on exact commit → image guard →
 frontend upload → migrate → rolling restart → health + version per replica →
 served bundle checked. Hosting decision (§10) made then, not now.
 
-### D. Import `.pptx` · Effort: M · after B
-§8 step 4, "the adoption lever". Port `pptxImport.ts` with its hand-built
-fixtures (a real PowerPoint file, not our output — §9). Needs B for pictures.
+### D. Import `.pptx` · Effort: M · 🟢 SHIPPED (2026-09-14)
+§8 step 4, "the adoption lever". Ported with its hand-built fixtures and
+verified on two real decks; pictures via B. Follow-ups:
+- **Write missing notes for an imported deck** (the parent's
+  `writeMissingNotes`): «загрузите свою презентацию — и получите текст
+  докладчика» is the import pitch, and today only half of it is true.
+  Batches of 5, queued like expansion. Effort S — the prompt exists.
+- Slide types are all `bullets` after import (the source has no type
+  information and a wrong guess is worse than plain). A per-slide «сделать
+  сравнением / формулой» retype would be the cheap upgrade.
 
 ### E. Brand kit + themes · Effort: L · after D
 §5.1–2. Exporter already theme-as-data from A.3; this adds the UI, the

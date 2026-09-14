@@ -8,7 +8,7 @@ import { getJobQueue } from '../services/jobQueue'
 import { TALK_JOB_QUEUE, type TalkJobPayload } from '../services/talkJobWorker'
 import { normaliseEditedOutline, normaliseEditedSlide, regenerateSlide, applySlideMove, type GenerateParams } from '../services/talks'
 import { createTalkJob, getTalkJobById, confirmTalkJobOutline, type TalkJobRow } from '../db/queries/talkJobs'
-import { findTalkById, listTalks, deleteTalk, replaceSlides, countTalksThisMonth } from '../db/queries/talks'
+import { findTalkById, listTalks, deleteTalk, replaceSlides, countTalksThisMonth, createTalk } from '../db/queries/talks'
 import { recordTalkEvent } from '../db/queries/talkEvents'
 import { generateTalkPptx } from '../services/talkExport'
 import { parseSlideSelection, selectSlides, selectionSuffix, SelectionError } from '../lib/slideSelection'
@@ -18,6 +18,9 @@ import { storeSlideImage, collectTalkMediaPaths, deleteMediaObjects, MAX_IMAGE_B
 import { withSlideImage } from '../services/talks'
 import { getTalkMediaById } from '../db/queries/talkMedia'
 import { downloadObject } from '../services/objectStorage'
+import { importPptx } from '../services/pptxImport'
+import { attachImportedImages } from '../services/talkMedia'
+import { identifyOoxml } from '../lib/fileType'
 import {
   INTENTS, AUDIENCES, MAX_SLIDE_COUNT, MIN_SLIDE_COUNT, notesDefaultFor,
   type Intent, type Audience, type TalkLanguage, type Talk, type Slide,
@@ -269,6 +272,59 @@ talksRouter.post('/:id/slides/move', asyncHandler(async (req, res) => {
   const next = Number.isInteger(b.from) && Number.isInteger(b.to) ? applySlideMove(talk.slides, b.from as number, b.to as number) : null
   if (!next) throw new ValidationError('Некорректная позиция слайда')
   res.json({ talk: await persist(talk, next, req.user.workspace_id) })
+}))
+
+// ─── Import ─────────────────────────────────────────────────────────────────
+
+const MAX_DECK_BYTES = 20 * 1024 * 1024
+const deckUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_DECK_BYTES, files: 1 } }).single('file')
+
+// POST /api/talks/import  (multipart, field "file") — «Загрузить свою
+// презентацию». No model call, no quota: it is a zip and some XML, and
+// putting the cheapest possible first step behind a gate would be
+// indefensible. The file's real format is read from the part layout, not
+// the extension or the declared type (CLAUDE.md §3.7).
+talksRouter.post('/import', (req, res, next) => {
+  deckUpload(req, res, (err) => {
+    if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') return next(new ValidationError('Файл больше 20 МБ'))
+    if (err) return next(new ValidationError('Не удалось прочитать файл'))
+    next()
+  })
+}, asyncHandler(async (req, res) => {
+  if (!req.file) throw new ValidationError('Загрузите файл презентации (.pptx)')
+  const kind = identifyOoxml(req.file.buffer)
+  if (kind !== 'pptx') {
+    throw new ValidationError(kind === 'docx'
+      ? 'Это документ Word, а не презентация — нужен файл .pptx'
+      : 'Поддерживается формат .pptx (PowerPoint 2007 и новее) — старый .ppt нужно сначала пересохранить')
+  }
+
+  const { slides, language, sourceSlideCount, imported } = await importPptx(req.file.buffer)
+  if (slides.length === 0) throw new ValidationError('В этой презентации не нашлось ни одного слайда с текстом или картинкой')
+
+  // The deck's own first slide names it better than the file does
+  // («Доклад_финал_v3.pptx»), but a cover sometimes carries only a company
+  // name — so the file name is the fallback, not the other way round.
+  const fromSlide = slides[0]?.title?.trim()
+  const fromFile  = req.file.originalname.replace(/\.pptx$/i, '').replace(/[_-]+/g, ' ').trim()
+  const untitled  = language === 'ru' ? 'Без заголовка' : 'Untitled'
+  const title = ((fromSlide && fromSlide !== untitled ? fromSlide : fromFile) || (language === 'ru' ? 'Импортированная презентация' : 'Imported deck')).slice(0, 200)
+
+  const params: GenerateParams = {
+    userId: req.user.id, workspaceId: req.user.workspace_id, title, brief: '',
+    intent: 'inform', audience: 'team', language, durationMinutes: Math.max(1, Math.round(slides.length * 1.5)),
+    // Notes on iff the deck brought any: an imported deck usually has none,
+    // and an empty notes column on every slide is noise.
+    notesEnabled: imported.some((s) => s.notes.trim().length > 0), strictToBrief: false,
+  }
+  const talk = await createTalk(params, slides, [], slides.length)
+
+  // Pictures are stored after the talk exists (their keys are scoped by its
+  // id) and a failure here must not cost the user the import.
+  const media = await attachImportedImages(talk, slides, imported)
+  const final = media.stored > 0 ? await persist(talk, media.slides, req.user.workspace_id) : talk
+
+  res.status(201).json({ talk: final, source_slide_count: sourceSlideCount, images_imported: media.stored, images_dropped: media.dropped })
 }))
 
 // ─── Images (upload) ────────────────────────────────────────────────────────

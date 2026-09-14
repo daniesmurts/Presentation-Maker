@@ -1,0 +1,436 @@
+import { XMLParser } from 'fast-xml-parser'
+import { imageSize } from '../lib/imageSize'
+import { logger } from '../lib/logger'
+import { MAX_SLIDE_COUNT } from '../../../shared/types'
+import type { Slide, TalkLanguage } from '../../../shared/types'
+
+// «Загрузить свою презентацию» — the adoption lever (CLAUDE.md §2, §8 step 4).
+// Ported from the parent's pptxImport.ts; every rule in this module is a bug
+// that shipped there.
+//
+// Everyone already has a folder of decks. "Upload last week's" is a far lower
+// bar than "describe a talk from scratch", and once a deck is inside, every
+// edit applies to it: per-slide rewriting, images, export.
+//
+// No model call. This is a faithful import, not a rewrite: what the user
+// wrote stays theirs, and «Переписать» on any slide is there if they want the
+// model's version. Charging a generation for a zip-and-XML read would be
+// indefensible.
+//
+// A .pptx is a zip of OOXML. The parts that matter:
+//   ppt/presentation.xml            — <p:sldIdLst> gives the real slide ORDER
+//   ppt/_rels/presentation.xml.rels — r:id → ppt/slides/slideN.xml
+//   ppt/slides/slideN.xml           — shapes; the title placeholder is marked
+//   ppt/slides/_rels/slideN.xml.rels→ slide → its notesSlide
+//   ppt/notesSlides/notesSlideM.xml — speaker notes
+
+export interface ImportedSlide {
+  title:   string
+  bullets: string[]
+  notes:   string
+  /** The slide's own pictures, largest first. Empty for a text-only slide. */
+  images:  ImportedImage[]
+}
+
+// A picture lifted out of the archive, still just bytes — it becomes a slide
+// image only once the route has stored it (services/talkMedia.ts).
+export interface ImportedImage {
+  buffer: Buffer
+  mime:   string
+  width:  number
+  height: number
+}
+
+// PNG and JPEG only. A .pptx may also carry EMF/WMF (a pasted Visio drawing),
+// SVG, or a video poster: pptxgenjs cannot embed the vector formats, browsers
+// cannot render them either, and lib/imageSize can only measure these two — an
+// unmeasurable image would be laid out blind. Skipped rather than stored badly.
+const MEDIA_MIME: Record<string, string> = {
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+}
+
+// Below this on either axis a picture is furniture — a bullet glyph, a rule, a
+// corner crest — not the drawing the talk is about.
+const MIN_IMAGE_PX = 100
+
+// Repeating OOXML nodes appear as a single object when there is exactly one of
+// them, and as an array when there are several. Declaring them here means the
+// walk below never has to ask which shape it got.
+const ARRAY_NODES = new Set([
+  'p:sp', 'a:p', 'a:r', 'p:sldId', 'Relationship', 'p:pic',
+])
+
+const parser = new XMLParser({
+  ignoreAttributes:   false,
+  attributeNamePrefix: '@',
+  isArray: (name) => ARRAY_NODES.has(name),
+  // Significant whitespace lives at run boundaries. PowerPoint splits a line
+  // into a new <a:r> at every formatting change and leaves the space on the
+  // preceding run — `<a:t>ВСС на базе </a:t><a:t>ЖКВН</a:t>` — so trimming
+  // each value (the parser's default) welds the words together: a real deck
+  // imported as «ВСС на базеЖКВН». paragraphLines collapses runs of
+  // whitespace afterwards, so nothing downstream sees the untrimmed text.
+  trimValues: false,
+})
+
+type Node = Record<string, unknown>
+
+function asArray<T>(value: T | T[] | undefined): T[] {
+  if (value === undefined || value === null) return []
+  return Array.isArray(value) ? value : [value]
+}
+
+// A soft line break (<a:br/>) carries no text, so the words on either side of
+// it would be welded together — «Рис. 1.Схема насоса». It cannot be handled
+// during the walk: the parser groups same-named siblings, so an <a:br> node
+// loses its position relative to the <a:r>s around it. Rewriting it into a
+// whitespace run *before* parsing puts it back in document order, because
+// order among siblings of the same name is preserved. Covers both the empty
+// form and <a:br><a:rPr/></a:br>.
+function breaksToSpaceRuns(xml: string): string {
+  return xml.replace(/<a:br\s*\/>|<a:br(\s[^>]*)?>[\s\S]*?<\/a:br>/g, '<a:r><a:t> </a:t></a:r>')
+}
+
+/** Depth-first text extraction of every <a:t> under a node, in document order. */
+function textRuns(node: unknown): string[] {
+  if (node === null || node === undefined) return []
+  if (typeof node === 'string' || typeof node === 'number') return [String(node)]
+  if (Array.isArray(node)) return node.flatMap(textRuns)
+  if (typeof node !== 'object') return []
+
+  const out: string[] = []
+  for (const [key, value] of Object.entries(node as Node)) {
+    if (key.startsWith('@')) continue
+    if (key === 'a:t') { out.push(...textRuns(value)); continue }
+    out.push(...textRuns(value))
+  }
+  return out
+}
+
+/** One paragraph's worth of text — runs inside <a:p> joined without spaces,
+ *  because PowerPoint splits a single line into runs at every formatting change. */
+function paragraphLines(txBody: unknown): string[] {
+  const paragraphs = asArray((txBody as Node | undefined)?.['a:p'] as unknown[])
+  return paragraphs
+    .map((p) => textRuns(p).join('').replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+}
+
+/** Every line of text in a shape tree, in document order. */
+function shapeTreeLines(spTree: Node | undefined): string[] {
+  return asArray(spTree?.['p:sp'] as Node[] | undefined).flatMap((sp) => paragraphLines(sp['p:txBody']))
+}
+
+/** Largest run size (OOXML `sz`, hundredths of a point) anywhere in a shape.
+ *  0 when the shape inherits its size from the layout, which is the common
+ *  case in decks built from real templates. */
+function maxFontSize(node: unknown): number {
+  if (!node || typeof node !== 'object') return 0
+  if (Array.isArray(node)) return Math.max(0, ...node.map(maxFontSize))
+
+  let best = 0
+  for (const [key, value] of Object.entries(node as Node)) {
+    if (key === '@sz') { best = Math.max(best, Number(value) || 0); continue }
+    if (key.startsWith('@')) continue
+    best = Math.max(best, maxFontSize(value))
+  }
+  return best
+}
+
+function isTitlePlaceholder(shape: Node): boolean {
+  const ph = ((shape['p:nvSpPr'] as Node | undefined)?.['p:nvPr'] as Node | undefined)?.['p:ph'] as Node | undefined
+  const type = ph?.['@type']
+  return type === 'title' || type === 'ctrTitle'
+}
+
+function parseSlideXml(xml: string): { title: string; bullets: string[] } {
+  const doc    = parser.parse(breaksToSpaceRuns(xml)) as Node
+  const spTree = ((doc['p:sld'] as Node | undefined)?.['p:cSld'] as Node | undefined)?.['p:spTree'] as Node | undefined
+  const shapes = asArray(spTree?.['p:sp'] as Node[] | undefined)
+    .map((shape) => ({ shape, lines: paragraphLines(shape['p:txBody']) }))
+    .filter((s) => s.lines.length > 0)
+
+  if (shapes.length === 0) return { title: '', bullets: [] }
+
+  // A shape explicitly marked as the title placeholder wins outright.
+  let titleIndex = shapes.findIndex(({ shape }) => isTitlePlaceholder(shape))
+
+  // Otherwise: the biggest text on the slide. Plenty of decks are built by
+  // typing into plain text boxes rather than placeholders, and there "first
+  // shape in the tree" is not the title — the exporter in this very repo
+  // draws the subtitle before the topic. Font size is how a human reads which
+  // line is the heading, and it is right there in the XML.
+  if (titleIndex === -1) {
+    const sizes = shapes.map(({ shape }) => maxFontSize(shape))
+    const largest = Math.max(...sizes)
+    titleIndex = largest > 0 ? sizes.indexOf(largest) : 0
+  }
+
+  const title = shapes[titleIndex].lines[0]
+  const bullets = shapes.flatMap(({ lines }, i) => (i === titleIndex ? lines.slice(1) : lines))
+
+  return { title, bullets }
+}
+
+/** slideN.xml → its notesSlide path, via the slide's own rels. Numeric
+ *  correspondence is NOT safe here: a deck where only some slides carry notes
+ *  numbers them independently, so slide3 can own notesSlide1. */
+function notesTargetFor(relsXml: string | null): string | null {
+  if (!relsXml) return null
+  const rels = asArray(((parser.parse(relsXml) as Node)['Relationships'] as Node | undefined)?.['Relationship'] as Node[] | undefined)
+  const notes = rels.find((r) => String(r['@Type'] ?? '').endsWith('/notesSlide'))
+  if (!notes) return null
+  const target = String(notes['@Target'] ?? '')
+  return target ? `ppt/${target.replace(/^\.\.\//, '')}` : null
+}
+
+/** rId → part path, for the image relationships of one slide. */
+function imageRelTargets(relsXml: string | null): Map<string, string> {
+  const out = new Map<string, string>()
+  if (!relsXml) return out
+  const rels = asArray(((parser.parse(relsXml) as Node)['Relationships'] as Node | undefined)?.['Relationship'] as Node[] | undefined)
+  for (const rel of rels) {
+    if (!String(rel['@Type'] ?? '').endsWith('/image')) continue
+    const target = String(rel['@Target'] ?? '')
+    // An external image is linked, not embedded — there are no bytes to take.
+    if (!target || /^https?:/i.test(target) || String(rel['@TargetMode'] ?? '') === 'External') continue
+    out.set(String(rel['@Id'] ?? ''), `ppt/${target.replace(/^\.\.\//, '')}`)
+  }
+  return out
+}
+
+/** Every r:embed under a <p:pic>, in document order.
+ *
+ *  Scoped to <p:pic> deliberately: an <a:blip> also appears in a shape's
+ *  picture FILL and in the layout's background, and those are texture, not
+ *  content — a slide whose background is a photo would otherwise import that
+ *  photo as its illustration on every single slide.
+ */
+function pictureEmbedIds(node: unknown, insidePicture = false): string[] {
+  if (!node || typeof node !== 'object') return []
+  if (Array.isArray(node)) return node.flatMap((n) => pictureEmbedIds(n, insidePicture))
+
+  const out: string[] = []
+  for (const [key, value] of Object.entries(node as Node)) {
+    if (insidePicture && key === '@r:embed') { out.push(String(value)); continue }
+    if (key.startsWith('@')) continue
+    out.push(...pictureEmbedIds(value, insidePicture || key === 'p:pic'))
+  }
+  return out
+}
+
+/**
+ * Slide paths in presentation order.
+ *
+ * Filename order is *usually* presentation order, but not reliably — reordering
+ * slides in PowerPoint rewrites <p:sldIdLst>, not the file names, so an edited
+ * deck imports scrambled if you trust slide7.xml to come after slide6.xml.
+ * Falls back to numeric order only when the relationship graph can't be read.
+ */
+function orderedSlidePaths(presentationXml: string | null, relsXml: string | null, allSlidePaths: string[]): string[] {
+  const numeric = [...allSlidePaths].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+  if (!presentationXml || !relsXml) return numeric
+
+  try {
+    const sldIds = asArray(
+      (((parser.parse(presentationXml) as Node)['p:presentation'] as Node | undefined)?.['p:sldIdLst'] as Node | undefined)?.['p:sldId'] as Node[] | undefined
+    )
+    const rels = asArray(((parser.parse(relsXml) as Node)['Relationships'] as Node | undefined)?.['Relationship'] as Node[] | undefined)
+    const byId = new Map(rels.map((r) => [String(r['@Id'] ?? ''), `ppt/${String(r['@Target'] ?? '').replace(/^\.\.\//, '')}`]))
+
+    const ordered = sldIds
+      .map((s) => byId.get(String(s['@r:id'] ?? '')))
+      .filter((path): path is string => Boolean(path) && allSlidePaths.includes(path as string))
+
+    return ordered.length > 0 ? ordered : numeric
+  } catch {
+    return numeric
+  }
+}
+
+function extractNotes(notesXml: string): string {
+  const notesDoc = parser.parse(breaksToSpaceRuns(notesXml)) as Node
+  const spTree = ((notesDoc['p:notes'] as Node | undefined)?.['p:cSld'] as Node | undefined)?.['p:spTree'] as Node | undefined
+  return shapeTreeLines(spTree).filter((line) => !/^\d+$/.test(line)).join('\n')
+}
+
+/**
+ * One slide's pictures, largest first, measured and filtered.
+ *
+ * Largest first because the app's slide model carries at most one image per
+ * slide: when a slide holds several, area is the honest proxy for which one
+ * the talk is actually about — the other is usually a logo or an
+ * arrow. The rest are still returned, so the caller decides rather than this
+ * function silently discarding them.
+ */
+/** The media parts a slide places as pictures, in document order, deduped. */
+function slidePictureParts(slideXml: string, relsXml: string | null): string[] {
+  const targets = imageRelTargets(relsXml)
+  if (targets.size === 0) return []
+  const doc    = parser.parse(slideXml) as Node
+  const spTree = ((doc['p:sld'] as Node | undefined)?.['p:cSld'] as Node | undefined)?.['p:spTree'] as Node | undefined
+  const out: string[] = []
+  for (const id of pictureEmbedIds(spTree)) {
+    const partPath = targets.get(id)
+    // The same picture used twice on one slide is one picture.
+    if (partPath && !out.includes(partPath)) out.push(partPath)
+  }
+  return out
+}
+
+// A picture placed on this many slides is the template, not the talk. Found
+// on a real deck (2026-09-14): a 4.9 MB background photo inserted as a
+// <p:pic> on every content slide was stored four times — 20 MB of furniture
+// that then hit the per-deck byte cap and dropped the deck's actual figures
+// (5 imported, 13 lost). Fills were already excluded; this is the same
+// texture arriving as a picture. Three, not two: a figure genuinely shown
+// twice (before/after) is a real case, a photo on three slides is not.
+const FURNITURE_SLIDE_COUNT = 3
+
+async function slideImages(
+  zip: import('jszip'),
+  parts: string[],
+  furniture: Set<string>,
+): Promise<ImportedImage[]> {
+  const out: ImportedImage[] = []
+  for (const partPath of parts) {
+    if (furniture.has(partPath)) continue
+
+    const mime = MEDIA_MIME[partPath.split('.').pop()?.toLowerCase() ?? '']
+    if (!mime) continue
+
+    const file = zip.file(partPath)
+    if (!file) continue
+    const buffer = await file.async('nodebuffer')
+
+    const size = imageSize(buffer)
+    if (!size) continue                                     // not a PNG/JPEG after all
+    if (size.width < MIN_IMAGE_PX || size.height < MIN_IMAGE_PX) continue
+
+    out.push({ buffer, mime, width: size.width, height: size.height })
+  }
+
+  return out.sort((a, b) => b.width * b.height - a.width * a.height)
+}
+
+export async function extractPptxSlides(buffer: Buffer): Promise<ImportedSlide[]> {
+  const JSZip = (await import('jszip')).default
+  const zip = await JSZip.loadAsync(buffer)
+
+  const slidePaths = Object.keys(zip.files).filter((n) => /^ppt\/slides\/slide\d+\.xml$/i.test(n))
+  if (slidePaths.length === 0) return []
+
+  const read = async (path: string): Promise<string | null> => {
+    const file = zip.file(path)
+    return file ? file.async('string') : null
+  }
+
+  const ordered = orderedSlidePaths(
+    await read('ppt/presentation.xml'),
+    await read('ppt/_rels/presentation.xml.rels'),
+    slidePaths,
+  ).slice(0, MAX_SLIDE_COUNT)
+
+  // First pass: which media parts each slide places — so a part that recurs
+  // across slides can be recognised as template furniture before any bytes
+  // are lifted.
+  const perSlide = new Map<string, { xml: string; relsXml: string | null; parts: string[] }>()
+  const usage = new Map<string, number>()
+  for (const path of ordered) {
+    const xml = await read(path)
+    if (!xml) continue
+    const relsXml = await read(path.replace(/slides\/(slide\d+)\.xml$/i, 'slides/_rels/$1.xml.rels'))
+    const parts = slidePictureParts(xml, relsXml)
+    perSlide.set(path, { xml, relsXml, parts })
+    for (const part of parts) usage.set(part, (usage.get(part) ?? 0) + 1)
+  }
+  const furniture = new Set([...usage].filter(([, n]) => n >= FURNITURE_SLIDE_COUNT).map(([part]) => part))
+
+  const out: ImportedSlide[] = []
+  for (const path of ordered) {
+    const entry = perSlide.get(path)
+    if (!entry) continue
+    const { xml, relsXml, parts } = entry
+
+    const { title, bullets } = parseSlideXml(xml)
+
+    const notesPath = notesTargetFor(relsXml)
+    const notesXml  = notesPath ? await read(notesPath) : null
+
+    // A notes part carries more than the notes: PowerPoint also puts a slide
+    // -number placeholder in it, which reads back as a bare digit. Dropping
+    // numeric-only lines keeps that artefact out of the imported notes.
+    const notes = notesXml ? extractNotes(notesXml) : ''
+
+    const images = await slideImages(zip, parts, furniture)
+
+    // A slide with a picture and no text is not blank — a full-page schematic
+    // is exactly the slide this import used to throw away.
+    if (!title && bullets.length === 0 && !notes && images.length === 0) continue
+    out.push({ title, bullets, notes, images })
+  }
+
+  return out
+}
+
+/**
+ * Imported slides → the app's typed Slide union.
+ *
+ * Everything becomes `bullets` apart from the opener, because the source
+ * carries no type information and guessing wrongly is worse than being plain:
+ * a mis-detected `formula` slide would render an ordinary sentence as an
+ * equation. The user can upgrade any slide with «Переписать», which is a
+ * one-click, one-call operation.
+ */
+export function toTypedSlides(imported: ImportedSlide[], language: TalkLanguage = 'ru'): Slide[] {
+  const untitled = language === 'ru' ? 'Без заголовка' : 'Untitled'
+  return imported.map((slide, i) => {
+    if (i === 0 && slide.bullets.length <= 2) {
+      return {
+        type: 'title',
+        title: slide.title || untitled,
+        notes: slide.notes,
+        citations: [],
+        body: { subtitle: slide.bullets[0] ?? null, presenter: slide.bullets[1] ?? null },
+      } as Slide
+    }
+    return {
+      type: 'bullets',
+      title: slide.title || untitled,
+      notes: slide.notes,
+      citations: [],
+      body: { items: slide.bullets },
+    } as Slide
+  })
+}
+
+/**
+ * The deck's language, from its own text: a majority of Cyrillic letters →
+ * Russian, otherwise English. Decides the fallback title and the language
+ * every later rewrite is prompted in. No third option yet.
+ */
+export function detectLanguage(imported: ImportedSlide[]): TalkLanguage {
+  const text = imported.map((s) => [s.title, ...s.bullets, s.notes].join(' ')).join(' ')
+  const cyr = (text.match(/[\u0400-\u04FF]/g) ?? []).length
+  const lat = (text.match(/[A-Za-z]/g) ?? []).length
+  return cyr >= lat ? 'ru' : 'en'
+}
+
+export async function importPptx(buffer: Buffer): Promise<{
+  slides: Slide[]
+  language: TalkLanguage
+  sourceSlideCount: number
+  /** Index-aligned with `slides` — the caller needs the picture bytes, which
+   *  a Slide cannot carry: an image becomes part of a slide only once it has
+   *  been stored and has a URL (services/talkMedia.ts). */
+  imported: ImportedSlide[]
+}> {
+  try {
+    const imported = await extractPptxSlides(buffer)
+    const language = detectLanguage(imported)
+    return { slides: toTypedSlides(imported, language), language, sourceSlideCount: imported.length, imported }
+  } catch (err) {
+    logger.warn({ message: '[pptx import] failed to parse', error: (err as Error).message })
+    return { slides: [], language: 'ru', sourceSlideCount: 0, imported: [] }
+  }
+}

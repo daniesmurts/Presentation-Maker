@@ -4,7 +4,9 @@ import { sniffMime } from './slideImageSource'
 import { imageSize } from '../lib/imageSize'
 import { ValidationError } from '../errors/AppError'
 import { logger } from '../lib/logger'
-import type { SlideImage, Talk } from '../../../shared/types'
+import type { SlideImage, Slide, Talk } from '../../../shared/types'
+import { withSlideImage } from './talks'
+import type { ImportedSlide } from './pptxImport'
 
 // Uploaded slide images (TODO B, upload only — search comes with a provider).
 // One image per slide by construction (shared/types.ts); everything
@@ -65,4 +67,46 @@ export async function collectTalkMediaPaths(talkId: string, workspaceId: string)
 /** Best-effort object cleanup after the row is gone. */
 export async function deleteMediaObjects(paths: string[]): Promise<void> {
   for (const p of paths) await deleteObject(p)
+}
+
+// ─── Pictures arriving from an imported .pptx ───────────────────────────────
+//
+// The parent's first import read text only, so a deck carried by drawings —
+// a reported 995 KB file that was 900 KB of schematics — arrived as a shell
+// of captions above nothing. The slide model holds ONE image per slide, so a
+// slide with several contributes its largest and the rest are dropped:
+// a real loss, and deliberate — a multi-image type changes rendering, export
+// and the picker for every deck to serve the minority of imported slides.
+
+const MAX_IMAGES_PER_DECK = 60
+const MAX_TOTAL_BYTES     = 20 * 1024 * 1024
+
+export interface StoredMediaResult { slides: Slide[]; stored: number; dropped: number }
+
+/**
+ * Store each slide's largest picture and hand back the slides pointing at
+ * it. Best-effort per image: a storage failure loses that picture, never
+ * the import — a user who has just waited for an upload should get their
+ * deck with nine of ten drawings, not an error.
+ */
+export async function attachImportedImages(talk: Talk, slides: Slide[], imported: ImportedSlide[]): Promise<StoredMediaResult> {
+  let out = slides
+  let stored = 0, dropped = 0, bytes = 0
+  for (const [index, source] of imported.entries()) {
+    const [picture, ...extras] = source.images
+    dropped += extras.length
+    if (!picture || !out[index]) continue
+    if (stored >= MAX_IMAGES_PER_DECK || bytes + picture.buffer.length > MAX_TOTAL_BYTES) { dropped += 1; continue }
+    try {
+      const image = await storeSlideImage(talk, index, picture.buffer)
+      image.source_host = talk.language === 'ru' ? 'Из загруженной презентации' : 'From the uploaded deck'
+      out = out.map((slide, i) => (i === index ? withSlideImage(slide, image) : slide))
+      stored += 1
+      bytes += picture.buffer.length
+    } catch (err) {
+      logger.warn({ message: '[pptx import] could not store slide image', talkId: talk.id, index, error: (err as Error).message })
+      dropped += 1
+    }
+  }
+  return { slides: out, stored, dropped }
 }

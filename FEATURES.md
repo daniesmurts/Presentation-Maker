@@ -3,7 +3,7 @@
 Legend: ✅ shipped · 🚧 in progress · 📋 planned. Grouped by the role that
 uses it. A 📋 item is marked, never implied. See `docs/WORKFLOW.md` §1.
 
-Last updated: TODO B Phase 1 — uploaded slide images
+Last updated: TODO D — .pptx import
 
 ---
 
@@ -37,7 +37,10 @@ numbers are the shape of the gate, and the `.pptx` download is open to both.
 - ✅ **Upload an image onto a slide** (PNG or JPEG up to 8 MB) on any slide
   type the deck lays out — replace or remove it; it goes into the `.pptx`
   at its true aspect ratio. 📋 Image search (needs a provider). *(TODO B)*
-- 📋 **Import an existing `.pptx`.** *(TODO D)*
+- ✅ **Upload an existing `.pptx`** (up to 20 MB) as a talk: slide order,
+  titles, text, speaker notes and each slide's main picture come through;
+  template pictures repeated across slides are left behind. No model call
+  — the deck stays exactly yours, and every slide can then be rewritten.
 - 📋 **PDF export, partial export, read-only share link.** *(TODO F)*
 - 📋 **Present mode with notes on a second screen.** *(TODO G)*
 
