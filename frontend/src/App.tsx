@@ -6,6 +6,7 @@ import NewTalkPage from './pages/NewTalkPage'
 import JobPage from './pages/JobPage'
 import TalkPage from './pages/TalkPage'
 import BrandPage from './pages/BrandPage'
+import BillingPage from './pages/BillingPage'
 import SharedPage from './pages/SharedPage'
 import PresentPage from './pages/PresentPage'
 import Spinner from './components/ui/Spinner'
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="/talks/:id"  element={<TalkPage />} />
         <Route path="/jobs/:id"   element={<JobPage />} />
         <Route path="/brand"      element={<BrandPage />} />
+        <Route path="/billing"    element={<BillingPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/talks" replace />} />
     </Routes>

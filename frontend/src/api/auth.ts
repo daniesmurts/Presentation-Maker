@@ -7,6 +7,9 @@ export interface User {
   display_name: string | null
   locale:       string
   plan_tier:    string
+  plan_expires_at: string | null
+  /** The gate as it stands in this installation (billing off → everything open). */
+  features:     { pptxExport: boolean; billing: boolean }
 }
 
 export const me       = () => client.get<{ user: User }>('/api/auth/me').then((r) => r.data.user)

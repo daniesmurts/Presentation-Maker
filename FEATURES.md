@@ -9,9 +9,11 @@ Last updated: themes v2 — the exported deck and the public site's deck are one
 
 ## Anyone with an account (free tier)
 
-Free: 10 talks a month, $3 of model spend a month (a cost circuit breaker,
-not a price). Pro: unlimited talks, $30. No billing exists yet — the
-numbers are the shape of the gate, and the `.pptx` download is open to both.
+Free: 10 talks a month, PDF, share link, present mode; $3 of model spend a
+month (a cost circuit breaker, not a price). Pro — **2 500 ₽ a month** —
+unlimited talks and the native `.pptx`; $30 of spend. The gate bites only
+where billing is switched on (`BILLING_ENABLED=1`); a dev box or an
+on-prem install keeps `.pptx` open to everyone.
 
 - ✅ **The desk.** A left rail with every kind of material the product
   will make (talks now; posts and ads listed as «скоро»), the brand kit,
@@ -75,8 +77,15 @@ numbers are the shape of the gate, and the `.pptx` download is open to both.
 - ✅ **Brand kit** per workspace — accent colour, logo, name — applied to
   every download, with a preview on light and dark and the measured
   contrast of the accent on each theme (a pale accent keeps the rules and
-  bands; labels stay dark). The pricing gate sits on this
-  download (`lib/planTier.ts`) — allow-all until billing exists.
+  bands; labels stay dark).
+- ✅ **Pro subscription, 2 500 ₽ a month, paid by card through Т-Банк**
+  (`/billing`, «Тариф»): the hosted payment form, a 54-ФЗ receipt to the
+  account's e-mail, the card saved and charged again a day before the
+  paid month ends; auto-renewal switched off (and back on) in one click,
+  the paid month runs to its end; three days of grace after a declined
+  renewal before the tier drops, with the page saying what to do. Payment
+  history on the page. A locked `.pptx` in the download menu links to the
+  tariff page instead of downloading a 403.
 - ✅ **Style learning** (off by default, one switch on the Brand page): new
   talks are written in the manner of the ones you marked «Готово» — notes
   depth, phrasing, tone — never their content, and never across workspaces.
@@ -89,6 +98,12 @@ numbers are the shape of the gate, and the `.pptx` download is open to both.
   restart and version assertions. 📋 A first deployment — needs a VM, a
   registry and a domain.
 
+- ✅ **Billing as a deployment profile**: `BILLING_ENABLED`, terminal key
+  and password, `PUBLIC_API_URL` for the webhook, `TBANK_TAXATION` /
+  `TBANK_VAT` for receipts. Two leased jobs (renew, expire) every 6 h;
+  every payment row and the last webhook body kept for incidents;
+  `talk_events` rows `subscribed · renewed · payment_failed ·
+  renewal_failed · auto_renew_on/off` with the amount and the order.
 - ✅ **Spend cap per workspace** (tier default or a per-workspace override
   column), **a platform-wide daily backstop** (`GLOBAL_DAILY_SPEND_CAP_USD`,
   off until set), **usage log per model call**, and per-user rate limits

@@ -2,10 +2,12 @@ import { pool } from '../connection'
 import { logger } from '../../lib/logger'
 
 export interface TalkEvent {
-  talkId:      string
+  talkId:      string | null   // null for workspace-level events (billing)
   workspaceId: string
-  userId:      string
-  event:       'exported'
+  userId:      string | null
+  // 'subscribed' | 'renewed' | 'payment_failed' | 'renewal_failed' carry
+  // { amount_kopecks, kind, order_id } (CLAUDE.md §3.9 — record the shape).
+  event:       'exported' | 'subscribed' | 'renewed' | 'payment_failed' | 'renewal_failed' | 'auto_renew_off' | 'auto_renew_on'
   format?:     'pptx' | 'pdf'
   metadata?:   Record<string, unknown>
 }

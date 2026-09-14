@@ -17,6 +17,9 @@ export interface PublicUser {
   display_name: string | null
   locale:       string
   plan_tier:    string
+  plan_expires_at: string | null
+  /** What this tier may do here — set by the auth route from lib/planTier.ts. */
+  features?:    { pptxExport: boolean; billing: boolean }
 }
 
 export async function findUserByEmail(email: string): Promise<UserRow | null> {
@@ -26,7 +29,7 @@ export async function findUserByEmail(email: string): Promise<UserRow | null> {
 
 export async function findPublicUserById(id: string): Promise<PublicUser | null> {
   const { rows } = await pool.query<PublicUser>(
-    `SELECT u.id, u.workspace_id, u.email, u.display_name, u.locale, w.plan_tier
+    `SELECT u.id, u.workspace_id, u.email, u.display_name, u.locale, w.plan_tier, w.plan_expires_at
        FROM users u JOIN workspaces w ON w.id = u.workspace_id
       WHERE u.id = $1`,
     [id],

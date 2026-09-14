@@ -4,7 +4,16 @@ import rateLimit from 'express-rate-limit'
 import { asyncHandler } from '../lib/asyncHandler'
 import { signToken } from '../lib/jwt'
 import { setSessionCookie, clearSessionCookie } from '../lib/session'
-import { createUserWithWorkspace, findUserByEmail, findPublicUserById } from '../db/queries/users'
+import { createUserWithWorkspace, findUserByEmail, findPublicUserById, type PublicUser } from '../db/queries/users'
+import { PLAN_LIMITS, tierOf } from '../lib/planTier'
+import { config } from '../lib/config'
+
+// The UI reads the gate from here, never from the tier name: whether .pptx
+// is locked depends on billing being on in THIS installation.
+function withFeatures(user: PublicUser | null): PublicUser | null {
+  if (!user) return null
+  return { ...user, features: { pptxExport: PLAN_LIMITS[tierOf(user.plan_tier)].features.pptxExport, billing: config.billing.enabled } }
+}
 import { authenticate } from '../middleware/authenticate'
 import { UnauthorizedError, ValidationError } from '../errors/AppError'
 
@@ -32,7 +41,7 @@ authRouter.post('/register', authLimiter, asyncHandler(async (req, res) => {
   if (await findUserByEmail(email)) throw new ValidationError('Этот e-mail уже зарегистрирован — войдите')
   const user = await createUserWithWorkspace(email, await bcrypt.hash(password, 12), displayName)
   setSessionCookie(res, signToken({ id: user.id, ws: user.workspace_id }))
-  res.status(201).json({ user: await findPublicUserById(user.id) })
+  res.status(201).json({ user: withFeatures(await findPublicUserById(user.id)) })
 }))
 
 authRouter.post('/login', authLimiter, asyncHandler(async (req, res) => {
@@ -41,7 +50,7 @@ authRouter.post('/login', authLimiter, asyncHandler(async (req, res) => {
   // Same message for "no such user" and "wrong password".
   if (!user || !(await bcrypt.compare(password, user.password_hash))) throw new UnauthorizedError('Неверный e-mail или пароль')
   setSessionCookie(res, signToken({ id: user.id, ws: user.workspace_id }))
-  res.json({ user: await findPublicUserById(user.id) })
+  res.json({ user: withFeatures(await findPublicUserById(user.id)) })
 }))
 
 authRouter.post('/logout', (_req, res) => {
@@ -50,5 +59,5 @@ authRouter.post('/logout', (_req, res) => {
 })
 
 authRouter.get('/me', authenticate, (req, res) => {
-  res.json({ user: req.user })
+  res.json({ user: withFeatures(req.user) })
 })

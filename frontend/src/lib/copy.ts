@@ -69,7 +69,7 @@ export const copy = {
   // that do not exist yet are shown and marked, not hidden (a destination
   // that is unavailable is explained, not silently missing).
   nav: {
-    talks: 'Выступления', newTalk: 'Новое выступление', newShort: 'Создать', brand: 'Бренд', logout: 'Выйти',
+    talks: 'Выступления', newTalk: 'Новое выступление', newShort: 'Создать', brand: 'Бренд', plan: 'Тариф', logout: 'Выйти',
     works: 'Работы', workspace: 'Пространство', posts: 'Посты', ads: 'Реклама', soon: 'скоро',
     soonHint: (what: string) => `${what} — скоро. Тот же стол: тезисы → план → материал → экспорт.`,
   },
@@ -178,6 +178,44 @@ export const copy = {
     hint:    'Своя презентация — как есть, без изменений. Каждый слайд потом можно переписать.',
     busy:    'Читаем презентацию…',
     done:    (n: number, imgs: number) => `Загружено: ${n} ${n === 1 ? 'слайд' : n < 5 ? 'слайда' : 'слайдов'}${imgs ? `, ${imgs} ${imgs === 1 ? 'изображение' : imgs < 5 ? 'изображения' : 'изображений'}` : ''}`,
+  },
+  // The one paid tier. Copy names what the user gets and when the card is
+  // charged; the bank is named once because it is the form they will see.
+  billing: {
+    heading:      'Тариф',
+    free:         'Бесплатный',
+    pro:          'Pro',
+    price:        (rub: number) => `${rub.toLocaleString('ru-RU')} ₽ в месяц`,
+    leadFree:     'Бесплатно — 10 выступлений в месяц, PDF, ссылка и режим докладчика. Pro — без ограничения по числу выступлений и с редактируемым .pptx.',
+    leadPro:      'Выступлений без ограничения, редактируемый .pptx, PDF, ссылка и режим докладчика.',
+    subscribe:    (rub: number) => `Перейти на Pro — ${rub.toLocaleString('ru-RU')} ₽ в месяц`,
+    payAgain:     'Оплатить месяц',
+    proUntil:     (date: string) => `Pro до ${date}`,
+    renewsOn:     (date: string, last4: string | null) => `Продлится ${date}${last4 ? ` с карты ····${last4}` : ''}`,
+    endsOn:       (date: string) => `Автопродление выключено — Pro закончится ${date}`,
+    renewFailed:  (date: string) => `Не удалось продлить: карта отклонена. Оплатите заново до ${date}, иначе тариф вернётся на бесплатный.`,
+    cancel:       'Отключить автопродление',
+    resume:       'Включить автопродление',
+    cancelled:    'Автопродление выключено. Pro действует до конца оплаченного месяца.',
+    resumed:      'Автопродление включено',
+    howTitle:     'Как это работает',
+    how: [
+      'Оплата картой на защищённой странице Т-Банка. Чек приходит на e-mail аккаунта.',
+      'Карта сохраняется, и раз в месяц списывается та же сумма — за день до конца оплаченного месяца.',
+      'Автопродление отключается здесь в один клик; оплаченный месяц дорабатывает до конца.',
+      'Если списание не прошло, Pro действует ещё 3 дня — успеете оплатить другой картой.',
+    ],
+    paid:         'Оплачено — тариф Pro подключён',
+    pending:      'Платёж обрабатывается — страница обновится сама',
+    failed:       'Платёж не прошёл. Деньги не списаны — попробуйте другую карту.',
+    history:      'Платежи',
+    noPayments:   'Платежей пока не было',
+    kind:         { initial: 'Подписка', renewal: 'Продление' } as Record<string, string>,
+    status:       (s: string) => ({ CONFIRMED: 'оплачен', REJECTED: 'отклонён', AUTH_FAIL: 'отклонён', DEADLINE_EXPIRED: 'не завершён', CANCELED: 'отменён', REFUNDED: 'возвращён', PARTIAL_REFUNDED: 'частично возвращён', INIT_FAILED: 'не создан' } as Record<string, string>)[s] ?? 'в обработке',
+    off:          'Оплата в этой установке не подключена.',
+    // Where a locked action sits (download menu, quota) — one line and a link.
+    pptxLocked:   '.pptx — на тарифе Pro',
+    upgradeLink:  'Перейти на Pro',
   },
   brandKit: {
     heading:   'Бренд',

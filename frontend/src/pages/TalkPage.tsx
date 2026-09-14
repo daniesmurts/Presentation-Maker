@@ -12,6 +12,7 @@ import SlideCard, { type SlideEditActions } from '../components/talks/SlideCard'
 import Spinner from '../components/ui/Spinner'
 import Button, { buttonClass } from '../components/ui/Button'
 import { useToast } from '../lib/toast'
+import { useAuth } from '../lib/auth'
 import { copy, INTENT_LABEL, AUDIENCE_LABEL, slidesCount } from '../lib/copy'
 import { findOverfullSlides } from '../../../shared/slideFit'
 import { MAX_SLIDE_COUNT, type Slide, type Talk } from '../../../shared/types'
@@ -23,6 +24,8 @@ export default function TalkPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { toast } = useToast()
+  const { user } = useAuth()
+  const pptxOpen = user?.features?.pptxExport ?? true
   const { data: talk, isLoading, error } = useQuery({ queryKey: ['talk', id], queryFn: () => getTalk(id) })
   const { data: brandData } = useQuery({ queryKey: ['brand'], queryFn: getBrand, staleTime: 60_000 })
 
@@ -198,9 +201,18 @@ export default function TalkPage() {
           </Button>
           {menuOpen && (
             <div role="menu" className="absolute right-0 mt-1 w-72 bg-surface border border-border rounded-md shadow-lg z-30 py-1" onClick={() => setMenuOpen(false)}>
-              <a role="menuitem" href={`/api/talks/${id}/export.pptx${selQuery}`} download className="block px-3 py-2 text-sm text-ink hover:bg-surface-soft">
-                {selected.size > 0 ? copy.talk.downloadSelected('.pptx', selected.size) : copy.talk.downloadAll('.pptx')}
-              </a>
+              {/* The gate (lib/planTier.ts) answers a plain <a download> with a
+                  403 JSON the browser would save as a file — so a locked .pptx
+                  is a link to the tariff page, not a download that fails. */}
+              {pptxOpen ? (
+                <a role="menuitem" href={`/api/talks/${id}/export.pptx${selQuery}`} download className="block px-3 py-2 text-sm text-ink hover:bg-surface-soft">
+                  {selected.size > 0 ? copy.talk.downloadSelected('.pptx', selected.size) : copy.talk.downloadAll('.pptx')}
+                </a>
+              ) : (
+                <Link role="menuitem" to="/billing" className="flex items-center justify-between gap-2 px-3 py-2 text-sm text-ink-secondary hover:bg-surface-soft">
+                  {copy.billing.pptxLocked} <span className="text-accent text-xs font-medium">{copy.billing.upgradeLink} →</span>
+                </Link>
+              )}
               <a role="menuitem" href={`/api/talks/${id}/export.pdf${selQuery}`} download className="block px-3 py-2 text-sm text-ink hover:bg-surface-soft">
                 {selected.size > 0 ? copy.talk.downloadSelected('PDF', selected.size) : copy.talk.downloadAll('PDF')}
               </a>

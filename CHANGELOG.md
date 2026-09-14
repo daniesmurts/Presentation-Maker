@@ -33,6 +33,45 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 
 ## [Unreleased]
 
+### Added
+- **Pro subscription through Т-Банк — 2 500 ₽ a month** (TODO K). Internet
+  acquiring (developer.tbank.ru/eacq): `Init` with `Recurrent=Y` opens the
+  hosted form and saves the card; the notification (`POST
+  /api/billing/tbank/notify`, answered with a bare `OK`) is the source of
+  truth for a paid month; renewals are `Init` + `Charge(RebillId)` from a
+  leased job a day before the month ends. Decisions recorded: auto-renew
+  (not a manual monthly purchase), receipts on (the terminal has the cloud
+  cash register — `Receipt` on every Init with the account's e-mail,
+  taxation and VAT from env), free loses `.pptx` only (PDF, share link,
+  present mode stay; CLAUDE.md §10). Why the shape:
+  - *Signature.* Root-level params + `Password`, sorted by key, values
+    concatenated, SHA-256 — `services/tbank/token.ts`, tested against the
+    portal's own worked example (`72dd466f…`) so a wrong sort order or a
+    nested object leaking into the token fails in CI, not at the bank.
+  - *Idempotent webhook.* T-Bank retries hourly for a day and daily for a
+    month; the same `CONFIRMED` twice extends the month once (row locked
+    `FOR UPDATE`, status compared). A bad token is 403, an unknown order 404
+    — both on purpose, so the retry keeps knocking while the bug is fixed.
+    A `CONFIRMED` for a different amount is logged and not applied.
+  - *The month.* From the later of now and the current expiry, calendar
+    month clamped (Jan 31 → Feb 28/29), so an early renewal never eats days.
+  - *Expiry is a job, not the webhook.* `plan_tier` drops to free
+    `GRACE_DAYS = 3` after the paid month, one attempt a day for the card
+    (`MAX_RENEWAL_FAILURES = 3` ≈ the grace), then auto-renew switches off
+    and the page says «оплатите заново до …».
+  - *Billing is a profile.* `BILLING_ENABLED` unset → the gate stays
+    allow-all and `/api/billing` answers `PLAN_BILLING_OFF`; the UI reads
+    `user.features.pptxExport`, never the tier name, so a locked `.pptx` is
+    a link to the tariff page rather than a `<a download>` that saves a
+    403 JSON as a file (that is what a plain link does).
+  - Verified locally against the real endpoint with placeholder keys
+    (`501 Терминал не найден` mapped to user copy, row `INIT_FAILED`) and
+    with hand-signed notification replays (good → `OK`, duplicate →
+    `OK`/no second month, tampered amount → 403, unknown order → 404);
+    renew and expire jobs run one-off against the dev DB. Not yet run:
+    a real payment on a test terminal — needs the merchant cabinet's keys
+    and a public `PUBLIC_API_URL` for the webhook.
+
 ### Changed
 - **Themes v2 — the deck looks like the landing** (TODO J). One geometry
   file, `shared/slideGeometry.ts`, in percent-of-width units (a CSS `cqw`;

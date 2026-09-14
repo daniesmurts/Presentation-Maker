@@ -2,23 +2,24 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import TalkForm from '../components/talks/TalkForm'
 import { createJob, type CreateTalkRequest } from '../api/talks'
-import { errorMessage } from '../api/client'
+import { errorMessage, errorUpgrade } from '../api/client'
 import { copy } from '../lib/copy'
 
 export default function NewTalkPage() {
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
+  const [upgrade, setUpgrade] = useState(false)
 
   async function submit(req: CreateTalkRequest) {
-    setBusy(true); setError(undefined)
+    setBusy(true); setError(undefined); setUpgrade(false)
     try {
       const job = await createJob(req)
       // The job page owns the rest — a refresh mid-generation lands back
       // on the same job instead of on an empty form.
       navigate(`/jobs/${job.id}`)
     } catch (err) {
-      setError(errorMessage(err))
+      setError(errorMessage(err)); setUpgrade(errorUpgrade(err))
       setBusy(false)
     }
   }
@@ -28,7 +29,7 @@ export default function NewTalkPage() {
       <div className="eyebrow text-accent mb-1.5">{copy.talk.kind}</div>
       <h1 className="display font-semibold text-[30px] leading-tight text-ink mb-1">{copy.nav.newTalk}</h1>
       <p className="text-sm text-ink-secondary mb-8">{copy.tagline}</p>
-      <TalkForm onSubmit={submit} submitting={busy} error={error} />
+      <TalkForm onSubmit={submit} submitting={busy} error={error} upgrade={upgrade} />
     </div>
   )
 }

@@ -10,6 +10,16 @@
         "--workspace=frontend"
       ],
       "port": 5174
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--workspace=backend"
+      ],
+      "port": 3000
     }
   ]
 }

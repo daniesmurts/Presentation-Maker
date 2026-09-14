@@ -24,3 +24,10 @@ export function errorMessage(err: unknown, fallback = 'Что-то пошло н
 export function errorStatus(err: unknown): number | undefined {
   return axios.isAxiosError(err) ? err.response?.status : undefined
 }
+
+/** True when the API said the fix is a higher tier (AppError.upgrade). */
+export function errorUpgrade(err: unknown): boolean {
+  if (!axios.isAxiosError(err)) return false
+  const data = err.response?.data as { error?: Partial<ApiError> } | undefined
+  return data?.error?.upgrade === true
+}

@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Plus, LogOut, Presentation, FileText, Megaphone, Palette } from 'lucide-react'
+import { Plus, LogOut, Presentation, FileText, Megaphone, Palette, CreditCard } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useAuth } from '../../lib/auth'
 import { copy } from '../../lib/copy'
@@ -7,8 +7,8 @@ import ThemeToggle from '../ui/ThemeToggle'
 
 // The desk («Редакция»): a left rail ≥ lg that holds every kind of material
 // the product will make — talks now; posts and ads are listed and marked
-// «скоро», not hidden — plus the workspace (brand). Under lg the rail is a
-// bottom bar with the same four destinations (≤5, icon + label).
+// «скоро», not hidden — plus the workspace (brand, tariff). Under lg the rail is a
+// bottom bar with the same five destinations (≤5, icon + label).
 //
 // `min-h-screen` on the outer wrapper, NOT `h-screen`: with h-screen the
 // body stops scrolling and a wrapper becomes the scrollport, which silently
@@ -47,6 +47,10 @@ export default function AppShell() {
         <Soon icon={<Megaphone className={ic} aria-hidden />} label={copy.nav.ads} />
         <div className="eyebrow text-ink-tertiary px-2.5 pt-3 pb-1.5">{copy.nav.workspace}</div>
         <NavLink to="/brand" className={railClass}><Palette className={ic} aria-hidden /> {copy.nav.brand}</NavLink>
+        <NavLink to="/billing" className={railClass}>
+          <CreditCard className={ic} aria-hidden /> {copy.nav.plan}
+          {user?.plan_tier === 'pro' && <span className="ml-auto text-[10px] uppercase tracking-[0.08em] bg-accent-light text-accent rounded-full px-1.5 leading-4">Pro</span>}
+        </NavLink>
         <div className="mt-auto pt-3 border-t border-border flex items-center gap-1 px-1">
           <span className="text-xs text-ink-secondary truncate min-w-0 flex-1">{user?.display_name || user?.email}</span>
           <ThemeToggle />
@@ -79,10 +83,11 @@ export default function AppShell() {
         <footer className="max-w-5xl mx-auto px-4 lg:px-10 pb-6 text-xs text-ink-tertiary hidden lg:block">{copy.brand} · {__APP_VERSION__}</footer>
       </div>
 
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-surface border-t border-border grid grid-cols-4 pb-[env(safe-area-inset-bottom)]" aria-label={copy.nav.works}>
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-surface border-t border-border grid grid-cols-5 pb-[env(safe-area-inset-bottom)]" aria-label={copy.nav.works}>
         <BarLink to="/talks" icon={<Presentation className="w-5 h-5" aria-hidden />} label={copy.nav.talks} />
         <BarLink to="/talks/new" icon={<Plus className="w-5 h-5" aria-hidden />} label={copy.nav.newShort} />
         <BarLink to="/brand" icon={<Palette className="w-5 h-5" aria-hidden />} label={copy.nav.brand} />
+        <BarLink to="/billing" icon={<CreditCard className="w-5 h-5" aria-hidden />} label={copy.nav.plan} />
         <button onClick={signOut} className="h-14 flex flex-col items-center justify-center gap-0.5 text-[11px] text-ink-secondary">
           <LogOut className="w-5 h-5" aria-hidden /> {copy.nav.logout}
         </button>

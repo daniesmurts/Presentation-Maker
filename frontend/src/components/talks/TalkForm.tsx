@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import Button from '../ui/Button'
 import { Field, Checkbox, inputClass, proseInputClass } from '../ui/Field'
@@ -14,9 +15,11 @@ interface Props {
   onSubmit:   (req: CreateTalkRequest) => void
   submitting: boolean
   error?:     string
+  /** True when the error came with upgrade:true — the fix is the tariff page, not the form. */
+  upgrade?:   boolean
 }
 
-export default function TalkForm({ onSubmit, submitting, error }: Props) {
+export default function TalkForm({ onSubmit, submitting, error, upgrade }: Props) {
   const [title, setTitle]       = useState('')
   const [brief, setBrief]       = useState('')
   const [intent, setIntent]     = useState<Intent>('inform')
@@ -117,7 +120,11 @@ export default function TalkForm({ onSubmit, submitting, error }: Props) {
         <Checkbox checked={review} onChange={setReview} label={copy.form.reviewOutline} hint={copy.form.reviewHint} />
       </div>
 
-      {error && <div role="alert" className="px-3 py-2 bg-danger-bg text-danger text-sm rounded-md">{error}</div>}
+      {error && (
+        <div role="alert" className="px-3 py-2 bg-danger-bg text-danger text-sm rounded-md">
+          {error}{upgrade && <> <Link to="/billing" className="font-medium underline underline-offset-2">{copy.billing.upgradeLink}</Link></>}
+        </div>
+      )}
 
       <Button type="submit" loading={submitting} disabled={!canSubmit}>{review ? copy.form.submit : copy.form.submitNoGate}</Button>
     </form>

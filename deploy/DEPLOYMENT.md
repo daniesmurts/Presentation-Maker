@@ -21,6 +21,11 @@ sudo mkdir -p /opt/tezarium && sudo chown $USER /opt/tezarium
 # /opt/tezarium/.env — the app's env (copy .env.example) PLUS:
 #   IMAGE_REPO=<same as the GitHub secret>
 #   DOMAIN=talks.example.com
+#   Billing (optional): BILLING_ENABLED=1, TBANK_TERMINAL_KEY, TBANK_PASSWORD,
+#   PUBLIC_API_URL=https://<DOMAIN> — T-Bank posts to /api/billing/tbank/notify,
+#   which Caddy already proxies with the rest of /api/*. Switch it on with the
+#   TEST terminal pair first; the .pptx gate closes for free workspaces the
+#   moment it is on.
 docker login <REGISTRY>
 ```
 

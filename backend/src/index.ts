@@ -11,6 +11,8 @@ import { authRouter } from './routes/auth'
 import { talksRouter } from './routes/talks'
 import { brandRouter } from './routes/brand'
 import { sharedRouter } from './routes/shared'
+import { billingRouter, billingWebhookRouter } from './routes/billing'
+import { startBillingJobs } from './services/billing'
 import { startJobQueue, stopJobQueue } from './services/jobQueue'
 import { registerTalkJobWorker, startTalkOutlineSweeper } from './services/talkJobWorker'
 import { registerBeforeCall } from './services/llm/registry'
@@ -49,6 +51,9 @@ app.use('/api/auth',  authRouter)
 app.use('/api/talks', talksRouter)
 app.use('/api/brand', brandRouter)
 app.use('/api/shared', sharedRouter)
+// The webhook router first: it must not sit behind the session middleware.
+app.use('/api/billing', billingWebhookRouter)
+app.use('/api/billing', billingRouter)
 
 app.use((_req, res) => {
   res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Не найдено' } })
@@ -71,6 +76,7 @@ async function main(): Promise<void> {
   const boss = await startJobQueue()
   await registerTalkJobWorker(boss)
   startTalkOutlineSweeper()
+  startBillingJobs()
 
   const server = app.listen(config.port, () => {
     logger.info({ message: `Tezarium backend listening on :${config.port}`, env: config.nodeEnv, mode: config.deploymentMode })

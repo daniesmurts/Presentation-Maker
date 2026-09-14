@@ -215,6 +215,27 @@ one for pitches) is the next thing a designer would ask for; the brand
 logo now sits top-left on the title slide — the "logo on every slide"
 option is still open.
 
+### K. Billing — Pro through Т-Банк · Effort: M · 🟢 SHIPPED (2026-09-14, code) · 📋 first live payment
+- **Why**: the gate in `lib/planTier.ts` was allow-all «until billing
+  exists»; a product with a paid tier and no way to pay is a free product.
+- **Shipped**: migration 012, `services/tbank/{token,client}.ts`,
+  `services/billing.ts` (checkout · notification · verify · renew ·
+  expire · cancel/resume), `/api/billing/*`, the «Тариф» page, the locked
+  `.pptx` item, the quota hint's link.
+- **Left, in order**:
+  1. Test terminal: put `TBANK_TERMINAL_KEY` / `TBANK_PASSWORD` (test
+     pair) and `BILLING_ENABLED=1` on the VM, `PUBLIC_API_URL=https://tezarium.ru`,
+     `TBANK_TAXATION` / `TBANK_VAT` as the accountant says; pay with the
+     portal's test card; confirm the notification lands (Caddy already
+     proxies `/api/*`), the receipt arrives, `RebillId` is stored.
+  2. A renewal on the test terminal: set `plan_expires_at` to tomorrow,
+     wait for the 6 h tick (or run `renewDue()` one-off).
+  3. Refunds are done in the cabinet; the webhook records `REFUNDED` and
+     leaves the month — decide whether support claws it back.
+  4. An e-mail on a failed renewal — there is no mail sender yet; the page
+     carries the message until there is.
+  5. Landing: a pricing block (2 500 ₽ / месяц) once item I has a place for it.
+
 ### The plan is built. What is next is not more building.
 Every item in CLAUDE.md §8 is shipped and deployed. The next TODO entries
 should come from users, usage_log and talk_events — not from this file.
