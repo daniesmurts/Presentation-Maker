@@ -1,0 +1,25 @@
+<footer class="ftr">
+  <div class="wrap row">
+    <div>
+      <div class="mark">Тезариум · Tezarium</div>
+      <p class="muted small">От тезисов — к выступлению.</p>
+    </div>
+    <nav class="cols" aria-label="Подвал">
+      <a href="/register">Попробовать бесплатно</a>
+      <a href="/login">Войти</a>
+      <a href="#faq">Вопросы</a>
+      <a href="mailto:hello@tezarium.ru">hello@tezarium.ru</a>
+    </nav>
+  </div>
+  <div class="wrap legal muted small">© {new Date().getFullYear()} Тезариум. Слайды, которые знают, что сказать.</div>
+</footer>
+<style>
+  .ftr { border-top: 1px solid var(--c-border-strong); padding: 40px 0 32px; }
+  .row { display: flex; justify-content: space-between; gap: 32px; flex-wrap: wrap; }
+  .mark { font-family: var(--display); font-weight: 600; font-size: 18px; }
+  .cols { display: grid; gap: 8px; }
+  .cols a { color: rgb(var(--c-ink-secondary)); text-decoration: none; font-size: 15px; }
+  .cols a:hover { color: rgb(var(--c-ink)); }
+  .small { font-size: 14px; }
+  .legal { margin-top: 32px; }
+</style>

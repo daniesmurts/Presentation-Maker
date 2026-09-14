@@ -1,8 +1,15 @@
-# Caddy in front of everything: automatic TLS for {$DOMAIN}, the static
-# bundle from /srv, /api proxied across both API replicas. Caddy rather than
-# nginx + certbot because certificate renewal is the ops step most often
-# forgotten on a one-VM deploy; nginx is a drop-in alternative if a customer
-# insists (they get this file's semantics, not this file).
+# Caddy in front of everything: automatic TLS for {$DOMAIN}, the public site
+# (Astro, static HTML) at the root, the app (Vite SPA) under its own paths,
+# /api proxied across both API replicas. Caddy rather than nginx + certbot
+# because certificate renewal is the ops step most often forgotten on a
+# one-VM deploy; nginx is a drop-in alternative if a customer insists (they
+# get this file's semantics, not this file).
+#
+# Two roots, on purpose: the site must be real HTML with real 404s (Yandex
+# renders JS poorly and a SPA index served at 200 for every path is how a
+# site ends up indexed as one page); the app keeps its client-side routing.
+# A new app route is a new line in @app — a route missing here lands on
+# the site's 404, which is loud and cheap to fix.
 #
 # DOMAIN=localhost makes Caddy serve plain http on :80 — the local check.
 
@@ -21,9 +28,16 @@
 		reverse_proxy api:3000 api2:3000
 	}
 
-	handle {
-		root * /srv
+	@app path /talks /talks/* /jobs/* /brand /login /register /s/* /assets/* /version.txt
+	handle @app {
+		root * /srv/app
 		try_files {path} /index.html
+		file_server
+	}
+
+	handle {
+		root * /srv/site
+		try_files {path} {path}.html
 		file_server
 	}
 }

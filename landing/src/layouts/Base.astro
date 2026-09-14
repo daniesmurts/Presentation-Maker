@@ -1,0 +1,44 @@
+---
+// Every public page: head, header, footer. Russian-first; hreflang for EN
+// arrives with the EN pages. JSON-LD per page comes through the slot.
+import '../styles/global.css'
+import Header from '../components/Header.astro'
+import Footer from '../components/Footer.astro'
+
+interface Props { title: string; description: string; canonical?: string; ogImage?: string }
+const { title, description, canonical = Astro.url.pathname, ogImage = '/og.png' } = Astro.props
+const site = Astro.site?.toString().replace(/\/$/, '') ?? 'https://tezarium.ru'
+const url = `${site}${canonical === '/' ? '' : canonical}`
+---
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={url} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Тезариум" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={url} />
+    <meta property="og:image" content={`${site}${ogImage}`} />
+    <meta property="og:locale" content="ru_RU" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;1,7..72,400&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+    <script is:inline>try{var t=localStorage.getItem('tezarium-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+    <slot name="head" />
+  </head>
+  <body>
+    <Header />
+    <main>
+      <slot />
+    </main>
+    <Footer />
+  </body>
+</html>

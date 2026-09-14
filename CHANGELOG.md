@@ -33,6 +33,36 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 
 ## [Unreleased]
 
+### Added
+- **Public site skeleton and hero** (`landing/`, TODO I). Astro, static
+  HTML — the SPA is invisible to Yandex, and the first customers search
+  in Yandex. Caddy now has two roots: the site at `/srv/site` with real
+  404s, the app at `/srv/app` under an explicit `@app` path list
+  (`/talks`, `/jobs`, `/brand`, `/login`, `/register`, `/s/*`, `/assets`,
+  `/version.txt`) — a new app route is a new line there. The hero is a
+  **scripted replay of a real generation**: the brief typed in, the plan
+  rising row by row, then the manuscript with the speaker's text and
+  ≈-seconds in the margin — `src/data/demo-talk.json` is the stored output
+  of 0.1.0 for exactly that brief, nothing invented, nothing fetched (no
+  anonymous API path to abuse). Then a **fourth step — the slides**: the same
+  talk as 16:9 slides in the three exporter palettes with a thumbnail
+  strip and a theme picker, drawn in container-query units so the stage
+  and the thumbnails are one drawing, in the faces a .pptx can carry
+  (Georgia/Arial). The founder's point: nobody signs up for plain slides.
+  These compositions are deliberately BETTER than what `talkExport.ts`
+  draws today, so they are the spec for Themes v2 (TODO J) and the site
+  is gated on it — the landing must not show a deck the download does
+  not match. Server-rendered at its final state; plays once the step bar
+  scrolls into view (a threshold on the 1900 px frame never fired);
+  reduced-motion gets plain tabs. Same
+  tokens as the app (`tokens.css` is a copy of the app's block — re-copy
+  when they move). Copy decision: the site says «ИИ для презентаций»
+  because that is the query; the app keeps its rule (CLAUDE.md §1). JSON-LD
+  `SoftwareApplication` + `FAQPage`, sitemap, robots (app paths
+  disallowed). Pricing is Free / Pro — скоро, no fake checkout. Needs
+  `npm install` at the root (new workspace) and a `.dockerignore` so local
+  `node_modules` stop riding into the web image.
+
 ### Changed
 - **Дизайн «Редакция»** — the UI rebuilt on one idea: Tezarium is an
   editor's desk, not a generator. Paper, ink, one blue pencil; the text

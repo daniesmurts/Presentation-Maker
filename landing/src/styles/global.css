@@ -1,0 +1,50 @@
+@import './tokens.css';
+
+/* Three faces with full Cyrillic, same as the app (index.html loads them). */
+:root {
+  --display: "Literata", "PT Serif", Georgia, serif;
+  --ui: "Golos Text", "PT Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", "PT Mono", ui-monospace, monospace;
+  --page-max: 1120px;
+  --measure: 62ch;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0;
+  background: rgb(var(--c-bg));
+  color: rgb(var(--c-ink));
+  font-family: var(--ui);
+  font-size: 17px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: rgb(var(--c-accent)); text-decoration-thickness: 1px; text-underline-offset: 4px; }
+a:hover { color: rgb(var(--c-accent-deep)); }
+h1, h2, h3 { font-family: var(--display); font-weight: 600; letter-spacing: -0.015em; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(2.6rem, 6.5vw, 5.2rem); line-height: 1.02; }
+h2 { font-size: clamp(1.7rem, 3vw, 2.4rem); line-height: 1.12; }
+h3 { font-size: 1.25rem; line-height: 1.25; font-weight: 500; }
+p { margin: 0; }
+.measure { max-width: var(--measure); }
+.wrap { max-width: var(--page-max); margin: 0 auto; padding: 0 24px; }
+.eyebrow { font: 500 12px/1 var(--ui); letter-spacing: 0.12em; text-transform: uppercase; color: rgb(var(--c-ink-secondary)); }
+.eyebrow.pencil { color: rgb(var(--c-accent)); }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.muted { color: rgb(var(--c-ink-secondary)); }
+/* The highlighter: a stroke under a word. Once per page. */
+.marker-under { background: linear-gradient(transparent 62%, rgb(var(--c-marker)) 62%, rgb(var(--c-marker)) 92%, transparent 92%); }
+
+/* Buttons — the same rules as the app: one solid (ink), the rest chips. */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; padding: 0 22px; border-radius: 6px; font: 500 16px/1 var(--ui); text-decoration: none; white-space: nowrap; transition: background-color 150ms ease, color 150ms ease; border: 1px solid transparent; }
+.btn.solid { background: rgb(var(--c-ink)); color: rgb(var(--c-bg)); }
+.btn.solid:hover { background: rgb(var(--c-ink-hover)); color: rgb(var(--c-bg)); }
+.btn.ghost { background: rgb(var(--c-surface)); color: rgb(var(--c-ink)); border-color: var(--c-border-strong); }
+.btn.ghost:hover { background: rgb(var(--c-surface-soft)); color: rgb(var(--c-ink)); }
+.btn.sm { height: 40px; padding: 0 16px; font-size: 15px; }
+:focus-visible { outline: 2px solid rgb(var(--c-accent) / 0.7); outline-offset: 2px; }
+
+section { padding: 88px 0; border-top: 1px solid var(--c-border); }
+@media (max-width: 720px) { section { padding: 56px 0; } }
+.sheet { background: rgb(var(--c-surface)); }

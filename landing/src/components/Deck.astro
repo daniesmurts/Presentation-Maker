@@ -1,0 +1,152 @@
+---
+// Step 4 — the slides. The same demo talk drawn as 16:9 slides in the
+// three themes the exporter ships, from the exporter's own palettes
+// (backend/src/services/themes.ts — keep in step). Faces are the ones a
+// .pptx can carry without embedding (Georgia / Arial), so what is drawn
+// here is what opens in PowerPoint. The compositions are the spec for the
+// exporter's themes v2: this component and talkExport.ts must agree.
+// Sizes are in container-query units, so the same markup is the big stage
+// and the thumbnail strip.
+import talk from '../data/demo-talk.json'
+
+const THEMES = [
+  { id: 'default', name: 'Тезариум', bg: '#FFFFFF', panel: '#EEF3F3', ink: '#16201F', ink2: '#57635F', accent: '#0F6E6E', accentText: '#FFFFFF' },
+  { id: 'dark',    name: 'Тёмная',   bg: '#15211F', panel: '#20302D', ink: '#F4F6F7', ink2: '#C5CFCC', accent: '#5FC4BE', accentText: '#15211F' },
+  { id: 'warm',    name: 'Тёплая',   bg: '#FBF8F2', panel: '#F3ECDF', ink: '#1F1A14', ink2: '#5C554B', accent: '#8A5C06', accentText: '#FFFFFF' },
+]
+const slides = talk.slides as any[]
+const pad = (n: number) => String(n).padStart(2, '0')
+const latexToText = (s: string) => s.replace(/\\text\{([^}]*)\}/g, '$1').replace(/\s+-\s+/g, ' − ')
+const vars = (t: typeof THEMES[number]) => `--s-bg:${t.bg};--s-panel:${t.panel};--s-ink:${t.ink};--s-ink2:${t.ink2};--s-accent:${t.accent};--s-accent-text:${t.accentText}`
+---
+<div class="deck" id="deck" data-theme-id="default" data-slide="0" style={vars(THEMES[0])}>
+  <div class="dhead">
+    <div class="themes" role="group" aria-label="Тема оформления">
+      {THEMES.map((t) => (
+        <button type="button" class="th" data-theme={t.id} data-vars={vars(t)} aria-pressed={t.id === 'default' ? 'true' : 'false'}>
+          <span class="sw" style={`background:${t.bg};border-color:${t.accent}`}><i style={`background:${t.accent}`}></i></span>{t.name}
+        </button>
+      ))}
+    </div>
+    <span class="muted small">три темы сегодня; цвет и логотип — ваши</span>
+  </div>
+
+  <div class="stage-wrap">
+    {slides.map((s, i) => (
+      <div class="slide" data-i={i} aria-hidden={i === 0 ? 'false' : 'true'}>
+        <div class="foot"><span class="ft">{talk.title}</span><span class="fn">{pad(i + 1)} / {pad(slides.length)}</span></div>
+        {s.type === 'title' ? (
+          <div class="lay title">
+            <div class="rule"></div>
+            <div class="kick">{s.body.subtitle}</div>
+            <h3 class="h">{s.title}</h3>
+            {/* The product leaves «[Имя, роль]» for the user to fill; a placeholder on a landing reads as unfinished. */}
+            {s.body.presenter && !/^\[.*\]$/.test(s.body.presenter) && <div class="who">{s.body.presenter}</div>}
+          </div>
+        ) : s.type === 'bullets' ? (
+          <div class="lay"><h3 class="h">{s.title}</h3><ul class="b">{s.body.items.map((b: string) => <li>{b}</li>)}</ul></div>
+        ) : s.type === 'formula' ? (
+          <div class="lay"><h3 class="h">{s.title}</h3>
+            <div class="fbox"><div class="f">{latexToText(s.body.formulas[0].latex)}</div><div class="fc">{s.body.formulas[0].caption}</div></div>
+            <p class="ex">{s.body.explanation}</p></div>
+        ) : s.type === 'discussion' ? (
+          <div class="lay q"><div class="kick">{s.title}</div><h3 class="h big">{s.body.question}</h3><ul class="b sub">{s.body.prompts.map((b: string) => <li>{b}</li>)}</ul></div>
+        ) : (
+          <div class="lay"><h3 class="h">{s.title}</h3>
+            <div class="two"><ul class="b">{s.body.takeaways.map((b: string) => <li>{b}</li>)}</ul>
+              <div class="next"><div class="kick">Что дальше</div><ul class="b">{s.body.next_steps.map((b: string) => <li>{b}</li>)}</ul></div></div></div>
+        )}
+      </div>
+    ))}
+  </div>
+
+  <div class="strip" role="tablist" aria-label="Слайды">
+    {slides.map((s, i) => (
+      <button type="button" role="tab" class="thumb" data-go={i} aria-selected={i === 0 ? 'true' : 'false'} aria-label={`Слайд ${i + 1}: ${s.title}`}>
+        <div class="slide mini" aria-hidden="true">
+          <div class="foot"><span class="ft">{talk.title}</span><span class="fn">{pad(i + 1)} / {pad(slides.length)}</span></div>
+          {s.type === 'title' ? (
+            <div class="lay title"><div class="rule"></div><div class="kick">{s.body.subtitle}</div><h3 class="h">{s.title}</h3></div>
+          ) : s.type === 'discussion' ? (
+            <div class="lay q"><div class="kick">{s.title}</div><h3 class="h big">{s.body.question}</h3></div>
+          ) : (
+            <div class="lay"><h3 class="h">{s.title}</h3><ul class="b">{(s.body.items ?? s.body.takeaways ?? [s.body.formulas?.[0]?.caption]).slice(0, 3).map((b: string) => <li>{b}</li>)}</ul></div>
+          )}
+        </div>
+      </button>
+    ))}
+  </div>
+</div>
+
+<style>
+  .deck { display: grid; gap: 14px; }
+  .dhead { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .themes { display: flex; gap: 6px; }
+  .th { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px 0 8px; border-radius: 999px; border: 1px solid var(--c-border-strong); background: transparent; color: rgb(var(--c-ink-secondary)); font: 500 13px/1 var(--ui); cursor: pointer; }
+  .th[aria-pressed="true"] { background: rgb(var(--c-ink)); color: rgb(var(--c-bg)); border-color: transparent; }
+  .sw { width: 18px; height: 18px; border-radius: 50%; border: 1px solid; display: inline-grid; place-items: center; }
+  .sw i { width: 8px; height: 8px; border-radius: 50%; display: block; }
+  .small { font-size: 13px; }
+
+  .stage-wrap { position: relative; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 2px rgb(var(--c-ink) / 0.08), 0 20px 40px -20px rgb(var(--c-ink) / 0.3); }
+  .stage-wrap .slide { position: absolute; inset: 0; opacity: 0; transition: opacity 260ms ease; }
+  .stage-wrap .slide[aria-hidden="false"] { opacity: 1; }
+
+  /* ── A slide. 16:9, everything in cqw so the thumbnail is the same drawing. ── */
+  .slide { container-type: inline-size; background: var(--s-bg); color: var(--s-ink); font-family: Arial, "Helvetica Neue", sans-serif; overflow: hidden; }
+  .slide .lay { position: absolute; left: 6cqw; right: 6cqw; top: 6cqw; bottom: 9cqw; display: flex; flex-direction: column; }
+  .slide .h { font-family: Georgia, "PT Serif", serif; font-weight: 700; font-size: 4.4cqw; line-height: 1.12; letter-spacing: -0.01em; margin: 0 0 3.2cqw; padding-bottom: 2cqw; border-bottom: 0.25cqw solid var(--s-accent); text-wrap: balance; }
+  .slide .b { list-style: none; margin: 0; padding: 0; font-size: 2.55cqw; line-height: 1.35; display: grid; gap: 1.5cqw; }
+  .slide .b li { position: relative; padding-left: 3cqw; }
+  .slide .b li::before { content: ''; position: absolute; left: 0; top: 0.55em; width: 1.1cqw; height: 1.1cqw; border-radius: 50%; background: var(--s-accent); }
+  .slide .b.sub { font-size: 2.2cqw; color: var(--s-ink2); }
+  .slide .kick { font-size: 1.5cqw; letter-spacing: 0.14em; text-transform: uppercase; color: var(--s-accent); font-weight: 700; margin-bottom: 1.6cqw; }
+  .slide .foot { position: absolute; left: 6cqw; right: 6cqw; bottom: 3.2cqw; display: flex; justify-content: space-between; font-size: 1.45cqw; color: var(--s-ink2); letter-spacing: 0.02em; }
+  .slide .fn { font-family: "Courier New", monospace; }
+  /* Title: the rule above, the title low and large, the presenter under. */
+  .slide .lay.title { justify-content: flex-end; bottom: 11cqw; }
+  .slide .lay.title .rule { width: 9cqw; height: 0.6cqw; background: var(--s-accent); margin-bottom: 3cqw; }
+  .slide .lay.title .kick { color: var(--s-ink2); }
+  .slide .lay.title .h { font-size: 6.4cqw; border: 0; padding: 0; margin: 0 0 2.4cqw; max-width: 80%; }
+  .slide .lay.title .who { font-size: 2cqw; color: var(--s-ink2); }
+  /* Formula: a panel box, the formula in serif, the short form under it. */
+  .slide .fbox { background: var(--s-panel); border-radius: 0.8cqw; padding: 3.2cqw 3.6cqw; display: grid; gap: 1cqw; }
+  .slide .f { font-family: Georgia, serif; font-size: 3.2cqw; line-height: 1.25; }
+  .slide .fc { font-family: "Courier New", monospace; font-size: 1.9cqw; color: var(--s-ink2); }
+  .slide .ex { margin: 2.6cqw 0 0; font-size: 2.2cqw; line-height: 1.4; color: var(--s-ink2); max-width: 80%; }
+  /* Question: no rule, a very large serif question, the prompts quieter. */
+  .slide .lay.q { justify-content: center; }
+  .slide .lay.q .h.big { font-size: 5.6cqw; font-weight: 400; font-style: italic; border: 0; padding: 0; max-width: 88%; }
+  /* Summary: takeaways left, next steps in a panel on the right. */
+  .slide .two { display: grid; grid-template-columns: 1.4fr 1fr; gap: 4cqw; }
+  .slide .next { background: var(--s-panel); border-radius: 0.8cqw; padding: 2.4cqw 2.8cqw; align-self: start; }
+  .slide .next .b { font-size: 2.2cqw; }
+
+  .strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .thumb { padding: 0; border: 2px solid transparent; border-radius: 6px; background: transparent; cursor: pointer; overflow: hidden; }
+  .thumb[aria-selected="true"] { border-color: rgb(var(--c-accent)); }
+  .thumb .slide { position: relative; aspect-ratio: 16 / 9; border-radius: 4px; }
+  .thumb .slide .h { font-size: 4.8cqw; }
+  .thumb .slide .b { font-size: 2.8cqw; }
+  @media (max-width: 640px) { .strip { grid-template-columns: repeat(5, 1fr); gap: 6px; } .thumb .foot, .thumb .b { display: none; } }
+</style>
+
+<script>
+  // Theme picker + slide picker. The replay (Replay.astro) drives
+  // `deck.advance()` to page through the slides on step 4.
+  const deck = document.getElementById('deck')!
+  const slides = [...deck.querySelectorAll<HTMLElement>('.stage-wrap .slide')]
+  const thumbs = [...deck.querySelectorAll<HTMLButtonElement>('.thumb')]
+  function show(i: number) {
+    deck.dataset.slide = String(i)
+    slides.forEach((s, j) => s.setAttribute('aria-hidden', j === i ? 'false' : 'true'))
+    thumbs.forEach((t, j) => t.setAttribute('aria-selected', j === i ? 'true' : 'false'))
+  }
+  thumbs.forEach((t) => t.addEventListener('click', () => show(Number(t.dataset.go))))
+  deck.querySelectorAll<HTMLButtonElement>('.th').forEach((b) => b.addEventListener('click', () => {
+    deck.setAttribute('style', b.dataset.vars ?? '')
+    deck.dataset.themeId = b.dataset.theme
+    deck.querySelectorAll('.th').forEach((x) => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'))
+  }))
+  ;(window as any).tezDeck = { show, count: slides.length, current: () => Number(deck.dataset.slide) }
+</script>

@@ -48,9 +48,16 @@ and siblings (see §2). Port the *shape*, rewrite the *copy*.
 The parent product's copy rule («never ИИ, always ИСПУМ») lived in exactly
 this spot and is what kept 45 pages consistent. Tezarium's equivalent:
 **say what the product does, never what powers it** — no «ИИ», «нейросеть»,
-«AI» in user-facing copy unless a legal or settings context requires it.
+«AI» in the app's copy unless a legal or settings context requires it.
 Taglines in use: «От тезисов — к выступлению» (landing), «Слайды, которые
 знают, что сказать» (ads).
+
+**The one exception is the public site** (`landing/`), decided
+2026-09-14: people search «ИИ для презентаций» / «нейросеть для
+презентаций», and a page that refuses the words the visitor typed does not
+get found. The landing names the category the way it is searched — in the
+title, the eyebrow, one FAQ answer — and then talks about what the product
+does. Inside the app the rule stands.
 
 ---
 

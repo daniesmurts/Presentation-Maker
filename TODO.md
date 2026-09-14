@@ -189,6 +189,36 @@ the app's pencil blue or stay a deliberately different palette; the
 same Тезисы → План → Материал → Экспорт skeleton (`TalkPage` + the gate +
 `RewriteReview` are the reusable parts).
 
+### I. Public site · Effort: M · 🚧 IN PROGRESS
+`landing/` — Astro, static HTML at the root; the app moves under its own
+paths in Caddy (`@app`). Decisions taken 2026-09-14: lean into «ИИ» on the
+site only (CLAUDE.md §1); the hero is a scripted replay of a real
+generation, never a live call; RU first, EN when the app's copy table is
+bilingual; pricing shown as Free / Pro — скоро. Done: skeleton, hero
+replay (four steps: тезисы → план → выступление → слайды, the last a
+16:9 stage of the same talk in the three themes with a thumbnail strip),
+how-it-works, pricing, FAQ with JSON-LD, sitemap/robots, Caddy two-roots
+routing, web image. **Ship gate: the site must not go live before J** —
+the slides it shows are the spec, and the .pptx must match. Next: an OG image (`/og.png` is referenced,
+not yet drawn); `/examples/<intent>/<audience>` from real generated talks
+(three by hand first); blog scaffold; Метрика + Webmaster verification;
+the 404 page.
+
+### J. Themes v2 — the deck must look like the landing · Effort: L · 📋
+The exporter's three themes are Georgia/Arial with a top rule and a
+footer band — plain, and the first thing a visitor judges. The landing's
+`Deck.astro` now draws the compositions the deck should have: the title
+low-left under a short accent rule with a kicker; content titles with a
+hairline under; a footer with the talk title and «01 / 05»; the formula
+in a panel with its short form in mono; the question slide as a large
+italic serif with quieter prompts; the summary as takeaways + a «Что
+дальше» panel. Port to `talkExport.ts` (pptxgenjs), `talkPdf.ts` and
+`SlideStage.tsx` from the same numbers (cqw → inches at 13.33 in), keep
+the safe faces (Georgia/Arial — a .pptx cannot embed Literata), re-check
+`slideFit` budgets against the new title sizes, and add the test that a
+theme's title slide places the title in the lower half. Then the same
+brand kit logic on top. Until J ships, the site does not deploy (I).
+
 ### The plan is built. What is next is not more building.
 Every item in CLAUDE.md §8 is shipped and deployed. The next TODO entries
 should come from users, usage_log and talk_events — not from this file.

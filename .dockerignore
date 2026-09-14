@@ -1,0 +1,8 @@
+# Build contexts are the repo root (backend/Dockerfile, frontend/Dockerfile).
+# Dependencies are installed inside the image from the lockfile; local
+# installs and build output must not leak in.
+**/node_modules
+**/dist
+**/.astro
+.git
+uploads

@@ -1,0 +1,128 @@
+/* COPIED from frontend/src/index.css (the app owns the tokens; this file
+   follows it). Re-copy when the app's tokens move — same palette, same
+   measured pairs, same dark theme. */
+/* ─── Design «Редакция» ───────────────────────────────────────────────────
+   Paper, ink, one blue pencil. Colour tokens as RGB channels so Tailwind
+   can apply opacity modifiers. Every pair that carries text is MEASURED
+   (CLAUDE.md §3.8) with the WCAG 2.x formula, the number is written here,
+   and the floor is 4.5:1. Contrast is symmetric: moving a ground moves every
+   text colour on it — re-measure. Measured 2026-09-14. */
+:root {
+  color-scheme: light;
+
+  /* Surfaces
+     bg            #F5F6F8  page ground — cool paper, hue bias toward the pencil
+     surface       #FFFFFF  the sheet: working surfaces
+     surface-soft  #EEF0F4  the margin column, muted panels */
+  --c-bg:            245 246 248;
+  --c-surface:       255 255 255;
+  --c-surface-soft:  238 240 244;
+
+  /* Text
+     ink            #15171C  on surface 17.93 · on bg 16.58 · also the solid button ground (bg text on it 16.58)
+     ink-hover      #2A2D35  hover of the solid ink button: bg text on it 12.73 — still far above the floor
+     ink-secondary  #5B6170  on surface 6.20 · on bg 5.73 · on surface-soft 5.43 · on accent-light 5.17
+     ink-tertiary   #8B909C  on surface 3.20 — captions and graphics ONLY, never
+                             text a user must read (CLAUDE.md §6) */
+  --c-ink:           21 23 28;
+  --c-ink-hover:     42 45 53;
+  --c-ink-secondary: 91 97 112;
+  --c-ink-tertiary:  139 144 156;
+
+  /* Accent — «синий карандаш», hue 228°. The editor's tool: slide type,
+     links, active state. Never a button fill (the solid button is ink).
+     accent        #2F4FD0  on surface 6.67 · on bg 6.17 · on accent-light 5.56 (the pair that fails LAST — re-check it for any new accent)
+     accent-deep   #24409F  hover of accent text: on surface 9.09 — hover DARKENS
+     accent-light  #E6EAFA  tinted ground for the second emphasis */
+  --c-accent:        47 79 208;
+  --c-accent-deep:   36 64 159;
+  --c-accent-light:  230 234 250;
+
+  /* Semantic — state only, never decoration; each ink measured on surface and on its own tinted ground
+     success  #1B6F3F  on surface 6.19 · on success-bg 5.63
+     warning  #7F5300  on surface 6.69 · on warning-bg 6.20
+     danger   #B42318  on surface 6.57 · on danger-bg 5.91 */
+  --c-success:       27 111 63;
+  --c-success-bg:    235 247 239;
+  --c-warning:       127 83 0;
+  --c-warning-bg:    254 246 224;
+  --c-danger:        180 35 24;
+  --c-danger-bg:     253 240 238;
+
+  /* Marker — the highlighter. One meaning: SELECTED (for download). Ink
+     on it, never paper: marker-ink is the dark ink in both themes.
+     marker      #FFE85A  marker-ink #15171C on it 14.47 */
+  --c-marker:        255 232 90;
+  --c-marker-ink:    21 23 28;
+
+  /* Rules — translucent ink, used as-is */
+  --c-border:        rgba(21, 23, 28, 0.10);
+  --c-border-strong: rgba(21, 23, 28, 0.24);
+}
+
+/* Dark — the same roles, not an inversion: the pencil lightens so it still
+   reads on ink-dark paper; the solid button becomes the light one.
+     ink            #ECEDF0  on bg 15.86 · on surface 14.55 · bg text on it (solid button) 15.86
+     ink-hover      #D9DBE0  hover of the solid button: bg text on it 13.4
+     ink-secondary  #A7ABB6  on surface 7.42 · on bg 8.08 · on accent-light 6.19
+     accent         #8FA3FF  on bg 7.82 · on surface 7.18 · on accent-light 5.99
+     accent-deep    #A9B8FF  hover LIGHTENS here — toward the text, away from the ground; contrast rises (8.91)
+     success/warning/danger on surface: 9.23 · 9.01 · 7.01 · on their tinted grounds: 8.39 · 8.22 · 6.77 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --c-bg:            18 19 23;
+    --c-surface:       26 28 34;
+    --c-surface-soft:  34 37 45;
+    --c-ink:           236 237 240;
+    --c-ink-hover:     217 219 224;
+    --c-ink-secondary: 167 171 182;
+    --c-ink-tertiary:  111 116 128;
+    --c-accent:        143 163 255;
+    --c-accent-deep:   169 184 255;
+    --c-accent-light:  37 42 61;
+    --c-success:       126 208 154;
+    --c-success-bg:    22 40 29;
+    --c-warning:       232 180 90;
+    --c-warning-bg:    43 35 17;
+    --c-danger:        240 138 126;
+    --c-danger-bg:     46 26 24;
+    --c-marker:        226 201 74;
+    --c-marker-ink:    18 19 23;
+    /* Rules a step stronger than in light: on a dark ground a 10% line
+       disappears and the page loses its structure (first dark check). */
+    --c-border:        rgba(236, 237, 240, 0.14);
+    --c-border-strong: rgba(236, 237, 240, 0.32);
+  }
+}
+
+/* An explicit choice (lib/theme.ts stamps data-theme on <html>) wins over
+   the OS in both directions: [data-theme="light"] is excluded above,
+   [data-theme="dark"] repeats the dark set here. Same values — keep in
+   step. marker-ink on marker in dark: 11.22. */
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --c-bg:            18 19 23;
+    --c-surface:       26 28 34;
+    --c-surface-soft:  34 37 45;
+    --c-ink:           236 237 240;
+    --c-ink-hover:     217 219 224;
+    --c-ink-secondary: 167 171 182;
+    --c-ink-tertiary:  111 116 128;
+    --c-accent:        143 163 255;
+    --c-accent-deep:   169 184 255;
+    --c-accent-light:  37 42 61;
+    --c-success:       126 208 154;
+    --c-success-bg:    22 40 29;
+    --c-warning:       232 180 90;
+    --c-warning-bg:    43 35 17;
+    --c-danger:        240 138 126;
+    --c-danger-bg:     46 26 24;
+    --c-marker:        226 201 74;
+    --c-marker-ink:    18 19 23;
+    /* Rules a step stronger than in light: on a dark ground a 10% line
+       disappears and the page loses its structure (first dark check). */
+    --c-border:        rgba(236, 237, 240, 0.14);
+    --c-border-strong: rgba(236, 237, 240, 0.32);
+}
+

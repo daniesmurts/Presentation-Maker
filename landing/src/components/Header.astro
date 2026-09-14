@@ -1,0 +1,30 @@
+---
+// Wordmark, the two links that exist, one solid CTA. Sections that do not
+// exist yet (examples, blog) are not linked — a nav item that 404s is
+// worse than no nav item.
+---
+<header class="hdr">
+  <div class="wrap row">
+    <a href="/" class="mark" aria-label="Тезариум — на главную">Тезариум</a>
+    <nav class="links" aria-label="Разделы">
+      <a href="#how">Как это работает</a>
+      <a href="#pricing">Цена</a>
+      <a href="#faq">Вопросы</a>
+    </nav>
+    <div class="cta">
+      <a href="/login" class="login">Войти</a>
+      <a href="/register" class="btn solid sm">Попробовать бесплатно</a>
+    </div>
+  </div>
+</header>
+<style>
+  .hdr { position: sticky; top: 0; z-index: 20; background: rgb(var(--c-bg) / 0.92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--c-border); }
+  .row { height: 60px; display: flex; align-items: center; gap: 28px; }
+  .mark { font-family: var(--display); font-weight: 600; font-size: 22px; color: rgb(var(--c-ink)); text-decoration: none; letter-spacing: -0.01em; }
+  .links { display: flex; gap: 22px; margin-left: 12px; }
+  .links a { color: rgb(var(--c-ink-secondary)); text-decoration: none; font-size: 15px; }
+  .links a:hover { color: rgb(var(--c-ink)); }
+  .cta { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+  .login { color: rgb(var(--c-ink)); text-decoration: none; font-size: 15px; }
+  @media (max-width: 720px) { .links, .login { display: none; } }
+</style>

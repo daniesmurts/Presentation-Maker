@@ -4,7 +4,8 @@
   "private": true,
   "workspaces": [
     "backend",
-    "frontend"
+    "frontend",
+    "landing"
   ],
   "engines": {
     "node": ">=22"

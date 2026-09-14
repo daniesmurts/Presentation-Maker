@@ -1,0 +1,202 @@
+---
+// The hero's proof: a scripted replay of a REAL generation — the brief
+// typed in, the outline appearing, then the manuscript with the speaker's
+// text in the margin. Nothing is invented (src/data/demo-talk.json is the
+// stored output of 0.1.0 for that brief) and nothing is fetched: no
+// account, no API call, no cost, nothing to abuse. Server-rendered at its
+// final state so the page reads without JS; the script rewinds and plays.
+// Reduced motion: no play, the three steps are plain tabs.
+import talk from '../data/demo-talk.json'
+import Deck from './Deck.astro'
+
+const TYPE: Record<string, string> = { title: 'Титул', bullets: 'Тезисы', concept: 'Понятие', formula: 'Формула', comparison: 'Сравнение', diagram: 'Схема', discussion: 'Вопрос залу', cta: 'Призыв', summary: 'Итоги' }
+const latexToText = (s: string) => s.replace(/\\text\{([^}]*)\}/g, '$1').replace(/\s+-\s+/g, ' − ')
+const seconds = (t: string) => Math.max(5, Math.round(((t.trim().split(/\s+/).length / 110) * 60) / 5) * 5)
+const pad = (n: number) => String(n).padStart(2, '0')
+const slides = talk.slides as any[]
+---
+<div class="replay" id="replay" data-step="4">
+  <div class="bar" role="tablist" aria-label="Шаги">
+    <button class="tab" role="tab" data-go="1" aria-controls="rp-brief">1 · Тезисы</button>
+    <button class="tab" role="tab" data-go="2" aria-controls="rp-outline">2 · План</button>
+    <button class="tab" role="tab" data-go="3" aria-controls="rp-talk">3 · Выступление</button>
+    <button class="tab" role="tab" data-go="4" aria-controls="rp-deck">4 · Слайды</button>
+    <button class="again" id="rp-again" type="button" hidden>Ещё раз</button>
+  </div>
+
+  <div class="panel brief" id="rp-brief" role="tabpanel">
+    <div class="eyebrow">Тезисы</div>
+    <pre class="ta" id="rp-ta" aria-label="Тезисы, введённые пользователем">{talk.brief}</pre>
+    <div class="hint muted">Как удобно: списком, абзацами, файлом. Это всё, что было введено.</div>
+  </div>
+
+  <div class="panel outline" id="rp-outline" role="tabpanel">
+    <div class="ohead"><span class="eyebrow pencil">План — проверьте до написания</span><span class="mono muted">{slides.length} слайдов</span></div>
+    <ol class="olist">
+      {slides.map((s, i) => (
+        <li class="orow" style={`--i:${i}`}>
+          <span class="mono no">{pad(i + 1)}</span>
+          <span class="otype">{TYPE[s.type]}</span>
+          <span class="otitle">{s.title}</span>
+        </li>
+      ))}
+    </ol>
+    <div class="ofoot"><span class="btn solid sm" aria-hidden="true">Написать слайды</span><span class="muted">порядок, тип и состав слайдов правятся здесь — пока это дёшево</span></div>
+  </div>
+
+  <div class="panel deck-panel" id="rp-deck" role="tabpanel">
+    <Deck />
+  </div>
+
+  <div class="panel talk" id="rp-talk" role="tabpanel">
+    <div class="ms">
+      {slides.map((s, i) => (
+        <>
+          <div class="slide" style={`--i:${i}`}>
+            <div class="nocol"><span class="mono no">{pad(i + 1)}</span><span class="mono of">/ {pad(slides.length)}</span></div>
+            <div class="body">
+              <div class="eyebrow pencil">{TYPE[s.type]}</div>
+              {s.type === 'title' ? (
+                <><h3 class="t big">{s.title}</h3><p class="muted">{s.body.subtitle}</p></>
+              ) : s.type === 'bullets' ? (
+                <><h3 class="t">{s.title}</h3><ul>{s.body.items.map((b: string) => <li>{b}</li>)}</ul></>
+              ) : s.type === 'formula' ? (
+                <><h3 class="t">{s.title}</h3><div class="formula">{latexToText(s.body.formulas[0].latex)}<span class="cap mono">{s.body.formulas[0].caption}</span></div><p class="muted small">{s.body.explanation}</p></>
+              ) : s.type === 'discussion' ? (
+                <><h3 class="t">{s.title}</h3><p class="q">{s.body.question}</p><ul class="mutedlist">{s.body.prompts.map((b: string) => <li>{b}</li>)}</ul></>
+              ) : (
+                <><h3 class="t">{s.title}</h3><ul>{s.body.takeaways.map((b: string) => <li>{b}</li>)}</ul></>
+              )}
+            </div>
+          </div>
+          <aside class="notes" style={`--i:${i}`}>
+            <div class="nhead"><span class="eyebrow">Текст докладчика</span><span class="mono sec">≈ {seconds(s.notes)} сек</span></div>
+            <p>{s.notes}</p>
+          </aside>
+        </>
+      ))}
+    </div>
+  </div>
+</div>
+
+<style>
+  .replay { background: rgb(var(--c-surface)); border: 1px solid var(--c-border-strong); border-radius: 10px; box-shadow: 0 1px 2px rgb(var(--c-ink) / 0.06), 0 24px 48px -24px rgb(var(--c-ink) / 0.25); overflow: hidden; font-size: 15px; line-height: 1.45; }
+  .bar { display: flex; align-items: center; gap: 4px; padding: 10px 12px; border-bottom: 1px solid var(--c-border); background: rgb(var(--c-bg)); }
+  .tab { height: 34px; padding: 0 12px; border-radius: 6px; border: 0; background: transparent; color: rgb(var(--c-ink-secondary)); font: 500 13px/1 var(--ui); cursor: pointer; }
+  .tab:hover { color: rgb(var(--c-ink)); }
+  .replay[data-step="1"] .tab[data-go="1"], .replay[data-step="2"] .tab[data-go="2"], .replay[data-step="3"] .tab[data-go="3"], .replay[data-step="4"] .tab[data-go="4"] { background: rgb(var(--c-surface)); color: rgb(var(--c-ink)); box-shadow: inset 0 0 0 1px var(--c-border-strong); }
+  .again { margin-left: auto; height: 34px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--c-border-strong); background: rgb(var(--c-surface)); color: rgb(var(--c-ink)); font: 500 13px/1 var(--ui); cursor: pointer; }
+  .panel { display: none; padding: 24px 28px 28px; }
+  /* The manuscript of five slides is ~1900px; the hero frame is one screen.
+     The panel scrolls inside the frame, with a fade to say so. */
+  .talk { max-height: 600px; overflow-y: auto; }
+  .talk::after { content: ''; position: sticky; bottom: -28px; display: block; height: 56px; margin: -56px -28px -28px; background: linear-gradient(rgb(var(--c-surface) / 0), rgb(var(--c-surface))); pointer-events: none; }
+  .replay[data-step="1"] .brief, .replay[data-step="2"] .outline, .replay[data-step="3"] .talk, .replay[data-step="4"] .deck-panel { display: block; }
+
+  .ta { font: 400 16px/1.6 var(--display); color: rgb(var(--c-ink)); background: rgb(var(--c-surface)); border: 1px solid var(--c-border-strong); border-radius: 6px; padding: 14px 16px; margin: 10px 0 0; min-height: 168px; white-space: pre-wrap; max-width: 62ch; }
+  .replay.typing .ta::after { content: ''; display: inline-block; width: 2px; height: 1.1em; background: rgb(var(--c-accent)); vertical-align: -0.2em; margin-left: 1px; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .hint { font-size: 13px; margin-top: 10px; }
+
+  .ohead { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .olist { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--c-border-strong); }
+  .orow { display: grid; grid-template-columns: 36px 110px 1fr; gap: 12px; align-items: baseline; padding: 11px 0; border-bottom: 1px solid var(--c-border); }
+  .otype { font: 500 11px/1.4 var(--ui); letter-spacing: 0.12em; text-transform: uppercase; color: rgb(var(--c-accent)); }
+  .otitle { font-family: var(--display); font-weight: 500; font-size: 16px; }
+  .no { color: rgb(var(--c-ink-secondary)); font-size: 13px; }
+  .ofoot { display: flex; align-items: center; gap: 14px; margin-top: 16px; font-size: 13px; flex-wrap: wrap; }
+
+  .ms { display: grid; grid-template-columns: minmax(0, 1fr) 260px; column-gap: 28px; border-top: 1px solid var(--c-border-strong); }
+  .slide { display: grid; grid-template-columns: 44px 1fr; gap: 10px; padding: 18px 0; border-bottom: 1px solid var(--c-border); min-width: 0; }
+  .nocol .no { display: block; font-size: 14px; color: rgb(var(--c-ink-secondary)); }
+  .nocol .of { display: block; font-size: 11px; color: rgb(var(--c-ink-tertiary)); }
+  .t { font-family: var(--display); font-weight: 500; font-size: 19px; line-height: 1.25; margin: 4px 0 8px; }
+  .t.big { font-size: 24px; font-weight: 600; }
+  .body ul { margin: 0; padding-left: 0; list-style: none; }
+  .body li { position: relative; padding-left: 14px; margin: 4px 0; }
+  .body li::before { content: ''; position: absolute; left: 0; top: 0.62em; width: 5px; height: 5px; border-radius: 50%; background: rgb(var(--c-accent)); }
+  .mutedlist li { color: rgb(var(--c-ink-secondary)); font-size: 14px; }
+  .q { font-family: var(--display); font-size: 18px; margin-bottom: 8px; }
+  .formula { font-family: var(--display); font-size: 17px; background: rgb(var(--c-surface-soft)); border-radius: 6px; padding: 12px 14px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 4px; }
+  .cap { font-size: 12px; color: rgb(var(--c-ink-secondary)); }
+  .small { font-size: 14px; }
+  .notes { padding: 18px 0; border-bottom: 1px solid var(--c-border); }
+  .nhead { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .sec { font-size: 11px; color: rgb(var(--c-ink-tertiary)); }
+  .notes p { font-family: var(--display); font-size: 14.5px; line-height: 1.5; color: rgb(var(--c-ink-secondary)); }
+
+  /* Play states — the script adds .playing; rows reveal with a stagger. */
+  .replay.playing .orow, .replay.playing .slide, .replay.playing .notes { opacity: 0; transform: translateY(6px); animation: rise 320ms ease-out forwards; animation-delay: calc(var(--i) * 260ms); }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .replay.playing .orow, .replay.playing .slide, .replay.playing .notes { animation: none; opacity: 1; transform: none; } }
+
+  @media (max-width: 820px) {
+    .panel { padding: 18px 16px 20px; }
+    .ms { grid-template-columns: 1fr; }
+    .orow { grid-template-columns: 32px 1fr; } .otype { grid-column: 2; } .otitle { grid-column: 2; }
+    .notes { padding-top: 10px; border-bottom: 1px solid var(--c-border-strong); }
+  }
+</style>
+
+<script>
+  // Rewind and play: brief types itself → outline rows rise → manuscript
+  // rows rise. Tabs work at any time; «Ещё раз» replays. Under
+  // prefers-reduced-motion nothing plays — the final state is on screen.
+  const root = document.getElementById('replay')!
+  const ta = document.getElementById('rp-ta')!
+  const again = document.getElementById('rp-again') as HTMLButtonElement
+  const full = ta.textContent ?? ''
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
+  let token = 0
+
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+  type Step = 1 | 2 | 3 | 4
+  const go = (step: Step) => root.setAttribute('data-step', String(step))
+  const deck = () => (window as any).tezDeck as { show: (i: number) => void; count: number } | undefined
+
+  async function play() {
+    const my = ++token
+    root.classList.add('playing')
+    again.hidden = true
+    go(1)
+    ta.textContent = ''
+    root.classList.add('typing')
+    // ~18 ms a character: the brief is 280 chars ≈ 5 s, long enough to read along.
+    for (let i = 1; i <= full.length; i++) {
+      if (my !== token) return
+      ta.textContent = full.slice(0, i)
+      await sleep(full[i - 1] === '\n' ? 260 : 18)
+    }
+    root.classList.remove('typing')
+    await sleep(900); if (my !== token) return
+    go(2)
+    await sleep(2600 + 260 * 5); if (my !== token) return
+    go(3)
+    await sleep(3400); if (my !== token) return
+    go(4)
+    // Page through the deck, one slide at a time, then rest on the title.
+    const d = deck()
+    if (d) for (let i = 0; i < d.count; i++) { if (my !== token) return; d.show(i); await sleep(1500) }
+    if (my !== token) return
+    d?.show(0)
+    again.hidden = false
+  }
+
+  root.querySelectorAll<HTMLButtonElement>('.tab').forEach((b) => b.addEventListener('click', () => {
+    token++                          // a click cancels the sequence
+    root.classList.remove('playing', 'typing')
+    ta.textContent = full
+    go(Number(b.dataset.go) as Step)
+    again.hidden = false
+  }))
+  again.addEventListener('click', () => void play())
+
+  if (reduced) { again.hidden = true }
+  else {
+    // Play once it is on screen, not on load — a visitor who lands scrolled past it should not miss the start.
+    // Observe the step bar, not the frame: the frame is taller than a
+    // viewport, so a threshold on it never fires (first preview check).
+    const io = new IntersectionObserver((entries) => { if (entries.some((e) => e.isIntersecting)) { io.disconnect(); void play() } }, { threshold: 1 })
+    io.observe(root.querySelector('.bar')!)
+  }
+</script>
