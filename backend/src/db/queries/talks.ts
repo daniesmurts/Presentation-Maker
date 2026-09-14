@@ -78,3 +78,23 @@ export async function deleteTalk(id: string, workspaceId: string): Promise<boole
   const { rowCount } = await pool.query(`DELETE FROM talks WHERE id = $1 AND workspace_id = $2`, [id, workspaceId])
   return (rowCount ?? 0) > 0
 }
+
+// ─── Sharing ────────────────────────────────────────────────────────────────
+
+export async function setShareToken(id: string, workspaceId: string, token: string | null): Promise<Talk | null> {
+  const { rows } = await pool.query<Talk>(
+        // $3::text — node-pg sends parameters untyped, and `$3 IS NULL` inside the
+    // CASE gave Postgres nothing to infer the type from ("could not determine
+    // data type of parameter $3"); the same statement passes in psql only
+    // because PREPARE there had explicit types.
+    `UPDATE talks SET share_token = $3::text, shared_at = CASE WHEN $3::text IS NULL THEN NULL ELSE NOW() END, updated_at = NOW()
+      WHERE id = $1 AND workspace_id = $2 RETURNING *`, [id, workspaceId, token],
+  )
+  return rows[0] ?? null
+}
+
+/** Public read — by token only, no workspace: the token IS the credential. */
+export async function findTalkByShareToken(token: string): Promise<Talk | null> {
+  const { rows } = await pool.query<Talk>(`SELECT * FROM talks WHERE share_token = $1`, [token])
+  return rows[0] ?? null
+}

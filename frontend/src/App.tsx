@@ -6,6 +6,7 @@ import NewTalkPage from './pages/NewTalkPage'
 import JobPage from './pages/JobPage'
 import TalkPage from './pages/TalkPage'
 import BrandPage from './pages/BrandPage'
+import SharedPage from './pages/SharedPage'
 import Spinner from './components/ui/Spinner'
 import { useAuth } from './lib/auth'
 
@@ -23,6 +24,7 @@ export default function App() {
     <Routes>
       <Route path="/login"    element={!loading && user ? <Navigate to="/talks" replace /> : <AuthPage mode="login" />} />
       <Route path="/register" element={!loading && user ? <Navigate to="/talks" replace /> : <AuthPage mode="register" />} />
+      <Route path="/s/:token"  element={<SharedPage />} />
       <Route element={<RequireAuth><AppShell /></RequireAuth>}>
         <Route path="/talks"      element={<TalksPage />} />
         <Route path="/talks/new"  element={<NewTalkPage />} />

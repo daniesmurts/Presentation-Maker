@@ -204,8 +204,20 @@ export interface Talk {
   // The user stands behind this talk. Only approved talks are ever used as
   // style references for a later generation (TODO G).
   approved_at:        string | null
+  // Read-only share link (§5.6); null when not shared.
+  share_token:        string | null
+  shared_at:          string | null
   created_at:         string
   updated_at:         string
+}
+
+/** What a share link exposes: the slides and what is needed to render them —
+ *  never the speaker notes, the brief, or who made it. */
+export interface SharedTalk {
+  title:    string
+  language: TalkLanguage
+  theme_id: string
+  slides:   Slide[]
 }
 
 export interface TalkJob {

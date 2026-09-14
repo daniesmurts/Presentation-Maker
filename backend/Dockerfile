@@ -43,6 +43,8 @@ COPY --from=builder /app/backend/dist backend/dist
 # the exact code that will serve the traffic.
 COPY backend/migrations backend/migrations
 COPY backend/scripts/migrate.js backend/scripts/migrate.js
+# Vendored fonts for the PDF export — no system font stack in the image.
+COPY backend/assets backend/assets
 
 ARG BUILD_VERSION=dev
 RUN echo "$BUILD_VERSION" > /app/VERSION

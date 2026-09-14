@@ -35,9 +35,11 @@ interface Props {
   edit?:        SlideEditActions
   isFirst?:     boolean
   isLast?:      boolean
+  selected?:    boolean
+  onSelect?:    (idx: number, opts: { range: boolean }) => void
 }
 
-export default function SlideCard({ slide, number, language, notesEnabled, overfull, edit, isFirst, isLast }: Props) {
+export default function SlideCard({ slide, number, language, notesEnabled, overfull, edit, isFirst, isLast, selected, onSelect }: Props) {
   const [copied, setCopied] = useState(false)
   const [mode, setMode] = useState<'view' | 'edit' | 'regenerate'>('view')
   const [instruction, setInstruction] = useState('')
@@ -66,6 +68,15 @@ export default function SlideCard({ slide, number, language, notesEnabled, overf
   return (
     <article className="bg-surface border border-border rounded-lg overflow-hidden appear" aria-label={`Слайд ${number}`}>
       <header className="flex items-center gap-2.5 px-4 h-11 border-b border-border">
+        {onSelect && (
+          // A real checkbox in a label: the whole 44px square is the target,
+          // keyboard and screen reader for free, shift-click extends from the
+          // last one — forty slides is otherwise forty taps.
+          <label className="-ml-3 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer rounded-md hover:bg-surface-soft" title={copy.talk.selectSlide(number)}>
+            <input type="checkbox" checked={Boolean(selected)} onChange={() => {}} onClick={(e) => onSelect(idx, { range: e.shiftKey })}
+                   className="w-4 h-4 accent-accent cursor-pointer" aria-label={copy.talk.selectSlide(number)} />
+          </label>
+        )}
         <span className="text-[11px] font-semibold bg-accent-light text-accent px-2 py-0.5 rounded-sm uppercase tracking-wide flex-shrink-0">
           {number}
         </span>

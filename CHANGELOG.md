@@ -34,6 +34,47 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 ## [Unreleased]
 
 ### Added
+- **PDF, выбор слайдов, ссылка для просмотра.** TODO F.
+  - **A slides PDF, not a reading document** (CLAUDE.md §5.5):
+    `services/talkPdf.ts` lays one 720×405 pt page per slide from the same
+    theme and brand data as the .pptx; `?notes=1` adds a notes page after
+    each slide. The parent's handout rules carried over: pictures and
+    formulas loaded in one parallel round before the synchronous pdfkit
+    pass; PNG/JPEG only via `imageSize` (pdfkit throws mid-document on
+    anything else); vendored PT Sans/Serif with DejaVu swapped in per
+    PARAGRAPH for Greek/arrows/operators (`faceFor`) — pdfkit renders a
+    missing glyph as a box and reports nothing. Fonts ship in the image
+    (`backend/assets`, OFL licences included).
+  - **Partial download UI**: a 44 px checkbox per card, shift-click for a
+    range, one download menu (.pptx / PDF / PDF with notes, all or
+    selected). The selection is remapped through move/delete/insert with
+    `lib/slideSelection.ts` — verified in the browser: 2–5 selected,
+    slide 3 deleted → the same three slides stay selected as 2–4.
+  - **Share link** (§5.6): `POST /api/talks/:id/share` mints a 32-byte
+    token (idempotent; `DELETE` revokes); `GET /api/shared/:token` is
+    unauthenticated and rate-limited, returns `SharedTalk` — title,
+    language, theme, slides with notes blanked — and rewrites image URLs
+    to a token-scoped proxy so a media id alone opens nothing. `/s/:token`
+    renders the same cards as the owner's viewer with no controls.
+  - **Two bugs found by looking, not by tests.** (1) The brand-kit reset
+    left the old name in place — a `COALESCE` upsert cannot express
+    "clear"; seen on page 1 of the PDF, fixed with per-field touched
+    flags and three states (leave / clear / set). (2) `setShareToken`
+    threw «could not determine data type of parameter $3»: node-pg sends
+    untyped parameters and `$3 IS NULL` in a CASE gave Postgres nothing
+    to infer from — passes in psql only because PREPARE types it; fixed
+    with `::text`.
+  - **Verified**: 6 / 12 / 2-page PDFs for all / with notes / `slides=1,4`,
+    fonts embedded, pages inspected by eye (title band, side image at
+    native size, concept panel, formula picture, two-column summary);
+    share created → public GET without a cookie → notes absent → image via
+    token 200, via a wrong token 404 → revoked → 404; the public page in
+    the browser shows six cards with no notes column, no edit controls,
+    no checkboxes. `tsc` clean; backend 197, frontend 17 tests.
+  - Not verified: the PDF on a phone or in a non-Preview reader; a share
+    link opened from a real second device.
+
+### Added
 - **Бренд и темы.** TODO E. A third theme («Тёплая» — Georgia, paper
   ground, measured: accent `8A5C06` 5.48 on the ground and 4.95 on the
   panel, the pair that fails last), a theme picker per talk (`PATCH

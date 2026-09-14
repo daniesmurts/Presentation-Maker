@@ -3,7 +3,7 @@ import multer from 'multer'
 import { asyncHandler } from '../lib/asyncHandler'
 import { authenticate } from '../middleware/authenticate'
 import { NotFoundError, ValidationError } from '../errors/AppError'
-import { getBrandKit, upsertBrandKit, clearBrandAccent, setBrandLogo, type BrandKitRow } from '../db/queries/brandKits'
+import { getBrandKit, upsertBrandKit, setBrandLogo, type BrandKitRow } from '../db/queries/brandKits'
 import { uploadObject, downloadObject, deleteObject } from '../services/objectStorage'
 import { sniffMime } from '../services/slideImageSource'
 import { imageSize } from '../lib/imageSize'
@@ -51,10 +51,7 @@ brandRouter.put('/', asyncHandler(async (req, res) => {
     if (b.name !== null && typeof b.name !== 'string') throw new ValidationError('Некорректное название')
     patch.name = typeof b.name === 'string' ? b.name.trim().slice(0, 120) || null : null
   }
-  let kit = await upsertBrandKit(req.user.workspace_id, patch)
-  // COALESCE keeps the old accent on NULL — an explicit reset needs its own write.
-  if (patch.accent === null) { await clearBrandAccent(req.user.workspace_id); kit = { ...kit, accent: null } }
-  res.json({ brand: toResponse(kit) })
+  res.json({ brand: toResponse(await upsertBrandKit(req.user.workspace_id, patch)) })
 }))
 
 // POST /api/brand/logo (multipart "file") — PNG/JPEG ≤ 2 MB, identified from bytes.

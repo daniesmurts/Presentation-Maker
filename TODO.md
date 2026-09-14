@@ -165,9 +165,13 @@ theme and a preview on white and dark. Follow-ups: fonts and palette in
 the kit (columns arrive with the UI, expand-only); a logo on every slide
 (footer) as an option — today it is the title slide only, by design.
 
-### F. PDF export · partial export · share link · Effort: M · after E
-§8 step 6. Port `presentationHandoutPdf.ts` restyled as slides PDF;
-`?slides=` selection is already remapped from A.4.
+### F. PDF export · partial export · share link · Effort: M · 🟢 SHIPPED (2026-09-14)
+§8 step 6. Slides PDF (one 16:9 page per slide, theme + brand, optional
+notes pages), selection UI with shift-range remapped through edits, a
+read-only share link with notes stripped and token-scoped images.
+Follow-ups: a share-link *view count* on `talk_events` (the read side of
+§3.9 is not recorded yet); MathJax spaces Cyrillic inside `\text{}` —
+cosmetic in both exports, worth a `\mbox` or font-config fix.
 
 ### G. Style learning · present mode · deck-level rewrite · Effort: L · last
 §8 step 7.

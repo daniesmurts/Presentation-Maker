@@ -16,19 +16,24 @@ export async function getBrandKit(workspaceId: string): Promise<BrandKitRow | nu
   return rows[0] ?? null
 }
 
+/**
+ * Three states per field: undefined = leave alone, null = clear, string =
+ * set. A COALESCE upsert cannot express "clear" — the first version kept
+ * the old name on null, and a reset brand still printed «ООО «Пример»» on
+ * the title slide (found by looking at the PDF, 2026-09-14). So each field
+ * carries its own "touched" flag into the SQL.
+ */
 export async function upsertBrandKit(workspaceId: string, patch: { accent?: string | null; name?: string | null }): Promise<BrandKitRow> {
   const { rows } = await pool.query<BrandKitRow>(
-    `INSERT INTO brand_kits (workspace_id, accent, name) VALUES ($1, $2, $3)
+    `INSERT INTO brand_kits (workspace_id, accent, name) VALUES ($1, $3, $5)
      ON CONFLICT (workspace_id) DO UPDATE
-       SET accent = COALESCE($2, brand_kits.accent), name = COALESCE($3, brand_kits.name), updated_at = NOW()
+       SET accent = CASE WHEN $2 THEN $3 ELSE brand_kits.accent END,
+           name   = CASE WHEN $4 THEN $5 ELSE brand_kits.name END,
+           updated_at = NOW()
      RETURNING *`,
-    [workspaceId, patch.accent === undefined ? null : patch.accent, patch.name === undefined ? null : patch.name],
+    [workspaceId, patch.accent !== undefined, patch.accent ?? null, patch.name !== undefined, patch.name ?? null],
   )
   return rows[0]
-}
-
-export async function clearBrandAccent(workspaceId: string): Promise<void> {
-  await pool.query(`UPDATE brand_kits SET accent = NULL, updated_at = NOW() WHERE workspace_id = $1`, [workspaceId])
 }
 
 export async function setBrandLogo(workspaceId: string, logo: { path: string; mime: string; width: number; height: number } | null): Promise<BrandKitRow> {

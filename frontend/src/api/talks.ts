@@ -1,5 +1,5 @@
 import { client } from './client'
-import type { Talk, TalkJob, OutlineSlide, Intent, Audience, TalkLanguage } from '../../../shared/types'
+import type { Talk, TalkJob, OutlineSlide, Intent, Audience, TalkLanguage, SharedTalk } from '../../../shared/types'
 
 export interface CreateTalkRequest {
   title:            string
@@ -56,3 +56,8 @@ export function importPptx(file: File) {
 
 // ─── Theme ──────────────────────────────────────────────────────────────────
 export const setTalkTheme = (id: string, theme_id: string) => client.patch<{ talk: Talk }>(`/api/talks/${id}`, { theme_id }).then(unwrap)
+
+// ─── Sharing ────────────────────────────────────────────────────────────────
+export const shareTalk   = (id: string) => client.post<{ talk: Talk; share_url: string }>(`/api/talks/${id}/share`).then((r) => r.data)
+export const unshareTalk = (id: string) => client.delete<{ talk: Talk }>(`/api/talks/${id}/share`).then(unwrap)
+export const getSharedTalk = (token: string) => client.get<{ talk: SharedTalk; themes: unknown[] }>(`/api/shared/${token}`).then((r) => r.data.talk)

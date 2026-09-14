@@ -3,7 +3,7 @@
 Legend: ✅ shipped · 🚧 in progress · 📋 planned. Grouped by the role that
 uses it. A 📋 item is marked, never implied. See `docs/WORKFLOW.md` §1.
 
-Last updated: TODO E — brand kit + themes
+Last updated: TODO F — PDF, partial export, share link
 
 ---
 
@@ -41,7 +41,13 @@ numbers are the shape of the gate, and the `.pptx` download is open to both.
   titles, text, speaker notes and each slide's main picture come through;
   template pictures repeated across slides are left behind. No model call
   — the deck stays exactly yours, and every slide can then be rewritten.
-- 📋 **PDF export, partial export, read-only share link.** *(TODO F)*
+- ✅ **PDF download** — one 16:9 page per slide in the talk's theme and
+  brand, optionally with a page of speaker notes after each slide.
+- ✅ **Download only the slides you tick** (shift-click for a range) — for
+  both `.pptx` and PDF; the selection follows the slides through moves,
+  deletions and insertions.
+- ✅ **Share link** — a read-only page with the slides and pictures, no
+  account needed; speaker notes and the brief stay private. Revoke any time.
 - 📋 **Present mode with notes on a second screen.** *(TODO G)*
 
 ## Paid tier
