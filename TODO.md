@@ -158,9 +158,12 @@ verified on two real decks; pictures via B. Follow-ups:
   information and a wrong guess is worse than plain). A per-slide «сделать
   сравнением / формулой» retype would be the cheap upgrade.
 
-### E. Brand kit + themes · Effort: L · after D
-§5.1–2. Exporter already theme-as-data from A.3; this adds the UI, the
-`brand_kits` table, logo placement rules, preview on white and dark.
+### E. Brand kit + themes · Effort: L · 🟢 SHIPPED (2026-09-14)
+§5.1–2. Three themes (light, dark, warm) as data; a per-talk picker; a
+per-workspace brand kit (accent, logo, name) with measured contrast per
+theme and a preview on white and dark. Follow-ups: fonts and palette in
+the kit (columns arrive with the UI, expand-only); a logo on every slide
+(footer) as an option — today it is the title slide only, by design.
 
 ### F. PDF export · partial export · share link · Effort: M · after E
 §8 step 6. Port `presentationHandoutPdf.ts` restyled as slides PDF;

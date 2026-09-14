@@ -3,7 +3,8 @@ import { renderFormulaToPng } from './formulaRenderer'
 import { cleanForSlide, latexToPlainText } from './latexText'
 import { containFit } from '../lib/imageSize'
 import { loadSlideImage } from './slideImageSource'
-import { getTheme, type Theme } from './themes'
+import { getTheme, applyBrand, type AppliedTheme, type BrandKit } from './themes'
+import { contrastRatio, textOn } from '../lib/brandColor'
 import type {
   Talk, Slide, SlideImage, TitleSlide, BulletsSlide, ConceptSlide, FormulaSlide,
   ComparisonSlide, DiagramSlide, DiscussionSlide, CtaSlide, SummarySlide, TalkLanguage,
@@ -34,7 +35,7 @@ function clampH(h: number): number {
 type Pptx = any
 
 interface Ctx {
-  theme:    Theme
+  theme:    AppliedTheme
   language: TalkLanguage
   margin:   number
 }
@@ -46,14 +47,18 @@ const L = {
 
 export interface ExportOptions {
   themeId?: string | null
+  brand?:   BrandKit | null
 }
 
 export async function generateTalkPptx(talk: Pick<Talk, 'title' | 'slides' | 'language' | 'theme_id'>, opts: ExportOptions = {}): Promise<Buffer> {
   const slides = talk.slides
   if (!slides || slides.length === 0) throw new Error('No slides to export')
 
-  const ctx: Ctx = { theme: getTheme(opts.themeId ?? talk.theme_id), language: talk.language, margin: 0 }
-  ctx.margin = ctx.theme.margin
+  const theme = applyBrand(getTheme(opts.themeId ?? talk.theme_id), opts.brand ?? null, contrastRatio, textOn)
+  const ctx: Ctx = { theme, language: talk.language, margin: theme.margin }
+  if (opts.brand?.accent && theme.labelColor !== theme.palette.accent) {
+    logger.info({ message: '[PPTX export] brand accent below 4.5:1 on the theme ground — labels fall back to ink2', accent: opts.brand.accent, theme: theme.id, ratio: contrastRatio(opts.brand.accent, theme.palette.bg).toFixed(2) })
+  }
 
   const PptxGenJS = (await import('pptxgenjs')).default
   const pptx = new PptxGenJS()
@@ -194,6 +199,14 @@ function addTitleSlide(pptx: Pptx, slide: TitleSlide, ctx: Ctx): void {
     if (slide.body.presenter) {
       s.addText(cleanForSlide(slide.body.presenter), { x: m, y: 4.1, w: SLIDE_W - m * 2, h: 0.4, align: 'center', fontSize: 12, color: p.ink2, fontFace: fonts.body })
     }
+    const brand = ctx.theme.brand
+    if (brand?.logo) {
+      const fit = containFit(brand.logo.buffer, 1.8, 0.6)
+      s.addImage({ data: brand.logo.dataUri, x: m, y: 0.4, w: fit?.w ?? 1.8, h: fit?.h ?? 0.6 })
+    }
+    if (brand?.name) {
+      s.addText(cleanForSlide(brand.name), { x: m, y: SLIDE_H - 0.7, w: SLIDE_W - m * 2, h: 0.35, align: 'center', fontSize: 11, color: p.ink2, fontFace: fonts.body })
+    }
     addNotes(s, slide.notes)
     return
   }
@@ -204,7 +217,24 @@ function addTitleSlide(pptx: Pptx, slide: TitleSlide, ctx: Ctx): void {
   s.addShape('rect', { x: 0, y: 0, w: SLIDE_W, h: 0.14, fill: { color: p.accent } })
   s.addShape('rect', { x: 0, y: SLIDE_H - 0.5, w: SLIDE_W, h: 0.5, fill: { color: p.panel } })
 
-  let y = 1.1
+  let y = 0.75
+  const brand = ctx.theme.brand
+  if (brand?.logo) {
+    // Drawn at the image's own aspect ratio: pptxgenjs stretches to the
+    // frame when given w/h with `sizing: contain`, which is what squashed a
+    // wide logo in the parent; containFit computes the true fit.
+    const BOX_W = 2.6, BOX_H = 0.85
+    const fit = containFit(brand.logo.buffer, BOX_W, BOX_H)
+    const w = fit?.w ?? BOX_W, h = fit?.h ?? BOX_H
+    s.addImage({ data: brand.logo.dataUri, x: (SLIDE_W - w) / 2, y, w, h })
+    y += h + 0.25
+  } else {
+    y = 1.1
+  }
+  if (brand?.name) {
+    s.addText(cleanForSlide(brand.name), { x: m, y, w: SLIDE_W - m * 2, h: 0.3, align: 'center', fontSize: 11, color: p.ink2, fontFace: fonts.body })
+    y += 0.4
+  }
   if (slide.body.subtitle) {
     s.addText(cleanForSlide(slide.body.subtitle).toUpperCase(), {
       x: m, y, w: SLIDE_W - m * 2, h: 0.3, align: 'center', fontSize: 11, bold: true, charSpacing: 1.5, color: p.ink2, fontFace: fonts.body,
@@ -315,7 +345,7 @@ async function addComparisonSlide(pptx: Pptx, slide: ComparisonSlide, ctx: Ctx):
   cols.forEach((c, i) => {
     const x = r.x + i * (colW + gap)
     s.addShape('rect', { x, y: 1.3, w: colW, h: 0.5, fill: { color: p.panel }, line: { color: p.border, width: 0.5 } })
-    s.addText(cleanForSlide(c.header).toUpperCase(), { x, y: 1.3, w: colW, h: 0.5, align: 'center', valign: 'middle', fontSize: 12, bold: true, color: p.accent, fontFace: fonts.body })
+    s.addText(cleanForSlide(c.header).toUpperCase(), { x, y: 1.3, w: colW, h: 0.5, align: 'center', valign: 'middle', fontSize: 12, bold: true, color: ctx.theme.labelColor, fontFace: fonts.body })
     if (c.items.length > 0) {
       s.addText(bulletList(c.items), { x, y: 1.9, w: colW, h: SLIDE_H - 2.2, fontSize: 12, ...body(ctx, { lineSpacingMultiple: 1.2 }) })
     }
@@ -375,7 +405,7 @@ function addCtaSlide(pptx: Pptx, slide: CtaSlide, ctx: Ctx): void {
     y += h + 0.1
   }
   if (slide.body.contact) {
-    s.addText(cleanForSlide(slide.body.contact), { x: m, y, w, h: clampH(SLIDE_H - y - 0.3), fontSize: 14, bold: true, color: p.accent, fontFace: fonts.body, valign: 'top' })
+    s.addText(cleanForSlide(slide.body.contact), { x: m, y, w, h: clampH(SLIDE_H - y - 0.3), fontSize: 14, bold: true, color: ctx.theme.labelColor, fontFace: fonts.body, valign: 'top' })
   }
   addNotes(s, slide.notes)
 }
@@ -388,12 +418,12 @@ function addSummarySlide(pptx: Pptx, slide: SummarySlide, ctx: Ctx): void {
   const half = (SLIDE_W - m * 2 - 0.3) / 2
   const t = L[ctx.language]
   if (slide.body.takeaways.length > 0) {
-    s.addText(t.key, { x: m, y: 1.3, w: half, h: 0.35, fontSize: 11, bold: true, color: p.accent, fontFace: fonts.body })
+    s.addText(t.key, { x: m, y: 1.3, w: half, h: 0.35, fontSize: 11, bold: true, color: ctx.theme.labelColor, fontFace: fonts.body })
     s.addText(bulletList(slide.body.takeaways), { x: m, y: 1.7, w: half, h: SLIDE_H - 2.0, fontSize: 13, ...body(ctx, { lineSpacingMultiple: 1.2 }) })
   }
   if (slide.body.next_steps.length > 0) {
     const x = m + half + 0.3
-    s.addText(t.next, { x, y: 1.3, w: half, h: 0.35, fontSize: 11, bold: true, color: p.accent, fontFace: fonts.body })
+    s.addText(t.next, { x, y: 1.3, w: half, h: 0.35, fontSize: 11, bold: true, color: ctx.theme.labelColor, fontFace: fonts.body })
     s.addText(bulletList(slide.body.next_steps), { x, y: 1.7, w: half, h: SLIDE_H - 2.0, fontSize: 13, ...body(ctx, { color: p.ink2, lineSpacingMultiple: 1.2 }) })
   }
   addNotes(s, slide.notes)

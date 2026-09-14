@@ -9,6 +9,7 @@ import { AppError } from './errors/AppError'
 import { getBuildVersion } from './lib/version'
 import { authRouter } from './routes/auth'
 import { talksRouter } from './routes/talks'
+import { brandRouter } from './routes/brand'
 import { startJobQueue, stopJobQueue } from './services/jobQueue'
 import { registerTalkJobWorker, startTalkOutlineSweeper } from './services/talkJobWorker'
 import { registerBeforeCall } from './services/llm/registry'
@@ -45,6 +46,7 @@ app.get('/health', async (_req, res) => {
 
 app.use('/api/auth',  authRouter)
 app.use('/api/talks', talksRouter)
+app.use('/api/brand', brandRouter)
 
 app.use((_req, res) => {
   res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Не найдено' } })

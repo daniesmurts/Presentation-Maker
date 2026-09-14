@@ -5,6 +5,7 @@ import TalksPage from './pages/TalksPage'
 import NewTalkPage from './pages/NewTalkPage'
 import JobPage from './pages/JobPage'
 import TalkPage from './pages/TalkPage'
+import BrandPage from './pages/BrandPage'
 import Spinner from './components/ui/Spinner'
 import { useAuth } from './lib/auth'
 
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/talks/new"  element={<NewTalkPage />} />
         <Route path="/talks/:id"  element={<TalkPage />} />
         <Route path="/jobs/:id"   element={<JobPage />} />
+        <Route path="/brand"      element={<BrandPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/talks" replace />} />
     </Routes>

@@ -34,6 +34,31 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 ## [Unreleased]
 
 ### Added
+- **Бренд и темы.** TODO E. A third theme («Тёплая» — Georgia, paper
+  ground, measured: accent `8A5C06` 5.48 on the ground and 4.95 on the
+  panel, the pair that fails last), a theme picker per talk (`PATCH
+  /api/talks/:id`), and a per-workspace brand kit — accent, logo, name —
+  in `brand_kits` (migration 008) with its own settings page.
+  - **The accent is measured, never assumed** (CLAUDE.md §3.8). On a
+    slide the accent is graphics (rules, bands, header fills) and small
+    bold labels. `applyBrand` measures the user's colour on the theme's
+    ground: ≥ 4.5:1 → labels in the accent; below → labels fall back to
+    ink2 and the graphics keep the colour. The settings page shows the
+    ratio per theme («Тезариум: 1.6:1 — подписи тёмным»), and the export
+    logs the fallback with the number.
+  - **The logo is drawn at its own aspect ratio** (`containFit` from the
+    bytes) on the title slide only; a test pins a 4:1 logo to a 4:1
+    picture — the parent's squashed-logo incident.
+  - **One primary per screen**: the first cut had two solid «Сохранить»
+    buttons; accent and name now save through one form.
+  - **Verified in the browser and in the file**: pale accent `F4C55A`
+    saved → 1.6:1 / 10.2:1 / 1.5:1 per theme shown; logo and name on both
+    previews; theme switched to «Тёплая»; the exported deck had the warm
+    ground, the accent as graphics, the logo picture and name on the
+    title slide, and the summary label in `5C554B` (ink2), not the
+    accent. `tsc` clean; backend 191, frontend 17 tests.
+
+### Added
 - **Контейнеры и сценарий выкладки.** TODO C. Two images (API on
   `node:22-slim` — Debian, not Alpine, because resvg's prebuilds are
   glibc; the bundle behind Caddy), a CI job that builds both on every

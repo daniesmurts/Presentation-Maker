@@ -3,7 +3,7 @@
 Legend: ✅ shipped · 🚧 in progress · 📋 planned. Grouped by the role that
 uses it. A 📋 item is marked, never implied. See `docs/WORKFLOW.md` §1.
 
-Last updated: TODO C — deploy pipeline (artefacts)
+Last updated: TODO E — brand kit + themes
 
 ---
 
@@ -48,10 +48,13 @@ numbers are the shape of the gate, and the `.pptx` download is open to both.
 
 - ✅ **Native editable `.pptx` download** — 16:9, a layout per slide type,
   formulas typeset as images, speaker notes in the notes pane; `?slides=`
-  downloads a subset. Two themes (light «Тезариум», dark) exist as data;
-  choosing one in the UI comes with TODO E. The pricing gate sits on this
+  downloads a subset.
+- ✅ **Three themes** (Тезариум, Тёмная, Тёплая), chosen per talk.
+- ✅ **Brand kit** per workspace — accent colour, logo, name — applied to
+  every download, with a preview on light and dark and the measured
+  contrast of the accent on each theme (a pale accent keeps the rules and
+  bands; labels stay dark). The pricing gate sits on this
   download (`lib/planTier.ts`) — allow-all until billing exists.
-- 📋 **Brand kit and themes.** *(TODO E)*
 - 📋 **Style learning from approved talks.** *(TODO G)*
 
 ## Operator

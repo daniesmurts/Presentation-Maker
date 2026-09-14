@@ -100,3 +100,45 @@ describe('generateTalkPptx', () => {
     await expect(generateTalkPptx(talk([]))).rejects.toThrow()
   })
 })
+
+describe('brand kit applied to a theme', () => {
+  // A header-only PNG 400×100 — a wide logo, the case that came out squashed
+  // in the parent when the frame size was trusted.
+  const wideLogo = (() => {
+    const buf = Buffer.alloc(33)
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(buf, 0)
+    buf.writeUInt32BE(13, 8); buf.write('IHDR', 12, 'latin1'); buf.writeUInt32BE(400, 16); buf.writeUInt32BE(100, 20)
+    return buf
+  })()
+  const brand = { accent: 'B42318', name: 'ООО «Пример»', logo: { buffer: wideLogo, dataUri: 'data:image/png;base64,' + wideLogo.toString('base64') } }
+
+  it('draws the logo at its own aspect ratio and the name on the title slide; the accent replaces the theme’s', async () => {
+    const zip = await unzip(await generateTalkPptx(talk(DECK.slice(0, 2)), { brand }))
+    const title = await zip.file('ppt/slides/slide1.xml')!.async('string')
+    expect(title).toContain('ООО «Пример»')
+    expect(title).toContain('<p:pic>')
+    // 2.6in box, 4:1 logo → 2.6 × 0.65in; EMU = in × 914400. cy must be a quarter of cx.
+    const pic = title.slice(title.indexOf('<p:pic>'))
+    const cx = Number(pic.match(/cx="(\d+)"/)![1]), cy = Number(pic.match(/cy="(\d+)"/)![1])
+    expect(cx / cy).toBeCloseTo(4, 1)
+    const body = await zip.file('ppt/slides/slide2.xml')!.async('string')
+    expect(body).toContain('B42318')
+    expect(body).not.toContain('0F6E6E')
+  }, 30_000)
+
+  it('a pale brand accent keeps the graphics but labels fall back to ink2 — contrast is measured, not assumed', async () => {
+    const pale = { accent: 'F4C55A', name: null, logo: null }   // 1.6:1 on white
+    const deck: Slide[] = [{ type: 'summary', title: 'Итоги', ...base, body: { takeaways: ['x'], next_steps: ['y'] } }]
+    const zip = await unzip(await generateTalkPptx(talk(deck), { brand: pale }))
+    const xml = await zip.file('ppt/slides/slide1.xml')!.async('string')
+    expect(xml).toContain('F4C55A')                       // the header rule, a graphic
+    const label = xml.slice(xml.indexOf('ГЛАВНОЕ') - 600, xml.indexOf('ГЛАВНОЕ'))
+    expect(label).toContain('57635F')                     // ink2 carries the label text
+    expect(label).not.toContain('F4C55A')
+  }, 30_000)
+
+  it('the warm theme exists and differs from default', async () => {
+    const zip = await unzip(await generateTalkPptx(talk(DECK.slice(0, 2), 'warm')))
+    expect(await zip.file('ppt/slides/slide2.xml')!.async('string')).toContain('8A5C06')
+  }, 30_000)
+})

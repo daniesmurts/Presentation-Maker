@@ -50,6 +50,13 @@ export async function listTalks(workspaceId: string): Promise<TalkListRow[]> {
   return rows
 }
 
+export async function setTalkTheme(id: string, workspaceId: string, themeId: string): Promise<Talk | null> {
+  const { rows } = await pool.query<Talk>(
+    `UPDATE talks SET theme_id = $3, updated_at = NOW() WHERE id = $1 AND workspace_id = $2 RETURNING *`, [id, workspaceId, themeId],
+  )
+  return rows[0] ?? null
+}
+
 /** Edits are "replace the array" — slides are JSONB on the row. */
 export async function replaceSlides(id: string, workspaceId: string, slides: Slide[]): Promise<boolean> {
   const { rowCount } = await pool.query(

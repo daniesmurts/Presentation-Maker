@@ -71,7 +71,59 @@ export const DARK_THEME: Theme = {
   titleStyle: 'band',
 }
 
-export const THEMES: Record<string, Theme> = { default: DEFAULT_THEME, dark: DARK_THEME }
+// Warm — a serif, paper-toned deck for talks that want to feel considered
+// rather than corporate. Measured:
+//   ink 1F1A14 on FBF8F2 16.3 · ink2 5C554B on bg 6.9 / on panel F3ECDF 6.3
+//   accent 8A5C06 on bg 5.48 / on panel 4.95 (the pair that fails last) · white on it 5.81
+//   ink3 8C8378 on bg 3.5 — captions only
+export const WARM_THEME: Theme = {
+  id: 'warm',
+  name: 'Тёплая',
+  palette: {
+    bg: 'FBF8F2', panel: 'F3ECDF', ink: '1F1A14', ink2: '5C554B', ink3: '8C8378',
+    accent: '8A5C06', accentText: 'FFFFFF', border: 'E2D9C8',
+  },
+  fonts: { display: 'Georgia', body: 'Georgia', math: 'Cambria Math' },
+  margin: 0.7,
+  titleStyle: 'light',
+}
+
+export const THEMES: Record<string, Theme> = { default: DEFAULT_THEME, dark: DARK_THEME, warm: WARM_THEME }
+
+/** For the picker: id, name, and the colours a swatch needs. */
+export function listThemes(): Array<{ id: string; name: string; bg: string; ink: string; accent: string; panel: string }> {
+  return Object.values(THEMES).map((t) => ({ id: t.id, name: t.name, bg: t.palette.bg, ink: t.palette.ink, accent: t.palette.accent, panel: t.palette.panel }))
+}
+
+// ─── Brand kit → theme ──────────────────────────────────────────────────────
+//
+// A workspace's brand kit overrides the theme's accent. The accent is used
+// two ways on a slide: as GRAPHICS (rules, the title band, column-header
+// fills) — judged at 3:1 and never load-bearing for reading — and as small
+// bold TEXT (labels like «ГЛАВНОЕ», comparison headers). A brand colour
+// may be pale; measured against the theme's ground, a text-unsafe accent
+// keeps the graphics and the labels fall back to ink2. The logo and name
+// are drawn on the title slide only.
+
+export interface BrandKit {
+  accent?: string | null           // 6-digit hex, no '#'
+  name?:   string | null
+  logo?:   { dataUri: string; buffer: Buffer } | null
+}
+
+export interface AppliedTheme extends Theme {
+  /** The colour for small bold labels — the accent when it clears 4.5:1 on
+   *  the theme ground, else ink2. Recorded per export in the log. */
+  labelColor: string
+  brand:      BrandKit | null
+}
+
+export function applyBrand(theme: Theme, brand: BrandKit | null, contrast: (a: string, b: string) => number, textOn: (hex: string) => string): AppliedTheme {
+  const accent = brand?.accent && /^[0-9A-F]{6}$/.test(brand.accent) ? brand.accent : theme.palette.accent
+  const palette = { ...theme.palette, accent, accentText: brand?.accent ? textOn(accent) : theme.palette.accentText }
+  const labelColor = contrast(accent, theme.palette.bg) >= 4.5 ? accent : theme.palette.ink2
+  return { ...theme, palette, labelColor, brand: brand ?? null }
+}
 
 /** Unknown id → default, never a throw: a talk row written by an older
  *  build may name a theme that has since been renamed. */

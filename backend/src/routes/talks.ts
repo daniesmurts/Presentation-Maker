@@ -13,6 +13,9 @@ import { recordTalkEvent } from '../db/queries/talkEvents'
 import { generateTalkPptx } from '../services/talkExport'
 import { parseSlideSelection, selectSlides, selectionSuffix, SelectionError } from '../lib/slideSelection'
 import { assertPlanFeature, assertTalkQuota } from '../lib/planTier'
+import { resolveBrandKit } from '../services/brandKit'
+import { THEMES } from '../services/themes'
+import { setTalkTheme } from '../db/queries/talks'
 import { checkSpendCap } from '../services/spendCap'
 import { storeSlideImage, collectTalkMediaPaths, deleteMediaObjects, MAX_IMAGE_BYTES } from '../services/talkMedia'
 import { withSlideImage } from '../services/talks'
@@ -179,7 +182,7 @@ talksRouter.get('/:id/export.pptx', asyncHandler(async (req, res) => {
     throw err
   }
   const subset = selectSlides(talk, selection)
-  const pptx = await generateTalkPptx(subset)
+  const pptx = await generateTalkPptx(subset, { brand: await resolveBrandKit(req.user.workspace_id) })
 
   // The title is Cyrillic more often than not — `filename=` gets an ASCII
   // fallback and the RFC 5987 `filename*` carries the real name.
@@ -368,6 +371,16 @@ talksRouter.delete('/:id/slides/:idx/image', asyncHandler(async (req, res) => {
     return s.type === 'diagram' ? { ...s, body: { ...s.body, image: null } } : { ...s, image: null }
   })
   res.json({ talk: await persist(talk, next, req.user.workspace_id) })
+}))
+
+// PATCH /api/talks/:id { theme_id } — the deck-level look. Unknown ids are
+// refused here; the exporter would silently fall back to default.
+talksRouter.patch('/:id', asyncHandler(async (req, res) => {
+  const themeId = (req.body as { theme_id?: unknown })?.theme_id
+  if (typeof themeId !== 'string' || !THEMES[themeId]) throw new ValidationError('Неизвестная тема')
+  const talk = await setTalkTheme(req.params.id, req.user.workspace_id, themeId)
+  if (!talk) throw new NotFoundError('Выступление не найдено')
+  res.json({ talk })
 }))
 
 talksRouter.delete('/:id', asyncHandler(async (req, res) => {

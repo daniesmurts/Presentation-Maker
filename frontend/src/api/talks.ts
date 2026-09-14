@@ -53,3 +53,6 @@ export function importPptx(file: File) {
   form.append('file', file)
   return client.post<ImportResult>('/api/talks/import', form, { timeout: 120_000 }).then((r) => r.data)
 }
+
+// ─── Theme ──────────────────────────────────────────────────────────────────
+export const setTalkTheme = (id: string, theme_id: string) => client.patch<{ talk: Talk }>(`/api/talks/${id}`, { theme_id }).then(unwrap)

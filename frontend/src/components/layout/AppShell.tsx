@@ -20,6 +20,9 @@ export default function AppShell() {
             <NavLink to="/talks" end className={({ isActive }) => `h-8 px-3 inline-flex items-center rounded-md text-sm ${isActive ? 'bg-accent-light text-accent' : 'text-ink-secondary hover:text-ink hover:bg-surface-soft'}`}>
               {copy.nav.talks}
             </NavLink>
+            <NavLink to="/brand" className={({ isActive }) => `h-8 px-3 inline-flex items-center rounded-md text-sm ${isActive ? 'bg-accent-light text-accent' : 'text-ink-secondary hover:text-ink hover:bg-surface-soft'}`}>
+              {copy.nav.brand}
+            </NavLink>
           </nav>
           <div className="ml-auto flex items-center gap-2">
             {/* Icon-only under sm: at 375px the label wrapped to two lines and

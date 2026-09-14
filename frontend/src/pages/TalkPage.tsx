@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Trash2, Download, Plus } from 'lucide-react'
-import { getTalk, deleteTalk, updateSlide, regenerateSlide, deleteSlide, insertSlide, moveSlide, uploadSlideImage, removeSlideImage } from '../api/talks'
+import { getTalk, deleteTalk, updateSlide, regenerateSlide, deleteSlide, insertSlide, moveSlide, uploadSlideImage, removeSlideImage, setTalkTheme } from '../api/talks'
+import { getBrand } from '../api/brand'
+import { inputClass } from '../components/ui/Field'
 import { errorMessage } from '../api/client'
 import SlideCard, { type SlideEditActions } from '../components/talks/SlideCard'
 import Spinner from '../components/ui/Spinner'
@@ -20,6 +22,7 @@ export default function TalkPage() {
   const qc = useQueryClient()
   const { toast } = useToast()
   const { data: talk, isLoading, error } = useQuery({ queryKey: ['talk', id], queryFn: () => getTalk(id) })
+  const { data: brandData } = useQuery({ queryKey: ['brand'], queryFn: getBrand, staleTime: 60_000 })
 
   const overfull = useMemo(() => {
     const map = new Map<number, string>()
@@ -93,6 +96,15 @@ export default function TalkPage() {
             {overfull.size > 0 && ` · ${copy.talk.overfull}: ${overfull.size}`}
           </p>
         </div>
+        {brandData && (
+          <label className="hidden sm:flex items-center gap-2 text-xs text-ink-secondary">
+            {copy.theme.label}
+            <select value={talk.theme_id} onChange={(e) => void run(() => setTalkTheme(id, e.target.value), false)} disabled={busy}
+                    aria-label={copy.theme.label} className={`${inputClass} h-10 w-auto`}>
+              {brandData.themes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          </label>
+        )}
         {/* A plain link, not fetch+blob: the browser streams the file and
             shows its own download UI; the cookie rides along same-origin. */}
         <a href={`/api/talks/${id}/export.pptx`} download
