@@ -6,6 +6,36 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
 ## [Unreleased]
 
 ### Added
+- **Контейнеры и сценарий выкладки.** TODO C. Two images (API on
+  `node:22-slim` — Debian, not Alpine, because resvg's prebuilds are
+  glibc; the bundle behind Caddy), a CI job that builds both on every
+  push and pushes from `main` once four registry secrets exist,
+  `deploy/docker-compose.yml` (two API replicas, Caddy for TLS and
+  `/api` load-balancing, a one-shot `migrate` on the same image), and
+  `deploy/deploy.sh` in the parent's proven shape (CLAUDE.md §9).
+  - **The parent's deploy incidents are encoded, not just remembered**:
+    `docker compose run -T migrate < /dev/null` (the heredoc's remaining
+    commands were once silently eaten as the migration container's stdin
+    — three deploys lost); version assertion on every replica AND on the
+    served bundle (`/version.txt`), because on 2026-09-05 the parent's
+    frontend ran four commits ahead of both API replicas with every health
+    check green; `if ! cmd` gates rather than `cmd && echo`, which `set -e`
+    does not trigger on.
+  - **Caddy, not nginx + certbot** — judgement: certificate renewal is the
+    ops step most often forgotten on a one-VM deploy; nginx is a drop-in
+    if a customer insists. Postgres is deliberately not in the compose
+    file: it holds the data and must not share the app containers'
+    lifecycle.
+  - **Verified**: no Docker on the founding machine, so CI is the build:
+    run 34826251477 built both images — the API image's
+    `dist/backend/src/index.js` assertion passed and the web image baked
+    `0.1.0 (2026-09-14+3ed5071)` into the bundle and `/version.txt`.
+    `push: false`, as expected without secrets. `deploy.sh` passes
+    `bash -n`; it has not run against a VM. Every CI run since the first
+    commit has been green (checked today for the first time).
+  - Not verified: an actual deploy — Caddy's certificate issuance, the
+    migrate one-shot against a managed Postgres, the rolling restart under
+    live traffic. Waits on the hosting decision (§10).
 - **Загрузить свою презентацию (.pptx).** TODO D — the adoption lever
   (CLAUDE.md §8 step 4). `POST /api/talks/import` and a «Загрузить .pptx»
   chip on the list. No model call, no quota.

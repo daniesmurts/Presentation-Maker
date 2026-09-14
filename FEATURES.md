@@ -3,7 +3,7 @@
 Legend: ✅ shipped · 🚧 in progress · 📋 planned. Grouped by the role that
 uses it. A 📋 item is marked, never implied. See `docs/WORKFLOW.md` §1.
 
-Last updated: TODO D — .pptx import
+Last updated: TODO C — deploy pipeline (artefacts)
 
 ---
 
@@ -55,6 +55,12 @@ numbers are the shape of the gate, and the `.pptx` download is open to both.
 - 📋 **Style learning from approved talks.** *(TODO G)*
 
 ## Operator
+
+- ✅ **Immutable images built in CI** for the API and the web bundle, each
+  carrying its build version (`/health`, `/version.txt`); a pull-based
+  `deploy.sh` with a CI gate, image guard, one-shot migration, rolling
+  restart and version assertions. 📋 A first deployment — needs a VM, a
+  registry and a domain.
 
 - ✅ **Spend cap per workspace** (tier default or a per-workspace override
   column), **a platform-wide daily backstop** (`GLOBAL_DAILY_SPEND_CAP_USD`,
