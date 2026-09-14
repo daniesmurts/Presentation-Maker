@@ -83,6 +83,13 @@ export const copy = {
     register:      'Создать аккаунт',
     toRegister:    'Нет аккаунта? Зарегистрируйтесь',
     toLogin:       'Уже есть аккаунт? Войдите',
+    // The consent line, in pieces so the two documents are links (a real
+    // <label> wraps the whole row; the links stop propagation).
+    consent: {
+      before: 'Я принимаю ', terms: 'Условия использования', and: ' и ', privacy: 'Политику конфиденциальности',
+      after: ', в том числе обработку персональных данных в соответствии с ФЗ-152.',
+      termsUrl: '/legal/terms', privacyUrl: '/legal/privacy',
+    },
   },
   form: {
     title:        'Тема выступления',

@@ -1,0 +1,7 @@
+---
+// Prints an operator field; a not-yet-filled one is highlighted so it
+// cannot ship unnoticed.
+import { isPlaceholder } from '../data/operator'
+const { v } = Astro.props as { v: string }
+---
+{isPlaceholder(v) ? <span class="fill">{v}</span> : <span>{v}</span>}

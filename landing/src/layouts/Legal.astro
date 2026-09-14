@@ -1,0 +1,37 @@
+---
+// A legal document: one narrow measure, numbered sections (the order IS
+// the structure here — clauses are cited by number), the version date at
+// the top. The same date is `TERMS_VERSION` in the backend; a material
+// change to the text bumps both.
+import Base from './Base.astro'
+interface Props { title: string; description: string; canonical: string; version: string; kind: string }
+const { title, description, canonical, version, kind } = Astro.props
+---
+<Base title={`${title} — Тезариум`} description={description} canonical={canonical}>
+  <section class="doc" style="border-top:0">
+    <div class="wrap">
+      <div class="eyebrow pencil">{kind}</div>
+      <h1>{title}</h1>
+      <p class="meta muted">Редакция от {version} · <a href="/legal">Все документы</a></p>
+      <div class="body">
+        <slot />
+      </div>
+    </div>
+  </section>
+</Base>
+<style is:global>
+  .doc { padding: 56px 0 96px; }
+  .doc h1 { font-size: clamp(2rem, 4vw, 3rem); margin: 14px 0 10px; }
+  .doc .meta { font-size: 14px; margin-bottom: 40px; }
+  .doc .body { max-width: 68ch; font-size: 16.5px; line-height: 1.6; }
+  .doc .body h2 { font-size: 1.35rem; margin: 40px 0 12px; }
+  .doc .body h2:first-child { margin-top: 0; }
+  .doc .body p { margin: 0 0 12px; }
+  .doc .body ul, .doc .body ol { margin: 0 0 14px; padding-left: 22px; }
+  .doc .body li { margin: 4px 0; }
+  .doc .body .fill { background: rgb(var(--c-marker) / .55); padding: 0 4px; border-radius: 3px; font-family: var(--mono); font-size: 0.9em; }
+  .doc .body table { border-collapse: collapse; width: 100%; font-size: 15px; margin: 8px 0 16px; }
+  .doc .body th, .doc .body td { text-align: left; vertical-align: top; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--c-border); }
+  .doc .body th { font-weight: 500; color: rgb(var(--c-ink-secondary)); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+  .doc .body .note { border-left: 2px solid rgb(var(--c-accent)); padding: 6px 0 6px 16px; color: rgb(var(--c-ink-secondary)); margin: 16px 0; }
+</style>

@@ -6,6 +6,7 @@ import { signToken } from '../lib/jwt'
 import { setSessionCookie, clearSessionCookie } from '../lib/session'
 import { createUserWithWorkspace, findUserByEmail, findPublicUserById, type PublicUser } from '../db/queries/users'
 import { PLAN_LIMITS, tierOf } from '../lib/planTier'
+import { recordTermsAcceptance } from '../db/queries/consent'
 import { config } from '../lib/config'
 
 // The UI reads the gate from here, never from the tier name: whether .pptx
@@ -38,8 +39,14 @@ function readCredentials(body: unknown): { email: string; password: string; disp
 
 authRouter.post('/register', authLimiter, asyncHandler(async (req, res) => {
   const { email, password, displayName } = readCredentials(req.body)
+  // Consent is a condition of the account, not a preference: the checkbox
+  // text on the form names the terms, the policy and 152-ФЗ, and the
+  // acceptance is written to the user row with the documents' version.
+  const acceptTerms = (req.body as Record<string, unknown> | null)?.accept_terms === true
+  if (!acceptTerms) throw new ValidationError('Чтобы создать аккаунт, примите условия использования и политику конфиденциальности')
   if (await findUserByEmail(email)) throw new ValidationError('Этот e-mail уже зарегистрирован — войдите')
   const user = await createUserWithWorkspace(email, await bcrypt.hash(password, 12), displayName)
+  await recordTermsAcceptance(user.id)
   setSessionCookie(res, signToken({ id: user.id, ws: user.workspace_id }))
   res.status(201).json({ user: withFeatures(await findPublicUserById(user.id)) })
 }))

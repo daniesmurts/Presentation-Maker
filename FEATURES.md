@@ -25,6 +25,7 @@ on-prem install keeps `.pptx` open to everyone.
   margin beside it, a speaking-time estimate per slide (≈ N сек), the
   slide number as the selection control for partial download, and the
   «не влезает» flag at the slide it concerns.
+- ✅ **Account with recorded consent.** Registration requires accepting the terms and the privacy policy (152-ФЗ); the acceptance and the documents' version are stored on the user. Public `/legal/terms` and `/legal/privacy`.
 - ✅ **Create a talk from talking points.** Paste тезисы, pick intent (inform · persuade · teach · pitch · report ·
   workshop) and audience (executives · customers · team · conference ·
   classroom · investors), set length in minutes or an explicit slide count
