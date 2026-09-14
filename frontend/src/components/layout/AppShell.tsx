@@ -25,7 +25,7 @@ export default function AppShell() {
             {/* Icon-only under sm: at 375px the label wrapped to two lines and
                 pushed the sign-out button off the right edge (Phase 2 mobile check). */}
             <NavLink to="/talks/new" aria-label={copy.nav.newTalk} title={copy.nav.newTalk}
-                     className="h-9 min-w-[36px] px-2 sm:px-3 inline-flex items-center gap-1.5 rounded-md text-sm font-medium bg-accent text-white hover:bg-accent-deep">
+                     className="h-9 min-w-[36px] px-2 sm:px-3 inline-flex items-center gap-1.5 rounded-md text-sm font-medium bg-accent-light text-accent hover:bg-accent hover:text-white">
               <Plus className="w-4 h-4" aria-hidden /> <span className="hidden sm:inline">{copy.nav.newTalk}</span>
             </NavLink>
             <span className="hidden sm:block text-xs text-ink-secondary ml-2 truncate max-w-[16ch]">{user?.display_name || user?.email}</span>

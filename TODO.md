@@ -80,7 +80,7 @@ spent four months finding out where they were wrong (CLAUDE.md §3 is the list).
   backend; contrast of every text pair measured and written next to the class
   (§3.8) — the palette is new, so *nothing* from §6 is assumed.
 
-- **Phase 3 — `.pptx` export, one theme, no images.** Effort M.
+- **Phase 3 — `.pptx` export, one theme, no images.** Effort M. 🟢 SHIPPED (2026-09-14) — two themes, in fact, to prove the theme-as-data shape
   Port `presentationExport.ts` (pptxgenjs, a layout per slide type, formula
   → PNG via MathJax→resvg), `lib/imageSize.ts` + `containFit` (needed now for
   formula PNGs, later for everything). Restructure so the theme is **data**

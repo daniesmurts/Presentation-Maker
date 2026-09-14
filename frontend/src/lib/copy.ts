@@ -123,6 +123,7 @@ export const copy = {
     copy:       'Копировать',
     copied:     'Скопировано',
     imageSlot:  (q: string) => `Изображение: «${q}»`,
+    download:   'Скачать .pptx',
     delete:     'Удалить выступление',
     deleteConfirm: 'Удалить это выступление? Это действие нельзя отменить.',
   },

@@ -13,6 +13,7 @@
     "eval:talks": "node --env-file=../.env $(npm root)/.bin/tsx scripts/evalTalks.ts"
   },
   "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "axios": "^1.17.0",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",
@@ -22,9 +23,12 @@
     "express-rate-limit": "^7.4.1",
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.2",
+    "jszip": "^3.10.1",
+    "mathjax-full": "^3.2.2",
     "pg": "^8.12.0",
     "pg-boss": "^10.4.2",
-    "pino": "^10.3.1"
+    "pino": "^10.3.1",
+    "pptxgenjs": "^4.0.1"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

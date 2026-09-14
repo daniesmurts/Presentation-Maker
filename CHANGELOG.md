@@ -6,6 +6,48 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
 ## [Unreleased]
 
 ### Added
+- **Скачивание .pptx.** TODO A Phase 3. `GET /api/talks/:id/export.pptx`
+  and a «Скачать .pptx» button — the product (CLAUDE.md §2).
+  - **Ported from the parent's `presentationExport.ts` with its incident
+    fixes**: the pptxgenjs 4.0.1 dangling-`slideMasterN` Override that
+    PowerPoint flags as corruption is stripped from the written zip; every
+    computed height goes through `clampH` because a formula-dense slide once
+    produced a negative extent (`cy="-3966630"`) and a deck that would not
+    open; formulas render MathJax → resvg → PNG with a Unicode fallback;
+    images are contain-fitted from their bytes (`lib/imageSize.ts`) because
+    pptxgenjs stretches to the frame regardless of `sizing`.
+  - **Theme is data** (`services/themes.ts`, CLAUDE.md §5.1): palette,
+    fonts, margin, title style. The exporter takes a `Theme` and never
+    names a colour; no module state carries between exports (the parent
+    held branding in module state). Two themes ship — light «Тезариум» and
+    dark — and a test proves the same slides under both yield different
+    colours with the same shape count. Ratios recorded per theme in the
+    file; the projector floor is a different medium from the web app, but
+    the numbers are measured all the same.
+  - **`cta` slide layout** added (the ask in the display face, reasons under
+    a short rule, contact line in the accent). Every other layout is the
+    parent's, with `lecturer` → `presenter`.
+  - **Partial download and the usage event** (CLAUDE.md §3.9): `?slides=2,3,5`
+    parsed into deck order, malformed input refused rather than guessed;
+    every export writes a `talk_events` row with `{ slides, of, theme }` —
+    migration 005. `lib/slideSelection.ts` (server side) is the index
+    arithmetic Phase 4's editor will remap through.
+  - **Pricing gate stub** `lib/planTier.ts` on the download route —
+    allow-all for both tiers until billing exists; a WHERE waiting for a
+    value, not a migration waiting to happen (§10).
+  - **Verified against the real file and an independent parser** (§3.10):
+    exported the live six-slide talk (146 KB), read it back with the
+    PARENT's `pptxImport.ts` — six slides in order, every title, notes on
+    all six (301–563 chars), one picture on the formula slide (the rendered
+    PNG). The two-slide partial read back as two. Cyrillic file name via
+    RFC 5987 `filename*`; `?slides=99` → «Неверный список слайдов».
+    `tsc` clean; backend 144 tests, frontend 10.
+  - Not verified: opening in PowerPoint/Keynote by a human (file handed
+    over); a slide with a real web image (none exist before TODO B — the
+    placeholder path is what ran).
+  - One assertion I wrote wrong: I expected a notes part only for slides
+    with notes; pptxgenjs emits one for every slide. The test now checks
+    content, not count.
 - **Веб-приложение: форма, план, просмотр.** TODO A Phase 2. Vite + React
   18 + Tailwind + TanStack Query; pages for sign-in/up, the talk list, the
   new-talk form, the job page (polling, the outline editor at the gate, the

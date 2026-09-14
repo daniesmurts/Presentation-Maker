@@ -3,7 +3,7 @@
 Legend: ✅ shipped · 🚧 in progress · 📋 planned. Grouped by the role that
 uses it. A 📋 item is marked, never implied. See `docs/WORKFLOW.md` §1.
 
-Last updated: TODO A Phase 2 — web app: form, outline gate, viewer
+Last updated: TODO A Phase 3 — native .pptx export
 
 ---
 
@@ -35,9 +35,11 @@ Last updated: TODO A Phase 2 — web app: form, outline gate, viewer
 
 ## Paid tier
 
-- 📋 **Native editable `.pptx` download.** The pricing gate sits on the
-  download and the talk count, not on generation. *(TODO A.3 builds it
-  behind an allow-all stub; the tier check is TODO A.5)*
+- ✅ **Native editable `.pptx` download** — 16:9, a layout per slide type,
+  formulas typeset as images, speaker notes in the notes pane; `?slides=`
+  downloads a subset. Two themes (light «Тезариум», dark) exist as data;
+  choosing one in the UI comes with TODO E. The pricing gate sits on this
+  download (`lib/planTier.ts`) — allow-all until billing exists.
 - 📋 **Brand kit and themes.** *(TODO E)*
 - 📋 **Style learning from approved talks.** *(TODO G)*
 

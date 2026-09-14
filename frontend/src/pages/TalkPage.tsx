@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Download } from 'lucide-react'
 import { getTalk, deleteTalk } from '../api/talks'
 import { errorMessage } from '../api/client'
 import SlideCard from '../components/talks/SlideCard'
@@ -48,9 +48,15 @@ export default function TalkPage() {
             {overfull.size > 0 && ` · ${copy.talk.overfull}: ${overfull.size}`}
           </p>
         </div>
-        <Button variant="danger" size="sm" loading={remove.isPending} aria-label={copy.talk.delete} title={copy.talk.delete}
+        {/* A plain link, not fetch+blob: the browser streams the file and
+            shows its own download UI; the cookie rides along same-origin. */}
+        <a href={`/api/talks/${id}/export.pptx`} download
+           className="h-10 px-4 inline-flex items-center gap-2 rounded-md text-sm font-medium bg-accent text-white hover:bg-accent-deep flex-shrink-0">
+          <Download className="w-4 h-4" aria-hidden /> <span className="hidden sm:inline">{copy.talk.download}</span><span className="sm:hidden">.pptx</span>
+        </a>
+        <Button variant="ghost" size="md" loading={remove.isPending} aria-label={copy.talk.delete} title={copy.talk.delete}
                 onClick={() => { if (window.confirm(copy.talk.deleteConfirm)) remove.mutate() }}>
-          <Trash2 className="w-3.5 h-3.5" aria-hidden /> <span className="hidden sm:inline">{copy.talk.delete}</span>
+          <Trash2 className="w-4 h-4" aria-hidden />
         </Button>
       </header>
 

@@ -8,6 +8,10 @@ import { TALK_JOB_QUEUE, type TalkJobPayload } from '../services/talkJobWorker'
 import { normaliseEditedOutline, type GenerateParams } from '../services/talks'
 import { createTalkJob, getTalkJobById, confirmTalkJobOutline, type TalkJobRow } from '../db/queries/talkJobs'
 import { findTalkById, listTalks, deleteTalk } from '../db/queries/talks'
+import { recordTalkEvent } from '../db/queries/talkEvents'
+import { generateTalkPptx } from '../services/talkExport'
+import { parseSlideSelection, selectSlides, selectionSuffix, SelectionError } from '../lib/slideSelection'
+import { assertPlanFeature } from '../lib/planTier'
 import {
   INTENTS, AUDIENCES, MAX_SLIDE_COUNT, MIN_SLIDE_COUNT, notesDefaultFor,
   type Intent, type Audience, type TalkLanguage,
@@ -135,6 +139,40 @@ talksRouter.get('/:id', asyncHandler(async (req, res) => {
   const talk = await findTalkById(req.params.id, req.user.workspace_id)
   if (!talk) throw new NotFoundError('Выступление не найдено')
   res.json({ talk })
+}))
+
+// GET /api/talks/:id/export.pptx[?slides=2,3,5] — the native deck. This is
+// the product (CLAUDE.md §2); the pricing gate sits on it (lib/planTier.ts).
+talksRouter.get('/:id/export.pptx', asyncHandler(async (req, res) => {
+  assertPlanFeature(req.user.plan_tier, 'pptxExport')
+  const talk = await findTalkById(req.params.id, req.user.workspace_id)
+  if (!talk) throw new NotFoundError('Выступление не найдено')
+  if (!talk.slides || talk.slides.length === 0) throw new ValidationError('У этого выступления ещё нет слайдов')
+
+  let selection: number[] | null
+  try {
+    selection = parseSlideSelection(req.query.slides, talk.slides.length)
+  } catch (err) {
+    if (err instanceof SelectionError) throw new ValidationError('Неверный список слайдов')
+    throw err
+  }
+  const subset = selectSlides(talk, selection)
+  const pptx = await generateTalkPptx(subset)
+
+  // The title is Cyrillic more often than not — `filename=` gets an ASCII
+  // fallback and the RFC 5987 `filename*` carries the real name.
+  const fname = `${talk.title.trim() || 'talk'}${selectionSuffix(selection, talk.slides.length, talk.language)}.pptx`
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation')
+  res.setHeader('Content-Disposition', `attachment; filename="talk.pptx"; filename*=UTF-8''${encodeURIComponent(fname)}`)
+  res.setHeader('Content-Length', pptx.length)
+  res.end(pptx)
+
+  // The deck left the platform — the strongest evidence a talk was used.
+  // { slides, of } always (CLAUDE.md §3.9), even for the whole deck.
+  recordTalkEvent({
+    talkId: talk.id, workspaceId: req.user.workspace_id, userId: req.user.id, event: 'exported', format: 'pptx',
+    metadata: { slides: (selection ?? talk.slides).length, of: talk.slides.length, theme: talk.theme_id },
+  })
 }))
 
 talksRouter.delete('/:id', asyncHandler(async (req, res) => {
