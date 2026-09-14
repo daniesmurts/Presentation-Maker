@@ -1,150 +1,226 @@
-# Tezarium on Yandex Cloud — MVP setup, sized to grow
+# Tezarium on Yandex Cloud — MVP setup through the console
 
-The smallest set of resources that runs the product properly, chosen so
-that each one scales later by changing a setting rather than by
-re-architecting. Everything here is what `deploy/deploy.sh` and
-`deploy/docker-compose.yml` expect; nothing else is needed.
+Smallest resources that run the product properly, each chosen so it
+scales later by changing a setting, not by re-architecting. Everything
+is done in the web console (console.yandex.cloud). A terminal is needed
+in exactly two places, and neither is the Yandex CLI: **on the VM** to
+install Docker (step 5c), and **on your Mac** to run `deploy.sh` (step 7).
 
-Four resources, one cloud folder: **a VM**, **Managed PostgreSQL**, an
-**Object Storage bucket**, a **Container Registry**. Plus DNS, one service
-account, and four GitHub secrets.
+You will create, in this order: a service account → a container registry
+→ a database → a storage bucket → a VM → a DNS record. Keep a text file
+open — you will collect about ten values along the way.
 
-Prices change; check the calculator (console → Pricing) before creating.
-Order of magnitude for this MVP: the smallest presets below run to a few
-thousand ₽/month in total, most of it the database.
+Prices change; check *Pricing → Calculator* before creating. Order of
+magnitude: the presets below total a few thousand ₽/month, most of it
+the database.
 
 ---
 
-## 0. Before the console
+## 0. Before you start
 
-- A Yandex Cloud account with billing enabled, one **folder** (default is fine).
-- Install and authenticate the CLI on your machine — it makes steps 3–5
-  copy-pasteable: https://yandex.cloud/docs/cli/quickstart, then `yc init`.
-- A domain you control (e.g. `tezarium.ru` or a subdomain like `app.tezarium.ru`).
-- A DeepSeek API key (you have one).
+- A Yandex Cloud account with billing enabled and one **folder** (the
+  default one is fine; do everything inside it).
+- A domain you control (say `app.tezarium.ru`).
+- Your DeepSeek API key.
+- The `gh` CLI on your Mac is already authenticated (it is — the repo was
+  created with it).
 
-## 1. Service account (one, two roles)
+## 1. Service account — one, with two roles and two keys
 
-Console → *Identity and Access Management* → *Service accounts* → Create:
-name `tezarium-ops`. Assign roles on the folder:
+*Console → Identity and Access Management → Service accounts → Create
+service account.*
 
-- `container-registry.images.pusher` — CI pushes images
-- `storage.editor` — the app reads/writes slide images
+- Name: `tezarium-ops`
+- Roles (click *Add role*, twice):
+  - `container-registry.images.pusher` — lets CI push images
+  - `storage.editor` — lets the app read/write slide images
 
-Then two keys from it:
+Open the account you just created. Two keys:
 
-```bash
-# Authorized key (JSON) — used by GitHub Actions AND by the VM to pull images
-yc iam key create --service-account-name tezarium-ops --output tezarium-ops-key.json
+**a) Authorized key** — *Create new key → Create authorized key* →
+Encryption algorithm RSA_2048 → Create. The console offers a download —
+**save it as `tezarium-ops-key.json`**. This JSON is used by GitHub (step 2)
+and by the VM (step 5c). It is shown once.
 
-# Static access key — used by the app for Object Storage (S3 API)
-yc iam access-key create --service-account-name tezarium-ops
-#  → note key_id and secret (the secret is shown ONCE)
-```
+**b) Static access key** — *Create new key → Create static access key* →
+Create. Copy **Key ID** and **Secret key** into your text file. Also shown
+once.
 
-Keep both files out of the repo.
+Collected so far: `tezarium-ops-key.json`, `STORAGE_ACCESS_KEY`
+(the key id), `STORAGE_SECRET_KEY` (the secret).
 
-## 2. Container Registry
+## 2. Container Registry + GitHub secrets
 
-Console → *Container Registry* → Create registry: name `tezarium`. Note its
-**ID** (looks like `crp1abc…`). Repositories (`tezarium-api`, `tezarium-web`)
-are created automatically on first push.
+*Console → Container Registry → Create registry.* Name `tezarium`. Open
+it and copy its **ID** (looks like `crp1abc23def…`). Repositories
+(`tezarium-api`, `tezarium-web`) appear automatically on first push.
 
-GitHub → repository → *Settings → Secrets and variables → Actions*, four
-secrets:
+Now GitHub, in the browser: *github.com/daniesmurts/Presentation-Maker →
+Settings → Secrets and variables → Actions → New repository secret*, four
+times:
 
-| Secret | Value |
+| Name | Value |
 |---|---|
 | `REGISTRY` | `cr.yandex` |
-| `IMAGE_REPO` | `cr.yandex/<registry-id>/tezarium` |
+| `IMAGE_REPO` | `cr.yandex/<registry ID>/tezarium` |
 | `REGISTRY_USER` | `json_key` |
-| `REGISTRY_PASSWORD` | the **entire contents** of `tezarium-ops-key.json` |
+| `REGISTRY_PASSWORD` | open `tezarium-ops-key.json` in a text editor and paste its **entire contents** |
 
-From the next push to `main`, CI pushes `…/tezarium-api:<semver>-<sha>` and
-`…/tezarium-web:<semver>-<sha>`. Verify in the console under the registry.
+From the next push to `main`, CI pushes both images. Check: *Container
+Registry → tezarium → Repositories* shows two entries after the next CI
+run (a push to main, or *Actions → CI → Re-run all jobs* on the latest run).
 
-## 3. Managed PostgreSQL (MVP: one host; later: add hosts)
+Collected: `IMAGE_REPO`.
 
-Console → *Managed Service for PostgreSQL* → Create cluster:
+## 3. Managed PostgreSQL — MVP one host; later add hosts
 
-| Setting | MVP | Later |
+*Console → Managed Service for PostgreSQL → Create cluster.*
+
+| Section | Setting | MVP value | Bump later |
+|---|---|---|---|
+| Basic | Name | `tezarium` | — |
+| | Environment | PRODUCTION | — |
+| | Version | 16 | — |
+| Host class | Platform | Intel Ice Lake | — |
+| | Type | **burstable**, `b1.medium` (2 vCPU 50%, 4 GB) | switch to *standard* `s3-c2-m8` or larger — edited in place, a few minutes of restart |
+| Storage | Type | network-ssd | — |
+| | Size | 20 GB | increase in place, no downtime |
+| Database | Name | `tezarium` | — |
+| | Username | `tezarium` | — |
+| | Password | generate a long one, save it | — |
+| Network | Cloud network / subnet | the default network, subnet in **ru-central1-a** (remember the zone — the VM goes in the same one) | — |
+| | Public access | **off** | — |
+| | Security groups | leave default for now; step 5b returns here | — |
+| Hosts | Availability zone | ru-central1-a, **1 host** | *Add host* in another zone → automatic failover, nothing changes in the app |
+| Additional | Backups | leave on (daily, 7 days retained) | raise retention |
+
+Create. When the cluster is *Alive*, open it → *Hosts* → copy the host's
+**FQDN** (ends in `.mdb.yandexcloud.net`).
+
+The app connects on port **6432** (the cluster's built-in connection
+pooler, not 5432):
+
+```
+postgresql://tezarium:PASSWORD@<host-FQDN>:6432/tezarium
+```
+
+Yandex signs the database with its own certificate authority. Download
+the CA file in your browser — open this URL and save it as `root.crt`:
+
+https://storage.yandexcloud.net/cloud-certs/CA.pem
+
+Collected: `DATABASE_URL`, `root.crt`.
+
+## 4. Object Storage — one private bucket
+
+*Console → Object Storage → Create bucket.*
+
+- Name: `tezarium-media` (names are global; add a suffix if taken)
+- Max size: leave 0 (unlimited)
+- Object read access: **Restricted** · Object listing: Restricted
+- Storage class: Standard
+- After creating: bucket → *Settings → Versioning → Enabled* (that is the
+  media backup story).
+
+Collected: `STORAGE_BUCKET`.
+
+## 5. The VM — MVP 2 vCPU / 4 GB; later resize or add a second
+
+### 5a. Reserve a static IP
+
+*Console → Virtual Private Cloud → IP addresses → Reserve address* →
+zone ru-central1-a. Copy it. (Reserved so it survives VM recreation and
+the DNS record never changes.)
+
+### 5b. Security group
+
+*Virtual Private Cloud → Security groups → Create*, name `tezarium-vm`,
+in the default network. Inbound rules:
+
+| Port | Source | Why |
 |---|---|---|
-| Version | 16 | — |
-| Host class | `b1.medium` (burstable, 2 vCPU 50%, 4 GB) | `s3-c2-m8` or larger — change in place, minutes of restart |
-| Storage | network-ssd, 20 GB | grow in place, no downtime |
-| Hosts | 1, same zone as the VM (e.g. `ru-central1-a`) | add a 2nd/3rd host → automatic failover, no app change |
-| Database | `tezarium`, user `tezarium`, a long password | — |
-| Network / SG | same network as the VM; security group allowing 6432 from the VM's SG | — |
-| Public access | **off** — the VM reaches it over the private network | — |
+| 22 | your IP (or 0.0.0.0/0 to start, tighten later) | SSH |
+| 80 | 0.0.0.0/0 | Caddy's certificate challenge + redirect |
+| 443 | 0.0.0.0/0 | HTTPS |
 
-The connection string the app needs (port **6432** — the cluster's
-connection pooler, not 5432):
+Outbound: allow all.
 
-```
-postgresql://tezarium:PASSWORD@<host-fqdn>:6432/tezarium
-```
+Then go back to the **database** cluster → *Edit* → Security groups → add
+a rule (or a second group) allowing inbound **6432** from the
+`tezarium-vm` security group. Without this the VM cannot reach the
+database.
 
-Yandex signs its servers with its own CA. Download it once for the VM
-(step 5 mounts it into the containers):
+### 5c. Create the VM
+
+*Console → Compute Cloud → Virtual machines → Create VM.*
+
+| Section | Setting | MVP value | Bump later |
+|---|---|---|---|
+| Image | | Ubuntu 24.04 LTS | — |
+| Zone | | ru-central1-a | — |
+| Disk | | network-ssd, 30 GB | grow in place |
+| Computing resources | Platform | Intel Ice Lake | — |
+| | vCPU | **2**, core fraction **50%** | 100%, more vCPU/RAM: *Stop → Edit → Start* (~2 min downtime). Or create a second identical VM and put both behind *Network Load Balancer* — the app already runs as stateless replicas |
+| | RAM | 4 GB | |
+| Network | Subnet | the same one as the database | — |
+| | Public address | *List* → pick the reserved IP | — |
+| | Security groups | `tezarium-vm` | — |
+| Access | Login | `deploy` | — |
+| | SSH key | paste your public key (`cat ~/.ssh/id_ed25519.pub` on your Mac) | — |
+
+Create. Now the first terminal moment — on your Mac:
 
 ```bash
-curl -fsS https://storage.yandexcloud.net/cloud-certs/CA.pem -o root.crt
+ssh deploy@<static IP>
 ```
 
-## 4. Object Storage
-
-Console → *Object Storage* → Create bucket: name `tezarium-media` (bucket
-names are global — pick something unique), access **restricted** (private),
-storage class Standard, no public read. The static key from step 1 is what
-the app uses. Later: nothing to resize — it just grows.
-
-## 5. The VM (MVP: 2 vCPU / 4 GB; later: bigger, or a second one)
-
-Console → *Compute Cloud* → Create VM:
-
-| Setting | MVP | Later |
-|---|---|---|
-| Image | Ubuntu 24.04 LTS | — |
-| Platform / vCPU | Intel Ice Lake, **2 vCPU at 50% (burstable)**, 4 GB RAM | 100% cores, more RAM: stop → change → start (~2 min downtime). Or add a second VM behind a Network Load Balancer — the app is already two stateless replicas, so nothing in the code changes |
-| Disk | network-ssd 30 GB | grow in place |
-| Zone | same as the database | — |
-| Public IP | **yes**, static (reserve it: *Virtual Private Cloud → IP addresses*) | — |
-| Security group | inbound 22 from your IP, 80 and 443 from anywhere; outbound all | — |
-| SSH | your public key, login `deploy` | — |
-
-Then on the VM (`ssh deploy@<ip>`):
+On the VM, paste these blocks one at a time:
 
 ```bash
-# Docker + compose plugin
+# Docker + compose plugin (official Docker repository)
 sudo apt-get update && sudo apt-get install -y ca-certificates curl
 sudo install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
 sudo apt-get update && sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-sudo usermod -aG docker $USER && newgrp docker
-
-# App directory and the database CA
-sudo mkdir -p /opt/tezarium && sudo chown $USER /opt/tezarium
-mkdir -p /opt/tezarium/certs /opt/tezarium/uploads
-# copy root.crt from step 3 to /opt/tezarium/certs/root.crt (scp from your machine)
-
-# Registry login (once) — the same JSON key as CI
-cat tezarium-ops-key.json | docker login cr.yandex --username json_key --password-stdin
+sudo usermod -aG docker $USER
 ```
 
-`/opt/tezarium/.env` — the app's environment plus the two deploy variables:
+Log out and back in (`exit`, then `ssh` again) so the docker group applies. Then:
+
+```bash
+sudo mkdir -p /opt/tezarium && sudo chown $USER /opt/tezarium
+mkdir -p /opt/tezarium/certs /opt/tezarium/uploads
+```
+
+From your **Mac**, copy the two files up (the CA and the registry key):
+
+```bash
+scp root.crt deploy@<static IP>:/opt/tezarium/certs/root.crt
+scp tezarium-ops-key.json deploy@<static IP>:/home/deploy/tezarium-ops-key.json
+```
+
+Back **on the VM**, log Docker into the registry (once) and remove the key:
+
+```bash
+cat ~/tezarium-ops-key.json | docker login cr.yandex --username json_key --password-stdin && rm ~/tezarium-ops-key.json
+```
+
+### 5d. The environment file
+
+On the VM, `nano /opt/tezarium/.env` and fill in from your text file:
 
 ```
 NODE_ENV=production
 PORT=3000
 DOMAIN=app.tezarium.ru
-IMAGE_REPO=cr.yandex/<registry-id>/tezarium
+IMAGE_REPO=cr.yandex/<registry ID>/tezarium
 
-DATABASE_URL=postgresql://tezarium:PASSWORD@<host-fqdn>:6432/tezarium
+DATABASE_URL=postgresql://tezarium:PASSWORD@<host-FQDN>:6432/tezarium
 DATABASE_SSL_CA=/app/certs/root.crt
 DB_POOL_MAX=10
 
-JWT_SECRET=<openssl rand -hex 32>
+JWT_SECRET=<a long random string — e.g. 64 random characters>
 DEEPSEEK_API_KEY=<your key>
 
 STORAGE_ENDPOINT=https://storage.yandexcloud.net
@@ -153,51 +229,54 @@ STORAGE_BUCKET=tezarium-media
 STORAGE_ACCESS_KEY=<static key id>
 STORAGE_SECRET_KEY=<static key secret>
 
-# Cost backstop for the whole platform, USD per day. Set it.
+# Platform-wide cost backstop, USD per day. Set it.
 GLOBAL_DAILY_SPEND_CAP_USD=10
 ```
 
-(`FRONTEND_URL` is set by the compose file from `DOMAIN`.)
-
 ## 6. DNS
 
-At your registrar (or *Cloud DNS* if the zone lives in Yandex): an **A**
-record `app.tezarium.ru → <static IP>`. Caddy obtains the certificate on
-first start — the record must resolve before the first deploy.
+Where your domain is managed (your registrar, or *Console → Cloud DNS* if
+you moved the zone there): add an **A** record
 
-## 7. First deploy
-
-From your machine, on `main`, with `gh` authenticated:
-
-```bash
-VM_HOST=deploy@<ip> DOMAIN=app.tezarium.ru IMAGE_REPO=cr.yandex/<registry-id>/tezarium ./deploy/deploy.sh
+```
+app.tezarium.ru  →  <static IP>
 ```
 
-It waits for CI, checks both images are in the registry, migrates, starts
-`api2`, `api`, `web`, and asserts every replica and the bundle serve this
-commit. Then:
+Wait until it resolves (a few minutes; check by opening
+`http://<static IP>` — nothing runs yet, but the name must point there
+before the first deploy, because Caddy requests the certificate on start).
+
+## 7. First deploy — from your Mac
+
+Second and last terminal moment. In the repo, on `main`:
 
 ```bash
-curl https://app.tezarium.ru/health        # {"ok":true,"version":"0.1.0 (…)"}
-curl https://app.tezarium.ru/version.txt   # the same string, from the bundle
+VM_HOST=deploy@<static IP> DOMAIN=app.tezarium.ru IMAGE_REPO=cr.yandex/<registry ID>/tezarium ./deploy/deploy.sh
 ```
 
-Register the first account in the browser. Done.
+It waits for CI on the current commit, checks both images exist in the
+registry, migrates the database with that image, starts `api2` → `api` →
+`web` one at a time, and asserts every replica and the served bundle carry
+this commit. Then in the browser:
 
-## When users arrive — what to bump, in order
+- `https://app.tezarium.ru/health` → `{"ok":true,"version":"0.1.0 (…)"}`
+- `https://app.tezarium.ru/version.txt` → the same string
+- `https://app.tezarium.ru` → register the first account.
 
-1. **Database** — the first thing to feel load. Change the host class in
-   place; add a second host for failover. Nothing in the app changes.
-2. **VM** — resize (2 min downtime) or add a second VM behind a Network
-   Load Balancer; the compose file runs the same two replicas per VM.
-3. **Generation throughput** — `TALK_WORKER_CONCURRENCY` in `.env`
-   (default 4 per replica) and the spend caps (`lib/planTier.ts`,
-   `GLOBAL_DAILY_SPEND_CAP_USD`).
-4. **Object Storage** — nothing; it scales itself. Set a lifecycle rule
-   only if you ever want old media expired.
+## When users arrive — bump in this order, all in the console
 
-## Backups and the one thing to do on day one
+1. **Database** (*Managed PostgreSQL → cluster → Edit*): bigger host
+   class; then *Add host* for failover. No app change.
+2. **VM** (*Compute → VM → Stop → Edit → Start*): more vCPU/RAM. Or a
+   second VM + *Network Load Balancer* pointing at both on 80/443.
+3. **Generation throughput**: in `/opt/tezarium/.env`,
+   `TALK_WORKER_CONCURRENCY` (default 4 per replica) and the spend caps
+   (`GLOBAL_DAILY_SPEND_CAP_USD`; per-plan caps live in `lib/planTier.ts`).
+   Re-run `deploy.sh` to apply.
+4. **Object Storage**: nothing to do.
 
-Managed PostgreSQL takes daily backups automatically (7-day retention by
-default; raise it in the cluster settings). Object Storage has versioning
-— turn it on for the bucket. That is the whole backup story for the MVP.
+## Backups
+
+The database is backed up daily by Yandex (*cluster → Backups*; restore
+creates a new cluster from a point in time). Bucket versioning (step 4)
+covers media. Nothing else holds state.
