@@ -1,10 +1,12 @@
 import { PlanLimitError } from '../errors/AppError'
+import { config } from './config'
 
 // The pricing gate lives here (CLAUDE.md §10): gate the native .pptx
-// download and the talk count, not generation. There is no billing yet, so
-// the feature cells are allow-all and the counts are generous — but the
-// numbers are the shape the gate will take, and the spend caps are live
-// today because they are cost protection, not pricing.
+// download and the talk count, not generation. The gate bites only where
+// billing is switched on (BILLING_ENABLED=1, services/billing.ts —
+// 2026-09-14): a dev box or an on-prem install with no acquirer keeps the
+// feature cells allow-all. The spend caps are live everywhere because they
+// are cost protection, not pricing.
 export type PlanTier = 'free' | 'pro'
 export type PlanFeature = 'pptxExport'
 
@@ -14,12 +16,15 @@ export interface PlanLimits {
   monthlySpendCapUsd: number    // model spend this calendar month, from usage_log
 }
 
+/** Pro, per month, in roubles — the one price the product has. Kopecks go to T-Bank. */
+export const PRO_PRICE_RUB = 2500
+
 // Judgement, not evidence (§10): the free cap is sized so that a runaway
 // client cannot cost more than a coffee, and pro so that a heavy user with
 // 40-slide decks (~$0.05 each with notes, measured 2026-09-14) never meets
 // it in normal use. Revisit with usage_log, not with more design.
 export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
-  free: { features: { pptxExport: true }, talksPerMonth: 10,       monthlySpendCapUsd: 3 },
+  free: { features: { pptxExport: !config.billing.enabled }, talksPerMonth: 10, monthlySpendCapUsd: 3 },
   pro:  { features: { pptxExport: true }, talksPerMonth: Infinity, monthlySpendCapUsd: 30 },
 }
 
@@ -29,7 +34,7 @@ export function tierOf(raw: string | null | undefined): PlanTier {
 
 export function assertPlanFeature(planTier: string, feature: PlanFeature): void {
   if (!PLAN_LIMITS[tierOf(planTier)].features[feature]) {
-    throw new PlanLimitError('Скачивание .pptx доступно на платном тарифе', 'PLAN_FEATURE_LOCKED')
+    throw new PlanLimitError('Скачивание .pptx доступно на тарифе Pro', 'PLAN_FEATURE_LOCKED')
   }
 }
 

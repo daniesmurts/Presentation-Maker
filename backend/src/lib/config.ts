@@ -27,6 +27,33 @@ function deploymentMode(): DeploymentMode {
   return raw as DeploymentMode
 }
 
+// Billing is a deployment profile of its own: on when the T-Bank terminal
+// credentials are set, off otherwise (local dev, on-prem where the customer
+// pays by invoice). Off means the pricing gate in lib/planTier.ts stays
+// allow-all and /api/billing answers PLAN_BILLING_OFF — never a crash at
+// boot on a box that has no reason to know about a Russian acquirer.
+function billing() {
+  const enabled = process.env.BILLING_ENABLED === '1'
+  if (!enabled) return { enabled: false as const }
+  return {
+    enabled: true as const,
+    tbank: {
+      terminalKey: required('TBANK_TERMINAL_KEY'),
+      password:    required('TBANK_PASSWORD'),
+      // Test terminals run against a different host; production is the default.
+      apiUrl:      (process.env.TBANK_API_URL ?? 'https://securepay.tinkoff.ru/v2').replace(/\/+$/, ''),
+      // Where T-Bank posts notifications: the API's public origin, not FRONTEND_URL
+      // (behind Caddy they are the same host, but the code must not assume it).
+      publicUrl:   (process.env.PUBLIC_API_URL ?? required('FRONTEND_URL')).replace(/\/+$/, ''),
+      // 54-ФЗ receipt facts are merchant facts, not code constants.
+      receipt: {
+        taxation: process.env.TBANK_TAXATION ?? 'usn_income',   // osn | usn_income | usn_income_outcome | patent | …
+        tax:      process.env.TBANK_VAT      ?? 'none',         // none | vat0 | vat5 | vat7 | vat10 | vat20 | …
+      },
+    },
+  }
+}
+
 export const config = {
   nodeEnv:        process.env.NODE_ENV ?? 'development',
   isDev:          process.env.NODE_ENV !== 'production',
@@ -38,4 +65,5 @@ export const config = {
   db:       { url: required('DATABASE_URL') },
   auth:     { jwtSecret: required('JWT_SECRET') },
   deepseek: { apiKey: required('DEEPSEEK_API_KEY') },
+  billing:  billing(),
 } as const

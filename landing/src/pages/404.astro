@@ -1,0 +1,26 @@
+---
+// Served by Caddy for any path neither the site nor the app has
+// (deploy/Caddyfile handle_errors). Says what happened and where to go —
+// never a component name, never a stack (CLAUDE.md §3.2 applies to the
+// site too).
+import Base from '../layouts/Base.astro'
+---
+<Base title="Страница не найдена — Тезариум" description="Такой страницы нет. Начните с главной или откройте свои выступления." canonical="/404">
+  <section class="nf" style="border-top:0">
+    <div class="wrap">
+      <div class="eyebrow pencil">404</div>
+      <h1>Такой страницы <span class="marker-under">нет</span></h1>
+      <p class="lede measure">Ссылка устарела или в адресе опечатка. Всё, что есть, — на главной; свои выступления — в приложении.</p>
+      <div class="ctas">
+        <a href="/" class="btn solid">На главную</a>
+        <a href="/talks" class="btn ghost">Мои выступления</a>
+      </div>
+    </div>
+  </section>
+</Base>
+<style>
+  .nf { padding: 96px 0 120px; min-height: 60vh; }
+  .nf h1 { margin: 16px 0 22px; }
+  .lede { font-family: var(--display); font-size: 1.3rem; line-height: 1.45; color: rgb(var(--c-ink-secondary)); }
+  .ctas { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 30px; }
+</style>
