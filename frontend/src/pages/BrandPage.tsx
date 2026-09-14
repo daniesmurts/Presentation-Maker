@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Upload, X } from 'lucide-react'
-import { getBrand, updateBrand, uploadLogo, removeLogo, type Brand, type ThemeSwatch } from '../api/brand'
+import { getBrand, updateBrand, uploadLogo, removeLogo, setStyleLearning, type Brand, type ThemeSwatch } from '../api/brand'
+import { Checkbox } from '../components/ui/Field'
 import { errorMessage } from '../api/client'
 import Button from '../components/ui/Button'
 import { Field, inputClass } from '../components/ui/Field'
@@ -86,6 +87,11 @@ export default function BrandPage() {
           {logoUrl && <Button size="sm" variant="ghost" onClick={() => void run(removeLogo)} disabled={busy}><X className="w-3.5 h-3.5" aria-hidden /> {copy.brandKit.removeLogo}</Button>}
         </div>
       </Field>
+
+      <div className="border-y border-border">
+        <Checkbox checked={data.style_learning} label={copy.styleLearning.label} hint={copy.styleLearning.hint}
+                  onChange={(v) => { void setStyleLearning(v).then((on) => { qc.setQueryData(['brand'], (old: typeof data) => (old ? { ...old, style_learning: on } : old)); toast(copy.brandKit.saved, 'success') }).catch((err) => toast(errorMessage(err), 'error')) }} />
+      </div>
 
       <section aria-label={copy.brandKit.preview}>
         <h2 className="text-sm font-medium text-ink mb-2">{copy.brandKit.preview}</h2>

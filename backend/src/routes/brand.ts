@@ -9,6 +9,7 @@ import { sniffMime } from '../services/slideImageSource'
 import { imageSize } from '../lib/imageSize'
 import { normaliseHex, contrastRatio, isTextSafe } from '../lib/brandColor'
 import { THEMES, listThemes } from '../services/themes'
+import { getWorkspaceStyleLearning, setWorkspaceStyleLearning } from '../db/queries/talks'
 
 export const brandRouter = Router()
 brandRouter.use(authenticate)
@@ -32,7 +33,15 @@ function toResponse(kit: BrandKitRow | null) {
 }
 
 brandRouter.get('/', asyncHandler(async (req, res) => {
-  res.json({ brand: toResponse(await getBrandKit(req.user.workspace_id)), themes: listThemes() })
+  res.json({ brand: toResponse(await getBrandKit(req.user.workspace_id)), themes: listThemes(), style_learning: await getWorkspaceStyleLearning(req.user.workspace_id) })
+}))
+
+// PUT /api/brand/style-learning { enabled } — consent for using this
+// workspace's APPROVED talks as style references in later generations.
+brandRouter.put('/style-learning', asyncHandler(async (req, res) => {
+  const enabled = (req.body as { enabled?: unknown })?.enabled === true
+  await setWorkspaceStyleLearning(req.user.workspace_id, enabled)
+  res.json({ style_learning: enabled })
 }))
 
 // PUT /api/brand { accent?: '#RRGGBB' | null, name?: string | null }

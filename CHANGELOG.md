@@ -34,6 +34,42 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 ## [Unreleased]
 
 ### Added
+- **Режим показа, переписать всё, обучение стилю.** TODO G — the last item
+  of the CLAUDE.md §8 plan.
+  - **Present mode** (`/talks/:id/present`): a 16:9 stage from theme data,
+    keys and click, fullscreen; `?speaker=1` in a second window shows the
+    slide, its notes large, the next slide and a timer, kept in step over a
+    `BroadcastChannel` — no server. Two bugs from the browser check: grid
+    columns without `min-w-0` let the fixed-width stage squeeze the notes
+    into a sliver; a `RefObject`-keyed resize effect never ran because the
+    stage mounts after the talk loads (scale stuck at 1 in a 739 px column)
+    — a callback ref. Long formulas sized by length so KaTeX cannot
+    overflow the stage.
+  - **Deck-level rewrite** (§5.7): the per-slide rewrite looped in batches
+    under one instruction, as a `rewrite` job that ends in a PROPOSAL
+    (migration 010), not a write. `RewriteReview` shows before/after per
+    slide as the export text with accept boxes; apply writes only accepted
+    positions and hands back the previous array for a one-step undo
+    (`PUT /api/talks/:id/slides`). Live: «не больше двух пунктов» → 3/5
+    slides proposed, apply 2 → slide 2 went 3 → 2 bullets, undo → 3.
+  - **Style learning** (§2 `selectExemplars`): consent per workspace
+    (migration 011, off by default), «Готово» per talk; only approved
+    talks feed the pool, the talk being written never sees its own
+    slides; one exemplar per slide type, same intent first, newest
+    approval first, no slide without notes; rendered as «ОБРАЗЕЦ СТИЛЯ, НЕ
+    СОДЕРЖАНИЯ». The eval harness sets `styleExemplars: false`. Verified
+    on the real pool: consent off → 0 rows; on → 5; own talk excluded;
+    the expansion prompt carried the approved bullets and summary slides.
+  - **A vitest trap, recorded**: `beforeEach(() => mock.mockReset())`
+    returns the mock, and vitest calls a function returned from a hook as
+    a cleanup — the mock was invoked with no arguments after the test.
+    Braces.
+  - **Header rebuilt**: seven controls beside the title crushed it into a
+    one-letter column at 1280 px; title row + wrapping toolbar, first slide
+    still above the fold (top 194, bottom 466 of 800).
+  - `tsc` clean; backend 204, frontend 17 tests.
+
+### Added
 - **PDF, выбор слайдов, ссылка для просмотра.** TODO F.
   - **A slides PDF, not a reading document** (CLAUDE.md §5.5):
     `services/talkPdf.ts` lays one 720×405 pt page per slide from the same

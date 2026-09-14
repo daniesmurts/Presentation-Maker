@@ -8,7 +8,7 @@ import { getJobQueue } from '../services/jobQueue'
 import { TALK_JOB_QUEUE, type TalkJobPayload } from '../services/talkJobWorker'
 import { normaliseEditedOutline, normaliseEditedSlide, regenerateSlide, applySlideMove, type GenerateParams } from '../services/talks'
 import { createTalkJob, getTalkJobById, confirmTalkJobOutline, createRewriteJob, clearRewriteProposal, type TalkJobRow } from '../db/queries/talkJobs'
-import { findTalkById, listTalks, deleteTalk, replaceSlides, countTalksThisMonth, createTalk, setShareToken } from '../db/queries/talks'
+import { findTalkById, listTalks, deleteTalk, replaceSlides, countTalksThisMonth, createTalk, setShareToken, setTalkApproved } from '../db/queries/talks'
 import { recordTalkEvent } from '../db/queries/talkEvents'
 import { generateTalkPptx } from '../services/talkExport'
 import { generateTalkPdf } from '../services/talkPdf'
@@ -476,6 +476,15 @@ talksRouter.post('/:id/share', asyncHandler(async (req, res) => {
 
 talksRouter.delete('/:id/share', asyncHandler(async (req, res) => {
   const talk = await setShareToken(req.params.id, req.user.workspace_id, null)
+  if (!talk) throw new NotFoundError('Выступление не найдено')
+  res.json({ talk })
+}))
+
+// POST /api/talks/:id/approve { approved } — «Готово»: the user stands
+// behind this talk. Only approved talks are ever used as style references.
+talksRouter.post('/:id/approve', asyncHandler(async (req, res) => {
+  const approved = (req.body as { approved?: unknown })?.approved !== false
+  const talk = await setTalkApproved(req.params.id, req.user.workspace_id, approved)
   if (!talk) throw new NotFoundError('Выступление не найдено')
   res.json({ talk })
 }))

@@ -98,3 +98,39 @@ export async function findTalkByShareToken(token: string): Promise<Talk | null> 
   const { rows } = await pool.query<Talk>(`SELECT * FROM talks WHERE share_token = $1`, [token])
   return rows[0] ?? null
 }
+
+// ─── Approval + style learning ──────────────────────────────────────────────
+
+export async function setTalkApproved(id: string, workspaceId: string, approved: boolean): Promise<Talk | null> {
+  const { rows } = await pool.query<Talk>(
+    `UPDATE talks SET approved_at = CASE WHEN $3 THEN NOW() ELSE NULL END, updated_at = NOW() WHERE id = $1 AND workspace_id = $2 RETURNING *`,
+    [id, workspaceId, approved],
+  )
+  return rows[0] ?? null
+}
+
+/** Slides from the workspace's APPROVED talks (other than the one being
+ *  written), newest approvals first, capped — the candidate pool for
+ *  styleExemplars.ts. Only runs when the workspace opted in. */
+export async function findApprovedExemplarSlides(workspaceId: string, excludeTalkId: string | null, limit = 12): Promise<Array<{ slide: Slide; talkTitle: string; intent: string; approvedAt: string }>> {
+  const { rows } = await pool.query<{ slide: Slide; talk_title: string; intent: string; approved_at: string }>(
+    `SELECT s.value AS slide, t.title AS talk_title, t.intent, t.approved_at::text
+       FROM talks t
+       JOIN workspaces w ON w.id = t.workspace_id AND w.style_learning
+       CROSS JOIN LATERAL jsonb_array_elements(t.slides) s
+      WHERE t.workspace_id = $1 AND t.approved_at IS NOT NULL AND ($2::uuid IS NULL OR t.id <> $2::uuid)
+      ORDER BY t.approved_at DESC
+      LIMIT $3`,
+    [workspaceId, excludeTalkId, limit * 4],
+  )
+  return rows.map((r) => ({ slide: r.slide, talkTitle: r.talk_title, intent: r.intent, approvedAt: r.approved_at }))
+}
+
+export async function setWorkspaceStyleLearning(workspaceId: string, enabled: boolean): Promise<void> {
+  await pool.query(`UPDATE workspaces SET style_learning = $2 WHERE id = $1`, [workspaceId, enabled])
+}
+
+export async function getWorkspaceStyleLearning(workspaceId: string): Promise<boolean> {
+  const { rows } = await pool.query<{ style_learning: boolean }>(`SELECT style_learning FROM workspaces WHERE id = $1`, [workspaceId])
+  return rows[0]?.style_learning ?? false
+}

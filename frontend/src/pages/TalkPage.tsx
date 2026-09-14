@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Trash2, Download, Plus, Link2, Check, ChevronDown, Copy, Play, Wand2 } from 'lucide-react'
-import { getTalk, deleteTalk, updateSlide, regenerateSlide, deleteSlide, insertSlide, moveSlide, uploadSlideImage, removeSlideImage, setTalkTheme, shareTalk, unshareTalk, startRewrite, applyRewrite, dismissRewrite, replaceTalkSlides, getJob } from '../api/talks'
+import { Trash2, Download, Plus, Link2, Check, ChevronDown, Copy, Play, Wand2, CheckCircle2 } from 'lucide-react'
+import { getTalk, deleteTalk, updateSlide, regenerateSlide, deleteSlide, insertSlide, moveSlide, uploadSlideImage, removeSlideImage, setTalkTheme, shareTalk, unshareTalk, startRewrite, applyRewrite, dismissRewrite, replaceTalkSlides, getJob, approveTalk } from '../api/talks'
 import RewriteReview from '../components/talks/RewriteReview'
 import { remapAfterMove, remapAfterDelete, remapAfterInsert, toSlideNumbers, rangeBetween } from '../lib/slideSelection'
 import { getBrand } from '../api/brand'
@@ -142,8 +142,11 @@ export default function TalkPage() {
 
   return (
     <div className="space-y-4">
-      <header className="flex items-start gap-4">
-        <div className="min-w-0 flex-1">
+      {/* Title first, toolbar under it: seven controls beside a title crushed
+          it into a one-letter column at 1280px (Phase G browser check). The
+          toolbar wraps; the first slide still sits above the fold — measured. */}
+      <header className="space-y-3">
+        <div className="min-w-0">
           {/* Two lines, not one: a one-line truncate ate the title on a phone. */}
           <h1 className="text-xl font-semibold text-ink leading-tight line-clamp-2">{talk.title}</h1>
           <p className="text-xs text-ink-secondary mt-1">
@@ -151,6 +154,7 @@ export default function TalkPage() {
             {overfull.size > 0 && ` · ${copy.talk.overfull}: ${overfull.size}`}
           </p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
         {brandData && (
           <label className="hidden sm:flex items-center gap-2 text-xs text-ink-secondary">
             {copy.theme.label}
@@ -160,6 +164,9 @@ export default function TalkPage() {
             </select>
           </label>
         )}
+        <Button variant={talk.approved_at ? 'secondary' : 'ghost'} size="md" onClick={() => void run(() => approveTalk(id, !talk.approved_at), false)} disabled={busy} title={copy.approve.hint} aria-label={copy.approve.button}>
+          <CheckCircle2 className="w-4 h-4" aria-hidden /> <span className="hidden lg:inline">{talk.approved_at ? copy.approve.on : copy.approve.button}</span>
+        </Button>
         <Button variant="ghost" size="md" onClick={() => setRewriteOpen((o) => !o)} disabled={busy || Boolean(rewriteJob)} title={copy.rewrite.lead} aria-label={copy.rewrite.button}>
           <Wand2 className="w-4 h-4" aria-hidden /> <span className="hidden lg:inline">{copy.rewrite.button}</span>
         </Button>
@@ -208,6 +215,7 @@ export default function TalkPage() {
                 onClick={() => { if (window.confirm(copy.talk.deleteConfirm)) remove.mutate() }}>
           <Trash2 className="w-4 h-4" aria-hidden />
         </Button>
+        </div>
       </header>
 
       {rewriteOpen && !rewriteJob && (

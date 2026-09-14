@@ -173,5 +173,13 @@ Follow-ups: a share-link *view count* on `talk_events` (the read side of
 §3.9 is not recorded yet); MathJax spaces Cyrillic inside `\text{}` —
 cosmetic in both exports, worth a `\mbox` or font-config fix.
 
-### G. Style learning · present mode · deck-level rewrite · Effort: L · last
-§8 step 7.
+### G. Style learning · present mode · deck-level rewrite · Effort: L · 🟢 SHIPPED (2026-09-14)
+§8 step 7 — all three. Follow-ups: present mode has no laser/blackout keys
+and no touch swipe; the rewrite diff is whole-slide text, not word-level;
+style learning picks by type + recency + intent — measure with the eval
+harness (`styleExemplars: true` on a workspace with approvals) before
+tuning the selector.
+
+### The plan is built. What is next is not more building.
+Every item in CLAUDE.md §8 is shipped and deployed. The next TODO entries
+should come from users, usage_log and talk_events — not from this file.

@@ -67,3 +67,6 @@ export const startRewrite = (id: string, instruction: string) => client.post<Tal
 export const applyRewrite = (id: string, jobId: string, accept: number[]) => client.post<{ talk: Talk; before: Slide[] }>(`/api/talks/${id}/rewrite/${jobId}/apply`, { accept }).then((r) => r.data)
 export const replaceTalkSlides = (id: string, slides: Slide[]) => client.put<{ talk: Talk }>(`/api/talks/${id}/slides`, { slides }).then(unwrap)
 export const dismissRewrite = (id: string, jobId: string) => client.delete(`/api/talks/${id}/rewrite/${jobId}`).then(() => undefined)
+
+// ─── Approval ───────────────────────────────────────────────────────────────
+export const approveTalk = (id: string, approved: boolean) => client.post<{ talk: Talk }>(`/api/talks/${id}/approve`, { approved }).then(unwrap)

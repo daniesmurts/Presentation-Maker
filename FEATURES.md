@@ -3,7 +3,7 @@
 Legend: ✅ shipped · 🚧 in progress · 📋 planned. Grouped by the role that
 uses it. A 📋 item is marked, never implied. See `docs/WORKFLOW.md` §1.
 
-Last updated: TODO F — PDF, partial export, share link
+Last updated: TODO G — present mode, deck rewrite, style learning (the §8 plan is complete)
 
 ---
 
@@ -48,7 +48,13 @@ numbers are the shape of the gate, and the `.pptx` download is open to both.
   deletions and insertions.
 - ✅ **Share link** — a read-only page with the slides and pictures, no
   account needed; speaker notes and the brief stay private. Revoke any time.
-- 📋 **Present mode with notes on a second screen.** *(TODO G)*
+- ✅ **Present mode** — full-screen slides with keyboard/click navigation,
+  and a speaker window (current slide, notes, next slide, timer) that stays
+  in step on a second screen.
+- ✅ **Rewrite the whole talk from one instruction** («формальнее»,
+  «короче») — you see old and new side by side per slide and accept only
+  what you want; one-step undo after applying.
+- ✅ **Mark a talk «Готово».**
 
 ## Paid tier
 
@@ -61,7 +67,9 @@ numbers are the shape of the gate, and the `.pptx` download is open to both.
   contrast of the accent on each theme (a pale accent keeps the rules and
   bands; labels stay dark). The pricing gate sits on this
   download (`lib/planTier.ts`) — allow-all until billing exists.
-- 📋 **Style learning from approved talks.** *(TODO G)*
+- ✅ **Style learning** (off by default, one switch on the Brand page): new
+  talks are written in the manner of the ones you marked «Готово» — notes
+  depth, phrasing, tone — never their content, and never across workspaces.
 
 ## Operator
 

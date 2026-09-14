@@ -73,7 +73,7 @@ export async function runTalkEval(briefs: EvalBrief[], onProgress?: (done: numbe
       const started = Date.now()
       try {
         const { label, ...rest } = b
-        const params: GenerateParams = { ...rest, userId: undefined, workspaceId: undefined }
+        const params: GenerateParams = { ...rest, userId: undefined, workspaceId: undefined, styleExemplars: false }
         const result = await generateTalk(params)
         scored.push({ ...scoreSlides(result.slides, params.notesEnabled), label, slideTarget: result.slideTarget, durationMs: Date.now() - started })
       } catch (err) {

@@ -1,5 +1,6 @@
 import { chatJSON } from './llm/registry'
 import { sanitiseForPrompt } from '../lib/promptSanitiser'
+import { selectExemplars, renderExemplarBlock, type ExemplarSlide } from './styleExemplars'
 import type { CallContext } from './llm/types'
 import {
   estimateSlideCount, MAX_SLIDE_COUNT, MIN_SLIDE_COUNT, SLIDE_TYPES,
@@ -21,6 +22,13 @@ export interface GenerateParams {
   // Absent only for an offline eval run (talkEvalHarness.ts).
   userId?:          string
   workspaceId?:     string
+  // Style exemplars from the workspace's approved talks. Defaults on; the
+  // workspace's consent flag decides whether any exist. The eval harness
+  // sets it false so offline scores measure the prompt, not whichever
+  // talks happen to be approved in the database it runs against.
+  styleExemplars?:  boolean
+  // The talk being rewritten, so its own slides are never its exemplars.
+  excludeTalkId?:   string | null
   title:            string           // the talk's topic / working title
   brief:            string           // тезисы — the user's talking points; '' when only a title was given
   intent:           Intent
@@ -152,16 +160,24 @@ export async function expandTalk(params: GenerateParams, plan: TalkPlan): Promis
   const context = callContextFor(params, 'talk_expand')
   const batches = chunkArray(plan.outline, EXPANSION_BATCH_SIZE)
 
+  // Fetched once for the whole deck: one indexed read, and the same
+  // author's style applies to every slide. Best-effort — a lookup failure
+  // costs the exemplars, never the generation.
+  const exemplarPool = params.styleExemplars === false || !params.workspaceId
+    ? []
+    : await loadExemplarPool(params.workspaceId, params.excludeTalkId ?? null, params.intent).catch(() => [])
+
   // No citable sources yet (uploads / URLs arrive with TODO B–D): every [N]
   // marker the model invents is stripped by the normaliser.
   const sources: TalkSource[] = []
   const validIdx = new Set<number>()
 
   const expanded = await mapWithConcurrency(batches, EXPANSION_CONCURRENCY, async (batch) => {
+    const exemplars = selectExemplars(exemplarPool, batch.map((b) => b.type))
     const raw = await chatJSON<{ slides: unknown[] }>(
       [
         { role: 'system', content: L.expansionSystem(params) },
-        { role: 'user',   content: buildExpansionPrompt(batch, params) },
+        { role: 'user',   content: buildExpansionPrompt(batch, params, undefined, exemplars) },
       ],
       'slides',
       { context, maxTokens: expansionBatchMaxTokens(batch.length, params.language, params.notesEnabled) },
@@ -170,6 +186,12 @@ export async function expandTalk(params: GenerateParams, plan: TalkPlan): Promis
   })
 
   return { slides: expanded.flat(), sources }
+}
+
+async function loadExemplarPool(workspaceId: string, excludeTalkId: string | null, intent: Intent): Promise<ExemplarSlide[]> {
+  const { findApprovedExemplarSlides } = await import('../db/queries/talks')
+  const rows = await findApprovedExemplarSlides(workspaceId, excludeTalkId)
+  return rows.map((r) => ({ slide: r.slide, talkTitle: r.talkTitle, sameIntent: r.intent === intent, approvedAt: r.approvedAt }))
 }
 
 /** Both halves back-to-back — no approval gate. */
@@ -488,7 +510,7 @@ export async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (i
 // already decided — the model only writes body + notes, which shrinks the
 // instruction surface (and error space) compared to a whole-deck prompt.
 
-export function buildExpansionPrompt(batch: OutlineSlide[], params: GenerateParams, instruction?: string): string {
+export function buildExpansionPrompt(batch: OutlineSlide[], params: GenerateParams, instruction?: string, exemplars: ExemplarSlide[] = []): string {
   const ru = params.language === 'ru'
   const L  = COPY[params.language]
   const lines: string[] = []
@@ -501,6 +523,8 @@ export function buildExpansionPrompt(batch: OutlineSlide[], params: GeneratePara
     lines.push('')
     if (isStrictToBrief(params)) lines.push(L.strictRules, '')
   }
+
+  lines.push(...renderExemplarBlock(exemplars, params.language))
 
   // The user's free-text steer on a single-slide regenerate («короче»).
   // Sanitised like every other user string entering a prompt, and placed
