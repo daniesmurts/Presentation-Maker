@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Button from '../components/ui/Button'
 import { Field, inputClass } from '../components/ui/Field'
+import PasswordField from '../components/ui/PasswordField'
+import { passwordIsStrong } from '../../../shared/password'
 import { login, register } from '../api/auth'
 import { errorMessage } from '../api/client'
 import { useAuth } from '../lib/auth'
@@ -49,8 +51,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
             <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} autoComplete="email" required />
           </Field>
           <Field label={copy.auth.password} htmlFor="password">
-            <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={inputClass}
-                   autoComplete={mode === 'login' ? 'current-password' : 'new-password'} required minLength={8} />
+            <PasswordField id="password" value={password} onChange={setPassword} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} rules={mode === 'register'} />
           </Field>
           {mode === 'register' && (
             // A real <label> around the 44px row (touch has no hover); the
@@ -68,7 +69,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
             </label>
           )}
           {error && <div role="alert" className="px-3 py-2 bg-danger-bg text-danger text-sm rounded-md">{error}</div>}
-          <Button type="submit" loading={busy} disabled={mode === 'register' && !consent} className="w-full">{mode === 'login' ? copy.auth.login : copy.auth.register}</Button>
+          <Button type="submit" loading={busy} disabled={mode === 'register' && (!consent || !passwordIsStrong(password))} className="w-full">{mode === 'login' ? copy.auth.login : copy.auth.register}</Button>
           <p className="text-center text-sm">
             <Link to={mode === 'login' ? '/register' : '/login'} className="text-accent underline underline-offset-4 hover:text-accent-deep">
               {mode === 'login' ? copy.auth.toRegister : copy.auth.toLogin}

@@ -7,6 +7,7 @@ import { setSessionCookie, clearSessionCookie } from '../lib/session'
 import { createUserWithWorkspace, findUserByEmail, findPublicUserById, type PublicUser } from '../db/queries/users'
 import { PLAN_LIMITS, tierOf } from '../lib/planTier'
 import { recordTermsAcceptance } from '../db/queries/consent'
+import { passwordIsStrong, PASSWORD_RULES } from '../../../shared/password'
 import { config } from '../lib/config'
 
 // The UI reads the gate from here, never from the tier name: whether .pptx
@@ -25,7 +26,7 @@ export const authRouter = Router()
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false })
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const PASSWORD_MIN = 8
+const PASSWORD_MIN = PASSWORD_RULES.minLength
 
 function readCredentials(body: unknown): { email: string; password: string; displayName: string | null } {
   const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>
@@ -42,6 +43,9 @@ authRouter.post('/register', authLimiter, asyncHandler(async (req, res) => {
   // Consent is a condition of the account, not a preference: the checkbox
   // text on the form names the terms, the policy and 152-ФЗ, and the
   // acceptance is written to the user row with the documents' version.
+  // The rules the form shows as a checklist (shared/password.ts); login is
+  // not held to them — older accounts must still sign in.
+  if (!passwordIsStrong(password)) throw new ValidationError('Пароль: не менее 8 символов, заглавная буква и цифра')
   const acceptTerms = (req.body as Record<string, unknown> | null)?.accept_terms === true
   if (!acceptTerms) throw new ValidationError('Чтобы создать аккаунт, примите условия использования и политику конфиденциальности')
   if (await findUserByEmail(email)) throw new ValidationError('Этот e-mail уже зарегистрирован — войдите')
