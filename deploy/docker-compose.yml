@@ -4,8 +4,12 @@
 # scheduled job's timer but only one wins the lease per tick — CLAUDE.md
 # §3.12), Caddy in front (TLS, static bundle, /api load-balanced), and a
 # one-shot `migrate` job that uses the SAME image about to serve traffic.
-# Postgres is NOT here: use a managed database or run it separately — it
-# holds the data and must not share the lifecycle of the app containers.
+# Postgres: a managed database is the target (it holds the data and should
+# not share the app containers' lifecycle), but for an MVP with no users
+# the `db` service below runs it on the same VM at no extra cost — opt in
+# with COMPOSE_PROFILES=local-db in .env and DATABASE_URL pointing at
+# `db`. Moving to managed later is one pg_dump / restore (see
+# YANDEX-CLOUD.md). deploy/backup-db.sh dumps it nightly to Object Storage.
 #
 # Variables come from deploy/.env on the VM (see DEPLOYMENT.md):
 #   IMAGE_REPO, IMAGE_TAG, DOMAIN, plus the app's own env (DATABASE_URL, …)
@@ -31,6 +35,10 @@ x-api: &api
     - ./uploads:/app/uploads
     # The managed database's CA (DATABASE_SSL_CA=/app/certs/root.crt in .env).
     - ./certs:/app/certs:ro
+  depends_on:
+    db:
+      condition: service_healthy
+      required: false   # only when the local-db profile is active
 
 services:
   api:
@@ -62,8 +70,32 @@ services:
     env_file: .env
     volumes:
       - ./certs:/app/certs:ro
+    depends_on:
+      db:
+        condition: service_healthy
+        required: false
     profiles: ["tools"]
     command: ["node", "scripts/migrate.js"]
+
+  # MVP-only local database (profile local-db). Data lives in ./pgdata on
+  # the VM's disk. Not exposed on any host port: the app reaches it as
+  # `db:5432` on the compose network, nothing else can.
+  db:
+    image: postgres:16
+    container_name: tezarium-db
+    profiles: ["local-db"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tezarium
+      POSTGRES_USER: tezarium
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tezarium -d tezarium"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
 volumes:
   caddy_data:

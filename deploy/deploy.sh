@@ -54,6 +54,7 @@ ssh "$VM_HOST" "set -e; for img in ${IMAGE_REPO}-api:${IMAGE_TAG} ${IMAGE_REPO}-
 echo "▶ [3/7] Syncing compose file → ${VM_HOST}:${APP_DIR}"
 ssh "$VM_HOST" "mkdir -p ${APP_DIR}/uploads ${APP_DIR}/certs"
 scp -q deploy/docker-compose.yml "${VM_HOST}:${APP_DIR}/docker-compose.yml"
+scp -q deploy/backup-db.sh "${VM_HOST}:${APP_DIR}/backup-db.sh"
 
 # ── [4/7] Pull, migrate, rolling restart ────────────────────────────────────
 echo "▶ [4/7] Pull, migrate, rolling restart…"
@@ -63,6 +64,8 @@ set -euo pipefail
 cd "${APP_DIR}"
 export IMAGE_REPO="${IMAGE_REPO}" IMAGE_TAG="${IMAGE_TAG}" DOMAIN="${DOMAIN}"
 docker compose pull -q api api2 web migrate
+# Local database (profile local-db) must be up before migrate; a no-op otherwise.
+docker compose up -d db 2>/dev/null || true
 # One-shot migration with the image about to serve traffic. -T and the
 # stdin redirect are load-bearing: \`docker compose run\` forwards its own
 # stdin into the container, and here stdin IS the rest of this heredoc —

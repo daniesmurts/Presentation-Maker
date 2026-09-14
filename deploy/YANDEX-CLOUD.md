@@ -72,7 +72,28 @@ run (a push to main, or *Actions → CI → Re-run all jobs* on the latest run).
 
 Collected: `IMAGE_REPO`.
 
-## 3. Managed PostgreSQL — MVP one host; later add hosts
+## 3. The database — two options
+
+**Cost first.** The console pre-fills the cluster form with TWO hosts;
+each is billed. For an MVP delete the second host — that alone halves the
+quote. Then choose:
+
+- **Option B — Postgres on the VM (recommended until you have paying
+  users).** No cluster at all; the VM runs Postgres as a container next
+  to the app, exactly how the parent product runs. Costs nothing beyond
+  the VM. You own backups (`deploy/backup-db.sh` dumps nightly to the
+  bucket) and there is no failover. Skip the rest of this step; in step
+  5d set `COMPOSE_PROFILES=local-db`, `DB_PASSWORD`, and
+  `DATABASE_URL=postgresql://tezarium:<DB_PASSWORD>@db:5432/tezarium`,
+  and leave `DATABASE_SSL_CA` out. Moving to Managed later: create the
+  cluster, `pg_dump` from the container, `psql` into the cluster, change
+  `DATABASE_URL`, redeploy.
+- **Option A — Managed PostgreSQL, one host, smallest class.** Daily
+  backups and failover-when-you-add-a-host, for a monthly fee. Settings
+  below; use **`b2.nano`** (2 vCPU 5%, 2 GB) to start — Postgres idles
+  without users — and bump to `b2.medium` / `s3-*` in place later.
+
+### Option A settings
 
 *Console → Managed Service for PostgreSQL → Create cluster.*
 
@@ -82,7 +103,7 @@ Collected: `IMAGE_REPO`.
 | | Environment | PRODUCTION | — |
 | | Version | 16 | — |
 | Host class | Platform | **Intel Cascade Lake** (burstable classes exist only on Broadwell/Cascade Lake — Ice Lake greys the option out) | — |
-| | Type | **burstable**, `b2.medium` (2 vCPU 50%, 4 GB) | switch to *standard* (any platform) `s3-c2-m8` or larger — edited in place, a few minutes of restart |
+| | Type | **burstable**, `b2.nano` (2 vCPU 5%, 2 GB) | `b2.medium`, then *standard* `s3-c2-m8` or larger — edited in place, a few minutes of restart |
 | Storage | Type | network-ssd | — |
 | | Size | 20 GB | increase in place, no downtime |
 | Database | Name | `tezarium` | — |
@@ -91,7 +112,7 @@ Collected: `IMAGE_REPO`.
 | Network | Cloud network / subnet | the default network, subnet in **ru-central1-a** (remember the zone — the VM goes in the same one) | — |
 | | Public access | **off** | — |
 | | Security groups | leave default for now; step 5b returns here | — |
-| Hosts | Availability zone | ru-central1-a, **1 host** | *Add host* in another zone → automatic failover, nothing changes in the app |
+| Hosts | Availability zone | **exactly 1 host** (delete the pre-filled second one), same zone as the VM | *Add host* in another zone → automatic failover, nothing changes in the app |
 | Additional | Backups | leave on (daily, 7 days retained) | raise retention |
 
 Create. When the cluster is *Alive*, open it → *Hosts* → copy the host's
@@ -216,8 +237,13 @@ PORT=3000
 DOMAIN=app.tezarium.ru
 IMAGE_REPO=cr.yandex/<registry ID>/tezarium
 
-DATABASE_URL=postgresql://tezarium:PASSWORD@<host-FQDN>:6432/tezarium
-DATABASE_SSL_CA=/app/certs/root.crt
+# Option B (Postgres on the VM):
+COMPOSE_PROFILES=local-db
+DB_PASSWORD=<a long random string>
+DATABASE_URL=postgresql://tezarium:<DB_PASSWORD>@db:5432/tezarium
+# Option A (Managed) instead:
+# DATABASE_URL=postgresql://tezarium:PASSWORD@<host-FQDN>:6432/tezarium
+# DATABASE_SSL_CA=/app/certs/root.crt
 DB_POOL_MAX=10
 
 JWT_SECRET=<a long random string — e.g. 64 random characters>
@@ -277,6 +303,9 @@ this commit. Then in the browser:
 
 ## Backups
 
-The database is backed up daily by Yandex (*cluster → Backups*; restore
-creates a new cluster from a point in time). Bucket versioning (step 4)
-covers media. Nothing else holds state.
+Option A: Yandex backs the cluster up daily (*cluster → Backups*).
+Option B: on the VM, `sudo apt-get install -y awscli`, `aws configure`
+with the static key (region `ru-central1`), then `crontab -e` and add
+`15 2 * * * /opt/tezarium/backup-db.sh >> /opt/tezarium/backup.log 2>&1`
+— a nightly dump lands in the bucket under `backups/`. Bucket versioning
+(step 4) covers media. Nothing else holds state.
