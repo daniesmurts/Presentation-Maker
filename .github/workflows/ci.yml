@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# The newest push to a ref is the only one whose result matters.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Typecheck + unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      # Pin to the version production will run (CLAUDE.md §9: CI exists to
+      # catch what breaks in production, so it must not track a dev laptop).
+      # 22 = current LTS at project start (2026-09). Change here and in the
+      # Dockerfile together, never one without the other.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck (backend)
+        run: npm run typecheck --workspace=backend
+      - name: Unit tests (backend)
+        run: npm run test --workspace=backend
+
+  migrate:
+    name: Migrations apply on a fresh database
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tezarium_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      # Same runner production uses, so a migration that only works against
+      # an already-populated schema fails here, not on a deploy.
+      - name: Apply migrations
+        run: node backend/scripts/migrate.js
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tezarium_test
+      # Idempotence: the second run must apply nothing.
+      - name: Re-run is a no-op
+        run: node backend/scripts/migrate.js | grep -q 'All migrations already applied'
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tezarium_test

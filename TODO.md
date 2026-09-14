@@ -38,7 +38,7 @@ spent four months finding out where they were wrong (CLAUDE.md §3 is the list).
 
 **Phases**
 
-- **Phase 0 — Skeleton + ported foundations.** Effort S.
+- **Phase 0 — Skeleton + ported foundations.** Effort S. 🟢 SHIPPED (2026-09-14)
   Monorepo layout (`backend/`, `frontend/`, `shared/`), tsconfig, vitest,
   ESLint, migrations runner, `.env.example`, CI workflow running tests + tsc.
   Port *as-is with tests*: `services/llm/{types,registry,modelJson,deepseek}.ts`,

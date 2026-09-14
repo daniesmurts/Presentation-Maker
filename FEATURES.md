@@ -3,7 +3,7 @@
 Legend: ✅ shipped · 🚧 in progress · 📋 planned. Grouped by the role that
 uses it. A 📋 item is marked, never implied. See `docs/WORKFLOW.md` §1.
 
-Last updated: project seed (nothing shipped yet)
+Last updated: TODO A Phase 0 — skeleton, migrations, ported LLM layer (nothing user-facing yet)
 
 ---
 
@@ -39,3 +39,9 @@ Last updated: project seed (nothing shipped yet)
 - 📋 **Spend cap per workspace, usage log per model call.** *(TODO A.5)*
 - 📋 **Offline eval harness** replaying generation against fixed briefs.
   *(TODO A.1)*
+- ✅ **Model calls go through one registry** with per-call usage logging,
+  multi-account fallback, and truncation detection on every answer; an
+  `onprem` deployment mode forbids silent cross-provider fallback.
+- ✅ **No internal error text reaches a user** — every failure stored on a
+  job or returned by the API is mapped to copy that says what happened and
+  what to do.
