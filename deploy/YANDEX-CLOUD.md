@@ -81,8 +81,8 @@ Collected: `IMAGE_REPO`.
 | Basic | Name | `tezarium` | — |
 | | Environment | PRODUCTION | — |
 | | Version | 16 | — |
-| Host class | Platform | Intel Ice Lake | — |
-| | Type | **burstable**, `b1.medium` (2 vCPU 50%, 4 GB) | switch to *standard* `s3-c2-m8` or larger — edited in place, a few minutes of restart |
+| Host class | Platform | **Intel Cascade Lake** (burstable classes exist only on Broadwell/Cascade Lake — Ice Lake greys the option out) | — |
+| | Type | **burstable**, `b2.medium` (2 vCPU 50%, 4 GB) | switch to *standard* (any platform) `s3-c2-m8` or larger — edited in place, a few minutes of restart |
 | Storage | Type | network-ssd | — |
 | | Size | 20 GB | increase in place, no downtime |
 | Database | Name | `tezarium` | — |
