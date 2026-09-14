@@ -3,7 +3,7 @@
 Legend: ✅ shipped · 🚧 in progress · 📋 planned. Grouped by the role that
 uses it. A 📋 item is marked, never implied. See `docs/WORKFLOW.md` §1.
 
-Last updated: TODO A Phase 3 — native .pptx export
+Last updated: TODO A Phase 4 — slide-level editing
 
 ---
 
@@ -26,8 +26,10 @@ Last updated: TODO A Phase 3 — native .pptx export
   speaker notes beside the slide when the talk has them; slides that will
   not fit a 16:9 frame carry a «Много текста» flag. Copy any slide as text.
   Works on a phone.
-- 📋 **Edit one slide.** Rewrite from an instruction («короче», «добавь
-  числовой пример»), move, delete, insert — without regenerating the rest.
+- ✅ **Edit one slide.** Edit any field in place, rewrite from an
+  instruction («короче», «добавь пример с числами»), move, delete, insert
+  a blank slide — without touching the rest. One level of undo after a
+  rewrite. «Только по моим материалам» holds on rewrites too.
 - 📋 **Images** — search, upload. *(TODO B)*
 - 📋 **Import an existing `.pptx`.** *(TODO D)*
 - 📋 **PDF export, partial export, read-only share link.** *(TODO F)*

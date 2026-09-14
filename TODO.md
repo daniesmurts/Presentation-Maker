@@ -93,7 +93,7 @@ spent four months finding out where they were wrong (CLAUDE.md §3 is the list).
   (ported into `__fixtures__`-style test use only for now) **and** opened in
   PowerPoint/Keynote by a human; slide count, order, notes and title all match.
 
-- **Phase 4 — Slide-level editing.** Effort M.
+- **Phase 4 — Slide-level editing.** Effort M. 🟢 SHIPPED (2026-09-14)
   Port `regenerateSlide` (instruction-driven rewrite of one slide),
   `applySlideMove`, delete, insert, `normaliseEditedSlide`, and
   `lib/slideSelection.ts` on both sides — the index-remap arithmetic even

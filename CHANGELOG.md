@@ -6,6 +6,33 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
 ## [Unreleased]
 
 ### Added
+- **Правка одного слайда: изменить, переписать, переставить, удалить,
+  добавить.** TODO A Phase 4. Five routes under `/api/talks/:id/slides`,
+  each replacing the JSONB array and returning the whole talk; a per-type
+  editor form; icon actions on every card; «Добавить слайд ниже» between
+  cards. One bad slide no longer means regenerating forty (CLAUDE.md §2).
+  - **Rewrite reuses the whole-deck expansion prompt with a batch of one**
+    (parent's `regenerateSlide`): the slide's own current text is its brief,
+    so «перепиши короче» stays about this slide instead of drifting; the
+    talk's strict mode and notes setting apply. Seen live: asked a blank
+    slide for «три причины… с числами» on a strict-to-brief talk — it was
+    filled from the brief, no numbers invented.
+  - **Move is splice-out-then-splice-in, not a swap** (`applySlideMove`),
+    and the client's `lib/slideSelection.ts` remaps a selection through
+    exactly those semantics — written before selection has a UI (§8 step
+    2), because it is the same index arithmetic the editor needs. The bug
+    it exists for, in its test: tick 3 and 7, delete 5, get 3 and 6 — not 3
+    and 8.
+  - **Undo last rewrite** is the previous slide held in memory by index,
+    cleared by the next structural edit (§5: no version history).
+  - **Verified in the browser** on the live talk: move 2→3, insert after
+    1, rewrite the blank (live call, ~8 s), undo (toast, chip gone), delete,
+    edit a formula caption and save — the database row matched the screen
+    after every step (6 slides, moved order, new caption). Actions are 32px
+    labelled chips. `tsc` clean; backend 154, frontend 17 tests.
+  - Not verified: the confirm dialog on delete (auto-accepted in the
+    harness); Enter-to-submit in the rewrite box (the harness's Return key
+    does not fire keydown — clicking works, same as on the login form).
 - **Скачивание .pptx.** TODO A Phase 3. `GET /api/talks/:id/export.pptx`
   and a «Скачать .pptx» button — the product (CLAUDE.md §2).
   - **Ported from the parent's `presentationExport.ts` with its incident

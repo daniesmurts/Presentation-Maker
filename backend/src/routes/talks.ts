@@ -5,16 +5,16 @@ import { authenticate } from '../middleware/authenticate'
 import { NotFoundError, ValidationError } from '../errors/AppError'
 import { getJobQueue } from '../services/jobQueue'
 import { TALK_JOB_QUEUE, type TalkJobPayload } from '../services/talkJobWorker'
-import { normaliseEditedOutline, type GenerateParams } from '../services/talks'
+import { normaliseEditedOutline, normaliseEditedSlide, regenerateSlide, applySlideMove, type GenerateParams } from '../services/talks'
 import { createTalkJob, getTalkJobById, confirmTalkJobOutline, type TalkJobRow } from '../db/queries/talkJobs'
-import { findTalkById, listTalks, deleteTalk } from '../db/queries/talks'
+import { findTalkById, listTalks, deleteTalk, replaceSlides } from '../db/queries/talks'
 import { recordTalkEvent } from '../db/queries/talkEvents'
 import { generateTalkPptx } from '../services/talkExport'
 import { parseSlideSelection, selectSlides, selectionSuffix, SelectionError } from '../lib/slideSelection'
 import { assertPlanFeature } from '../lib/planTier'
 import {
   INTENTS, AUDIENCES, MAX_SLIDE_COUNT, MIN_SLIDE_COUNT, notesDefaultFor,
-  type Intent, type Audience, type TalkLanguage,
+  type Intent, type Audience, type TalkLanguage, type Talk, type Slide,
 } from '../../../shared/types'
 
 export const talksRouter = Router()
@@ -173,6 +173,83 @@ talksRouter.get('/:id/export.pptx', asyncHandler(async (req, res) => {
     talkId: talk.id, workspaceId: req.user.workspace_id, userId: req.user.id, event: 'exported', format: 'pptx',
     metadata: { slides: (selection ?? talk.slides).length, of: talk.slides.length, theme: talk.theme_id },
   })
+}))
+
+// ─── Slide-level editing ────────────────────────────────────────────────────
+//
+// One bad slide must not mean regenerating forty (CLAUDE.md §2). Every
+// write replaces the JSONB array and returns the whole talk, so the client
+// holds one source of truth. Slides have no ids: every route addresses an
+// index, and the client remaps any selection through the same arithmetic.
+
+async function loadTalkSlide(id: string, workspaceId: string, rawIdx: string): Promise<{ talk: Talk; slides: Slide[]; idx: number }> {
+  const idx = Number(rawIdx)
+  const talk = await findTalkById(id, workspaceId)
+  if (!talk?.slides) throw new NotFoundError('Выступление не найдено')
+  if (!Number.isInteger(idx) || idx < 0 || idx >= talk.slides.length) throw new NotFoundError('Слайд не найден')
+  return { talk, slides: talk.slides, idx }
+}
+
+async function persist(talk: Talk, slides: Slide[], workspaceId: string): Promise<Talk> {
+  await replaceSlides(talk.id, workspaceId, slides)
+  return { ...talk, slides }
+}
+
+// PATCH /api/talks/:id/slides/:idx  { slide } — a hand-edited slide, through
+// the same coercion boundary the model's output crosses.
+talksRouter.patch('/:id/slides/:idx', asyncHandler(async (req, res) => {
+  const { talk, slides, idx } = await loadTalkSlide(req.params.id, req.user.workspace_id, req.params.idx)
+  const edited = normaliseEditedSlide((req.body as { slide?: unknown })?.slide, talk.sources ?? [], talk.language)
+  if (!edited) throw new ValidationError('Некорректные данные слайда')
+  if (!talk.notes_enabled) edited.notes = ''
+  res.json({ talk: await persist(talk, slides.map((s, i) => (i === idx ? edited : s)), req.user.workspace_id) })
+}))
+
+// POST /api/talks/:id/slides/:idx/regenerate  { instruction? } — one call,
+// inline. Bounded by the generation limiter, not a quota: polishing a talk
+// the user already has is not starting a new one.
+talksRouter.post('/:id/slides/:idx/regenerate', generationLimiter, asyncHandler(async (req, res) => {
+  const { talk, slides, idx } = await loadTalkSlide(req.params.id, req.user.workspace_id, req.params.idx)
+  const raw = (req.body as { instruction?: unknown })?.instruction
+  const instruction = typeof raw === 'string' ? raw.trim().slice(0, 500) : ''
+  const rewritten = await regenerateSlide({ talk, slideIdx: idx, instruction: instruction || undefined })
+  if (!rewritten) throw new ValidationError('Не удалось переписать слайд — попробуйте ещё раз')
+  res.json({ talk: await persist(talk, slides.map((s, i) => (i === idx ? rewritten : s)), req.user.workspace_id) })
+}))
+
+// DELETE /api/talks/:id/slides/:idx
+talksRouter.delete('/:id/slides/:idx', asyncHandler(async (req, res) => {
+  const { talk, slides, idx } = await loadTalkSlide(req.params.id, req.user.workspace_id, req.params.idx)
+  if (slides.length <= 1) throw new ValidationError('В выступлении должен остаться хотя бы один слайд')
+  res.json({ talk: await persist(talk, slides.filter((_, i) => i !== idx), req.user.workspace_id) })
+}))
+
+// POST /api/talks/:id/slides  { after_index, type?, title? } — inserts an
+// empty slide after `after_index` (-1 for the very start). Empty on purpose:
+// the user types into it or hits «Переписать», which fills it from its type
+// and title the way every other slide was written.
+talksRouter.post('/:id/slides', asyncHandler(async (req, res) => {
+  const talk = await findTalkById(req.params.id, req.user.workspace_id)
+  if (!talk?.slides) throw new NotFoundError('Выступление не найдено')
+  if (talk.slides.length >= MAX_SLIDE_COUNT) throw new ValidationError(`В выступлении не может быть больше ${MAX_SLIDE_COUNT} слайдов`)
+  const b = (req.body ?? {}) as { after_index?: unknown; type?: unknown; title?: unknown }
+  const after = Number(b.after_index)
+  if (!Number.isInteger(after) || after < -1 || after >= talk.slides.length) throw new ValidationError('Некорректная позиция слайда')
+  const blank = normaliseEditedSlide({ type: b.type, title: typeof b.title === 'string' && b.title.trim() ? b.title : 'Новый слайд', notes: '', body: {} }, talk.sources ?? [], talk.language)
+  if (!blank) throw new ValidationError('Не удалось создать слайд')
+  const at = after + 1
+  res.status(201).json({ talk: await persist(talk, [...talk.slides.slice(0, at), blank, ...talk.slides.slice(at)], req.user.workspace_id) })
+}))
+
+// POST /api/talks/:id/slides/move  { from, to } — a move, not a whole
+// reordered array: the client sends the one thing that changed.
+talksRouter.post('/:id/slides/move', asyncHandler(async (req, res) => {
+  const talk = await findTalkById(req.params.id, req.user.workspace_id)
+  if (!talk?.slides) throw new NotFoundError('Выступление не найдено')
+  const b = (req.body ?? {}) as { from?: unknown; to?: unknown }
+  const next = Number.isInteger(b.from) && Number.isInteger(b.to) ? applySlideMove(talk.slides, b.from as number, b.to as number) : null
+  if (!next) throw new ValidationError('Некорректная позиция слайда')
+  res.json({ talk: await persist(talk, next, req.user.workspace_id) })
 }))
 
 talksRouter.delete('/:id', asyncHandler(async (req, res) => {

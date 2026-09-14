@@ -3,7 +3,7 @@ import { sanitiseForPrompt } from '../lib/promptSanitiser'
 import type { CallContext } from './llm/types'
 import {
   estimateSlideCount, MAX_SLIDE_COUNT, MIN_SLIDE_COUNT, SLIDE_TYPES,
-  type Audience, type Intent, type TalkLanguage, type OutlineSlide, type TalkSource,
+  type Audience, type Intent, type TalkLanguage, type OutlineSlide, type TalkSource, type Talk,
   type Slide, type SlideType, type SlideImage,
   type TitleSlide, type BulletsSlide, type ConceptSlide, type FormulaSlide,
   type ComparisonSlide, type DiagramSlide, type DiscussionSlide, type CtaSlide, type SummarySlide,
@@ -895,4 +895,100 @@ function renderSlideAsText(s: Slide, n: number, language: TalkLanguage): string 
     out.push('', ru ? 'ТЕКСТ ДОКЛАДЧИКА:' : 'SPEAKER NOTES:', s.notes)
   }
   return out.join('\n')
+}
+
+// ─── Per-slide editing + regeneration ───────────────────────────────────────
+//
+// A deck used to be immutable once written: one bad slide meant regenerating
+// all of them (rerolling every slide the user liked). These are the writes
+// that change that — one slide rewritten by the model, and the structural
+// move — plus the params reconstruction the rewrite depends on.
+
+/** Rebuilds the GenerateParams a talk was written under, so a regenerated
+ *  slide is written the same way its neighbours were. */
+export function paramsFromTalk(talk: Talk): GenerateParams {
+  return {
+    userId:          talk.owner_id,
+    workspaceId:     talk.workspace_id,
+    title:           talk.title,
+    brief:           talk.brief ?? '',
+    intent:          talk.intent,
+    audience:        talk.audience,
+    language:        talk.language,
+    durationMinutes: talk.duration_minutes ?? 30,
+    slideCountTarget: talk.slide_count_target ?? undefined,
+    notesEnabled:    talk.notes_enabled,
+    strictToBrief:   talk.strict_to_brief,
+  }
+}
+
+// Renders the slide's current content as the brief for its own rewrite.
+// Without it the model rewrites from the title alone and drifts onto a
+// neighbouring subject; with it, «перепиши короче» stays about this slide.
+// The input is a JSONB blob read back from the database — a row that
+// predates a type's current shape would throw mid-render, so fall back to
+// the title alone rather than turn a click into a 500.
+function briefFromSlide(slide: Slide, language: TalkLanguage, instruction?: string): string {
+  let text: string
+  try {
+    text = renderSlidesAsText([slide], language).trim()
+  } catch {
+    text = slide.title
+  }
+  const ru = language === 'ru'
+  return instruction
+    ? `${ru ? 'Текущее содержание слайда' : 'Current slide content'}:\n${text}`
+    : `${ru ? 'Текущее содержание слайда (перепишите его лучше, сохранив тему)' : 'Current slide content (rewrite it better, keeping the subject)'}:\n${text}`
+}
+
+/**
+ * Rewrites a single slide. One call, run inline on the request — the job
+ * queue exists for the ~20-call whole-deck generation. Reuses the whole-deck
+ * expansion prompt with a batch of one, so a regenerated slide is written
+ * by the same instructions as its neighbours rather than a parallel prompt
+ * that drifts. Type and title come from the existing slide, not the model:
+ * the user asked to rewrite this slide, not to replace it with another.
+ */
+export async function regenerateSlide(args: { talk: Talk; slideIdx: number; instruction?: string }): Promise<Slide | null> {
+  const { talk, slideIdx, instruction } = args
+  const slides = talk.slides ?? []
+  const current = slides[slideIdx]
+  if (!current) return null
+
+  const params = paramsFromTalk(talk)
+  const L = COPY[params.language]
+  const spec: OutlineSlide = { type: current.type, title: current.title, brief: briefFromSlide(current, params.language, instruction) }
+
+  const raw = await chatJSON<{ slides: unknown[] }>(
+    [
+      { role: 'system', content: L.expansionSystem(params) },
+      { role: 'user',   content: buildExpansionPrompt([spec], params, instruction) },
+    ],
+    'slides',
+    { context: callContextFor(params, 'slide_edit'), maxTokens: expansionBatchMaxTokens(1, params.language, params.notesEnabled) },
+  )
+  const validIdx = new Set((talk.sources ?? []).map((s) => s.idx))
+  const [rewritten] = normaliseSlides(raw?.slides, validIdx, params.language, params.notesEnabled)
+  if (!rewritten) return null
+
+  // A rewrite of the text is not a request to lose the picture the user
+  // picked — carry it over unless the model produced one of its own.
+  const existingImage = current.type === 'diagram' ? current.body.image : current.image
+  return existingImage && !hasSlideImage(rewritten) ? withSlideImage(rewritten, existingImage) : rewritten
+}
+
+/**
+ * Splice-out-then-splice-in, NOT a swap: the moved slide lands at `to` and
+ * everything between shifts by one. The client's selection remap assumes
+ * exactly these semantics. Pure and exported because the index arithmetic
+ * — not the SQL — is where these operations go wrong.
+ */
+export function applySlideMove(slides: Slide[], from: number, to: number): Slide[] | null {
+  if (from < 0 || from >= slides.length) return null
+  if (to   < 0 || to   >= slides.length) return null
+  if (from === to) return slides
+  const next = [...slides]
+  const [moved] = next.splice(from, 1)
+  next.splice(to, 0, moved)
+  return next
 }

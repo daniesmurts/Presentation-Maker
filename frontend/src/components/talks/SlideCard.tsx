@@ -1,9 +1,24 @@
 import { useState } from 'react'
-import { Copy, Check, AlertTriangle, Image as ImageIcon } from 'lucide-react'
+import { Copy, Check, AlertTriangle, Image as ImageIcon, ArrowUp, ArrowDown, Pencil, RefreshCw, Trash2, Undo2 } from 'lucide-react'
 import type { Slide, TalkLanguage } from '../../../../shared/types'
 import { BlockMath, InlineText } from './Math'
 import { slideToText } from './slideText'
+import SlideEditor from './SlideEditor'
+import Button from '../ui/Button'
+import { inputClass } from '../ui/Field'
 import { copy, SLIDE_TYPE_LABEL } from '../../lib/copy'
+
+// Editing is a set of callbacks the page owns; the card only knows which
+// mode it is in. `busy` disables every action while any write is in flight
+// — two structural edits racing would desynchronise indices.
+export interface SlideEditActions {
+  busy:         boolean
+  onMove:       (from: number, to: number) => void
+  onDelete:     (idx: number) => void
+  onSave:       (idx: number, slide: Slide) => void
+  onRegenerate: (idx: number, instruction: string) => Promise<void>
+  onUndo?:      (idx: number) => void   // present only while a previous version is held
+}
 
 // One card per slide. Renders each type with its own layout; the card grows
 // to fit, which is exactly why the "Много текста" flag exists — the slide
@@ -15,10 +30,21 @@ interface Props {
   language:     TalkLanguage
   notesEnabled: boolean
   overfull?:    string   // reason from slideFit, when over budget
+  edit?:        SlideEditActions
+  isFirst?:     boolean
+  isLast?:      boolean
 }
 
-export default function SlideCard({ slide, number, language, notesEnabled, overfull }: Props) {
+export default function SlideCard({ slide, number, language, notesEnabled, overfull, edit, isFirst, isLast }: Props) {
   const [copied, setCopied] = useState(false)
+  const [mode, setMode] = useState<'view' | 'edit' | 'regenerate'>('view')
+  const [instruction, setInstruction] = useState('')
+  const idx = number - 1
+  async function regenerate() {
+    if (!edit) return
+    await edit.onRegenerate(idx, instruction.trim())
+    setMode('view')
+  }
   function copyText() {
     void navigator.clipboard?.writeText(slideToText(slide, number, language)).then(() => {
       setCopied(true); setTimeout(() => setCopied(false), 2000)
@@ -45,11 +71,38 @@ export default function SlideCard({ slide, number, language, notesEnabled, overf
             <AlertTriangle className="w-3 h-3" aria-hidden /> {copy.talk.overfull}
           </span>
         )}
-        <button onClick={copyText} className="ml-auto h-8 px-2.5 inline-flex items-center gap-1.5 rounded-md text-xs text-ink-secondary border border-border hover:bg-surface-soft hover:text-ink flex-shrink-0">
-          {copied ? <Check className="w-3.5 h-3.5" aria-hidden /> : <Copy className="w-3.5 h-3.5" aria-hidden />}
-          {copied ? copy.talk.copied : copy.talk.copy}
-        </button>
+        <div className="ml-auto flex items-center gap-1 flex-shrink-0">
+          {edit && <>
+            <Icon label={copy.talk.edit.up}   disabled={isFirst || edit.busy} onClick={() => edit.onMove(idx, idx - 1)}><ArrowUp className="w-4 h-4" /></Icon>
+            <Icon label={copy.talk.edit.down} disabled={isLast  || edit.busy} onClick={() => edit.onMove(idx, idx + 1)}><ArrowDown className="w-4 h-4" /></Icon>
+            <Icon label={mode === 'edit' ? copy.talk.edit.close : copy.talk.edit.edit} disabled={edit.busy} active={mode === 'edit'} onClick={() => setMode(mode === 'edit' ? 'view' : 'edit')}><Pencil className="w-4 h-4" /></Icon>
+            <Icon label={copy.talk.edit.regenerate} disabled={edit.busy} active={mode === 'regenerate'} onClick={() => setMode(mode === 'regenerate' ? 'view' : 'regenerate')}><RefreshCw className="w-4 h-4" /></Icon>
+            {edit.onUndo && <Icon label={copy.talk.edit.undo} disabled={edit.busy} onClick={() => edit.onUndo!(idx)}><Undo2 className="w-4 h-4" /></Icon>}
+            <Icon label={copy.talk.edit.remove} disabled={edit.busy} danger onClick={() => { if (window.confirm(copy.talk.edit.removeConfirm)) edit.onDelete(idx) }}><Trash2 className="w-4 h-4" /></Icon>
+          </>}
+          <button onClick={copyText} className="h-8 px-2.5 inline-flex items-center gap-1.5 rounded-md text-xs text-ink-secondary border border-border hover:bg-surface-soft hover:text-ink">
+            {copied ? <Check className="w-3.5 h-3.5" aria-hidden /> : <Copy className="w-3.5 h-3.5" aria-hidden />}
+            <span className="hidden sm:inline">{copied ? copy.talk.copied : copy.talk.copy}</span>
+          </button>
+        </div>
       </header>
+
+      {edit && mode === 'regenerate' && (
+        <div className="p-4 bg-surface-soft border-b border-border space-y-2">
+          <label htmlFor={`instr-${idx}`} className="block text-xs font-medium text-ink-secondary">{copy.talk.edit.instructionLabel}</label>
+          <div className="flex gap-2">
+            <input id={`instr-${idx}`} className={inputClass} value={instruction} onChange={(e) => setInstruction(e.target.value)}
+                   placeholder={copy.talk.edit.instructionPh} maxLength={500}
+                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void regenerate() } }} />
+            <Button size="md" loading={edit.busy} onClick={() => void regenerate()}>{copy.talk.edit.regenerate}</Button>
+          </div>
+        </div>
+      )}
+
+      {edit && mode === 'edit' && (
+        <SlideEditor slide={slide} notesEnabled={notesEnabled} saving={edit.busy} onCancel={() => setMode('view')}
+                     onSave={(edited) => { edit.onSave(idx, edited); setMode('view') }} />
+      )}
 
       <div className={notesEnabled ? 'grid md:grid-cols-[3fr_2fr]' : ''}>
         <div className={notesEnabled ? 'md:border-r border-border' : ''}>
@@ -66,6 +119,18 @@ export default function SlideCard({ slide, number, language, notesEnabled, overf
         )}
       </div>
     </article>
+  )
+}
+
+function Icon({ children, label, onClick, disabled, danger, active }: { children: React.ReactNode; label: string; onClick: () => void; disabled?: boolean; danger?: boolean; active?: boolean }) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} aria-label={label} title={label}
+      className={`w-8 h-8 inline-flex items-center justify-center rounded-md border transition-colors disabled:opacity-30 disabled:cursor-default ${
+        active ? 'border-accent bg-accent-light text-accent'
+        : danger ? 'border-transparent text-ink-secondary hover:text-danger hover:bg-danger-bg'
+        : 'border-transparent text-ink-secondary hover:text-ink hover:bg-surface-soft'}`}>
+      {children}
+    </button>
   )
 }
 

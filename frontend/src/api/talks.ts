@@ -26,3 +26,14 @@ export const confirmOutline = (id: string, outline: OutlineSlide[]) => client.po
 export const listTalks      = () => client.get<{ talks: TalkListItem[] }>('/api/talks').then((r) => r.data.talks)
 export const getTalk        = (id: string) => client.get<{ talk: Talk }>(`/api/talks/${id}`).then((r) => r.data.talk)
 export const deleteTalk     = (id: string) => client.delete(`/api/talks/${id}`).then(() => undefined)
+
+// ─── Slide-level editing ────────────────────────────────────────────────────
+// Every write returns the whole talk — the client keeps one source of truth.
+import type { Slide, SlideType } from '../../../shared/types'
+const unwrap = (r: { data: { talk: Talk } }) => r.data.talk
+
+export const updateSlide     = (id: string, idx: number, slide: Slide) => client.patch<{ talk: Talk }>(`/api/talks/${id}/slides/${idx}`, { slide }).then(unwrap)
+export const regenerateSlide = (id: string, idx: number, instruction: string) => client.post<{ talk: Talk }>(`/api/talks/${id}/slides/${idx}/regenerate`, { instruction }, { timeout: 120_000 }).then(unwrap)
+export const deleteSlide     = (id: string, idx: number) => client.delete<{ talk: Talk }>(`/api/talks/${id}/slides/${idx}`).then(unwrap)
+export const insertSlide     = (id: string, afterIndex: number, type: SlideType = 'bullets') => client.post<{ talk: Talk }>(`/api/talks/${id}/slides`, { after_index: afterIndex, type }).then(unwrap)
+export const moveSlide       = (id: string, from: number, to: number) => client.post<{ talk: Talk }>(`/api/talks/${id}/slides/move`, { from, to }).then(unwrap)

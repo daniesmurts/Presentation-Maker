@@ -1,15 +1,16 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Trash2, Download } from 'lucide-react'
-import { getTalk, deleteTalk } from '../api/talks'
+import { Trash2, Download, Plus } from 'lucide-react'
+import { getTalk, deleteTalk, updateSlide, regenerateSlide, deleteSlide, insertSlide, moveSlide } from '../api/talks'
 import { errorMessage } from '../api/client'
-import SlideCard from '../components/talks/SlideCard'
+import SlideCard, { type SlideEditActions } from '../components/talks/SlideCard'
 import Spinner from '../components/ui/Spinner'
 import Button from '../components/ui/Button'
 import { useToast } from '../lib/toast'
 import { copy, INTENT_LABEL, AUDIENCE_LABEL, slidesCount } from '../lib/copy'
 import { findOverfullSlides } from '../../../shared/slideFit'
+import { MAX_SLIDE_COUNT, type Slide, type Talk } from '../../../shared/types'
 
 // Content first (CLAUDE.md §6): the first slide is above the fold. The
 // header is one compact row, measured at 1280×800 in Phase 2's browser check.
@@ -25,6 +26,48 @@ export default function TalkPage() {
     if (talk?.slides) findOverfullSlides(talk.slides).forEach((f) => map.set(f.index, f.reason))
     return map
   }, [talk])
+
+  // «Undo last regeneration» (CLAUDE.md §5: no version history) — the
+  // previous slide is held in memory, keyed by index, until the next
+  // structural edit invalidates the indices.
+  const [previous, setPrevious] = useState<Map<number, Slide>>(new Map())
+  const [busy, setBusy] = useState(false)
+
+  const apply = (updated: Talk) => qc.setQueryData(['talk', id], updated)
+  async function run(fn: () => Promise<Talk>, clearsPrevious = true) {
+    setBusy(true)
+    try {
+      apply(await fn())
+      if (clearsPrevious) setPrevious(new Map())
+    } catch (err) {
+      toast(errorMessage(err), 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const edit: SlideEditActions = {
+    busy,
+    onMove:   (from, to) => void run(() => moveSlide(id, from, to)),
+    onDelete: (idx) => void run(() => deleteSlide(id, idx)),
+    onSave:   (idx, slide) => void run(() => updateSlide(id, idx, slide)),
+    onRegenerate: async (idx, instruction) => {
+      const before = talk?.slides?.[idx]
+      await run(async () => {
+        const updated = await regenerateSlide(id, idx, instruction)
+        if (before) setPrevious(new Map([[idx, before]]))
+        return updated
+      }, false)
+    },
+    onUndo: previous.size > 0
+      ? (idx) => {
+          const before = previous.get(idx)
+          if (!before) return
+          void run(() => updateSlide(id, idx, before)).then(() => toast(copy.talk.edit.undone, 'success'))
+        }
+      : undefined,
+  }
+  const insertAfter = (idx: number) => void run(() => insertSlide(id, idx))
 
   const remove = useMutation({
     mutationFn: () => deleteTalk(id),
@@ -62,7 +105,18 @@ export default function TalkPage() {
 
       <div className="space-y-4">
         {slides.map((s, i) => (
-          <SlideCard key={i} slide={s} number={i + 1} language={talk.language} notesEnabled={talk.notes_enabled} overfull={overfull.get(i)} />
+          <div key={i} className="group">
+            <SlideCard slide={s} number={i + 1} language={talk.language} notesEnabled={talk.notes_enabled} overfull={overfull.get(i)}
+                       edit={{ ...edit, onUndo: previous.has(i) ? edit.onUndo : undefined }} isFirst={i === 0} isLast={i === slides.length - 1} />
+            {/* Insert-after sits between cards: a 32px chip that is always
+                present (touch has no hover), quiet until pointed at. */}
+            <div className="flex justify-center -mb-2 mt-2">
+              <button type="button" onClick={() => insertAfter(i)} disabled={busy || slides.length >= MAX_SLIDE_COUNT}
+                      className="h-8 px-3 inline-flex items-center gap-1 rounded-md border border-border bg-surface text-xs text-ink-secondary hover:text-accent hover:border-accent disabled:opacity-40">
+                <Plus className="w-3.5 h-3.5" aria-hidden /> {copy.talk.edit.insertAfter}
+              </button>
+            </div>
+          </div>
         ))}
       </div>
     </div>
