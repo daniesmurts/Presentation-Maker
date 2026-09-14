@@ -11,13 +11,14 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "concurrently -n api,web \"npm run dev --workspace=backend\" \"npm run dev --workspace=frontend\"",
+    "dev": "concurrently -n api,web,site \"npm run dev --workspace=backend\" \"npm run dev --workspace=frontend\" \"npm run dev --workspace=landing\"",
     "build": "npm run build --workspace=backend && npm run build --workspace=frontend",
     "test": "npm run test --workspace=backend && npm run test --workspace=frontend",
     "typecheck": "npm run typecheck --workspace=backend && npm run typecheck --workspace=frontend",
     "migrate": "npm run migrate --workspace=backend",
     "dev:backend": "npm run dev --workspace=backend",
-    "dev:frontend": "npm run dev --workspace=frontend"
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "dev:site": "npm run dev --workspace=landing"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

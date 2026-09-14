@@ -19,6 +19,14 @@ export default defineConfig({
     strictPort: true,
     // shared/ lives one level up from the frontend root.
     fs: { allow: ['..'] },
-    proxy: { '/api': { target: 'http://localhost:3000', changeOrigin: true } },
+    proxy: {
+      '/api': { target: 'http://localhost:3000', changeOrigin: true },
+      // The public site is its own server (Astro on :4321, started by the
+      // root `npm run dev`). In production Caddy joins the two; here the
+      // proxy does, so a link from the app to /legal/* lands on the
+      // document instead of the SPA's catch-all (→ /login). Same list as
+      // the site-owned paths worth reaching from the app.
+      '^/legal(/|$)': { target: 'http://localhost:4321', changeOrigin: true },
+    },
   },
 })
