@@ -7,11 +7,7 @@
       "runtimeArgs": [
         "run",
         "dev",
-        "--workspace=frontend",
-        "--",
-        "--port",
-        "5174",
-        "--strictPort"
+        "--workspace=frontend"
       ],
       "port": 5174
     }
