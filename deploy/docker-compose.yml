@@ -1,0 +1,66 @@
+# deploy/docker-compose.yml — production on one VM with Docker.
+#
+# Two API replicas (rolling restart = zero-downtime deploys; both run every
+# scheduled job's timer but only one wins the lease per tick — CLAUDE.md
+# §3.12), Caddy in front (TLS, static bundle, /api load-balanced), and a
+# one-shot `migrate` job that uses the SAME image about to serve traffic.
+# Postgres is NOT here: use a managed database or run it separately — it
+# holds the data and must not share the lifecycle of the app containers.
+#
+# Variables come from deploy/.env on the VM (see DEPLOYMENT.md):
+#   IMAGE_REPO, IMAGE_TAG, DOMAIN, plus the app's own env (DATABASE_URL, …)
+
+x-api: &api
+  image: ${IMAGE_REPO}-api:${IMAGE_TAG}
+  env_file: .env
+  restart: unless-stopped
+  environment:
+    PORT: "3000"
+    # The frontend is same-origin behind Caddy; CORS only needs to allow it.
+    FRONTEND_URL: https://${DOMAIN}
+  healthcheck:
+    # node's own http module — node:22-slim ships neither curl nor wget.
+    test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
+    interval: 30s
+    timeout: 5s
+    start_period: 15s
+    retries: 3
+  volumes:
+    # Local-disk fallback for uploads when STORAGE_* is unset. Both replicas
+    # mount the SAME host path — they are stateless siblings.
+    - ./uploads:/app/uploads
+
+services:
+  api:
+    <<: *api
+    container_name: tezarium-api
+  api2:
+    <<: *api
+    container_name: tezarium-api-2
+
+  web:
+    image: ${IMAGE_REPO}-web:${IMAGE_TAG}
+    container_name: tezarium-web
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - api2
+
+  migrate:
+    image: ${IMAGE_REPO}-api:${IMAGE_TAG}
+    env_file: .env
+    profiles: ["tools"]
+    command: ["node", "scripts/migrate.js"]
+
+volumes:
+  caddy_data:
+  caddy_config:

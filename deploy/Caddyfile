@@ -1,0 +1,29 @@
+# Caddy in front of everything: automatic TLS for {$DOMAIN}, the static
+# bundle from /srv, /api proxied across both API replicas. Caddy rather than
+# nginx + certbot because certificate renewal is the ops step most often
+# forgotten on a one-VM deploy; nginx is a drop-in alternative if a customer
+# insists (they get this file's semantics, not this file).
+#
+# DOMAIN=localhost makes Caddy serve plain http on :80 — the local check.
+
+{$DOMAIN:localhost} {
+	encode gzip
+
+	handle /api/* {
+		reverse_proxy api:3000 api2:3000 {
+			lb_policy least_conn
+			health_uri /health
+			health_interval 15s
+		}
+	}
+
+	handle /health {
+		reverse_proxy api:3000 api2:3000
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

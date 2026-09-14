@@ -6,6 +6,7 @@ import { config } from './lib/config'
 import { logger } from './lib/logger'
 import { pool } from './db/connection'
 import { AppError } from './errors/AppError'
+import { getBuildVersion } from './lib/version'
 import { authRouter } from './routes/auth'
 import { talksRouter } from './routes/talks'
 import { startJobQueue, stopJobQueue } from './services/jobQueue'
@@ -35,7 +36,7 @@ app.use(express.json({ limit: '2mb' }))
 app.get('/health', async (_req, res) => {
   try {
     await pool.query('SELECT 1')
-    res.json({ ok: true, version: process.env.BUILD_VERSION ?? 'dev' })
+    res.json({ ok: true, version: getBuildVersion() })
   } catch (err) {
     logger.error({ message: 'Health check: database unreachable', error: (err as Error).message })
     res.status(503).json({ ok: false })

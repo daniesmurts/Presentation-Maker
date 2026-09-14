@@ -73,3 +73,91 @@ jobs:
         run: node backend/scripts/migrate.js | grep -q 'All migrations already applied'
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tezarium_test
+
+  images:
+    name: Build images (push on main when a registry is configured)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Never publish an artifact that hasn't passed the suites — a tag is a
+    # promise about what's in it.
+    needs: [test, migrate]
+    steps:
+      - uses: actions/checkout@v4
+
+      # Same string the backend reports from /health and the bundle serves at
+      # /version.txt: "0.1.0 (2026-09-14+abc1234)". The IMAGE TAG is the
+      # hyphenated form — Docker tags allow neither spaces nor parentheses —
+      # and deploy/deploy.sh recomputes it byte-for-byte from the same inputs.
+      - name: Compute version
+        id: version
+        run: |
+          SEMVER="$(node -p "require('./package.json').version")"
+          SHORT_SHA="$(git rev-parse --short HEAD)"
+          echo "build_version=${SEMVER} ($(date -u +%Y-%m-%d)+${SHORT_SHA})" >> "$GITHUB_OUTPUT"
+          echo "image_tag=${SEMVER}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      # Publishing is opt-in: without registry secrets the images are still
+      # BUILT (which is what catches a broken Dockerfile), just not pushed.
+      # Any registry that speaks docker login: set REGISTRY (host), IMAGE_REPO
+      # (host/namespace/name — the api/web suffixes are appended),
+      # REGISTRY_USER and REGISTRY_PASSWORD as repository secrets.
+      - name: Registry configured?
+        id: registry
+        run: |
+          if [ -n "${{ secrets.REGISTRY }}" ] && [ -n "${{ secrets.IMAGE_REPO }}" ] && [ -n "${{ secrets.REGISTRY_PASSWORD }}" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"; echo "repo=${{ secrets.IMAGE_REPO }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"; echo "repo=tezarium" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to registry
+        if: steps.registry.outputs.enabled == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.REGISTRY }}
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build api image (push on main)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: ${{ steps.registry.outputs.enabled == 'true' && github.event_name == 'push' }}
+          # buildx attaches provenance/SBOM manifests by default; some
+          # registries (Yandex Container Registry among them) reject the
+          # multi-manifest structure outright. Off explicitly.
+          provenance: false
+          sbom: false
+          build-args: BUILD_VERSION=${{ steps.version.outputs.build_version }}
+          tags: |
+            ${{ steps.registry.outputs.repo }}-api:${{ steps.version.outputs.image_tag }}
+            ${{ steps.registry.outputs.repo }}-api:main
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Build web image (push on main)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: frontend/Dockerfile
+          push: ${{ steps.registry.outputs.enabled == 'true' && github.event_name == 'push' }}
+          provenance: false
+          sbom: false
+          build-args: BUILD_VERSION=${{ steps.version.outputs.build_version }}
+          tags: |
+            ${{ steps.registry.outputs.repo }}-web:${{ steps.version.outputs.image_tag }}
+            ${{ steps.registry.outputs.repo }}-web:main
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+      - name: Summary
+        run: |
+          echo "### Images" >> "$GITHUB_STEP_SUMMARY"
+          echo "- version: \`${{ steps.version.outputs.build_version }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- tag: \`${{ steps.version.outputs.image_tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.registry.outputs.enabled }}" != "true" ]; then
+            echo "- **not pushed** — set REGISTRY, IMAGE_REPO, REGISTRY_USER, REGISTRY_PASSWORD secrets to publish." >> "$GITHUB_STEP_SUMMARY"
+          fi
