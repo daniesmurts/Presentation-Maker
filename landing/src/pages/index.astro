@@ -8,6 +8,10 @@
 import Base from '../layouts/Base.astro'
 import Replay from '../components/Replay.astro'
 
+// The one price the product has (backend/src/lib/planTier.ts PRO_PRICE_RUB).
+// A copy, the site being its own workspace — change it there first.
+const PRO_PRICE = 2500
+
 const title = 'Тезариум — ИИ для презентаций, который пишет и текст выступления'
 const description = 'Тезариум превращает тезисы в готовое выступление: план на одобрение, слайды, текст докладчика и редактируемый .pptx. Бесплатно — 10 выступлений в месяц.'
 
@@ -16,14 +20,17 @@ const faq = [
   { q: 'Что я получу на выходе?', a: 'Редактируемый .pptx (открывается в PowerPoint, Keynote и Google Slides), PDF слайдов — с текстом докладчика или без, ссылку для просмотра без аккаунта и режим показа в браузере с окном докладчика.' },
   { q: 'Можно ли не давать ему ничего додумывать?', a: 'Да — режим «Только по моим материалам»: ничего не добавляется к тезисам. Если материала мало, слайдов будет меньше, а не выдуманных фактов больше.' },
   { q: 'Что такое план на одобрение?', a: 'До того, как написаны слайды, вы видите план: тип, заголовок и суть каждого слайда. Порядок, состав и тип слайдов правятся там за секунды. Поправить структуру до написания дешевле, чем переделывать готовое выступление.' },
-  { q: 'Сколько это стоит?', a: 'Бесплатный тариф — 10 выступлений в месяц, включая скачивание .pptx. Тариф Pro без ограничений появится позже; цена будет объявлена до запуска.' },
+  { q: 'Сколько это стоит?', a: `Бесплатно — 10 выступлений в месяц с PDF, ссылкой для просмотра и режимом показа. Pro — ${PRO_PRICE.toLocaleString('ru-RU')} ₽ в месяц: выступлений без ограничения и редактируемый .pptx. Оплата картой через Т-Банк, продление автоматическое, отменить можно в любой момент.` },
   { q: 'Можно загрузить свою презентацию?', a: 'Да: загрузите .pptx — слайды, текст и картинки останутся как есть, и каждый слайд потом можно переписать, дописать к нему текст докладчика или сменить тему.' },
 ]
 const ld = {
   '@context': 'https://schema.org',
   '@graph': [
     { '@type': 'SoftwareApplication', name: 'Тезариум', alternateName: 'Tezarium', applicationCategory: 'BusinessApplication', operatingSystem: 'Web', url: 'https://tezarium.ru', description,
-      offers: { '@type': 'Offer', price: '0', priceCurrency: 'RUB', description: '10 выступлений в месяц бесплатно' }, inLanguage: 'ru' },
+      offers: [
+        { '@type': 'Offer', name: 'Free', price: '0', priceCurrency: 'RUB', description: '10 выступлений в месяц, PDF, ссылка, режим показа' },
+        { '@type': 'Offer', name: 'Pro', price: String(PRO_PRICE), priceCurrency: 'RUB', description: 'Выступлений без ограничения, редактируемый .pptx', priceSpecification: { '@type': 'UnitPriceSpecification', price: String(PRO_PRICE), priceCurrency: 'RUB', billingDuration: 'P1M' } },
+      ], inLanguage: 'ru' },
     { '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) },
   ],
 }
@@ -70,16 +77,18 @@ const ld = {
       <div class="three">
         <div><h3>Текст докладчика — не заметки</h3><p class="muted">Связный текст под каждый слайд, в вашем темпе и на вашем языке. Можно выключить — питч, который читают с экрана, обходится без него.</p></div>
         <div><h3>Только по вашим материалам</h3><p class="muted">Режим, в котором ничего не додумывается. Меньше материала — меньше слайдов, а не больше выдуманных фактов.</p></div>
-        <div><h3>Настоящий .pptx</h3><p class="muted">Не картинки слайдов, а редактируемый файл с вашими цветом и логотипом. Плюс PDF, ссылка для просмотра и показ в браузере.</p></div>
+        <div><h3>Настоящий .pptx</h3><p class="muted">Не картинки слайдов, а редактируемый файл с вашими цветом и логотипом (на тарифе Pro). PDF, ссылка для просмотра и показ в браузере — на любом тарифе.</p></div>
       </div>
     </div>
   </section>
 
-  <!-- Pricing: honest — Pro does not exist yet. -->
+  <!-- Pricing: the offer billing enforces (backend/src/lib/planTier.ts —
+       PRO_PRICE_RUB, PLAN_LIMITS). Free loses the native .pptx once
+       BILLING_ENABLED is on; until then it is a bonus, never a promise. -->
   <section id="pricing">
     <div class="wrap">
       <div class="eyebrow">Цена</div>
-      <h2>Бесплатно — уже сейчас</h2>
+      <h2>Начните бесплатно. Pro — когда понадобится .pptx</h2>
       <div class="plans">
         <div class="plan">
           <div class="eyebrow pencil">Free</div>
@@ -87,21 +96,23 @@ const ld = {
           <ul class="feat">
             <li>10 выступлений в месяц</li>
             <li>План, слайды, текст докладчика</li>
-            <li>Скачивание .pptx и PDF</li>
-            <li>Ссылка для просмотра, режим показа</li>
+            <li>PDF слайдов — с текстом докладчика или без</li>
+            <li>Ссылка для просмотра, режим показа с окном докладчика</li>
             <li>Бренд: цвет, логотип, три темы</li>
           </ul>
           <a href="/register" class="btn solid">Попробовать бесплатно</a>
+          <p class="muted small">Без карты.</p>
         </div>
-        <div class="plan soon">
-          <div class="eyebrow">Pro — скоро</div>
-          <div class="price muted">—</div>
-          <ul class="feat muted">
-            <li>Без ограничений по числу выступлений</li>
-            <li>Обучение стилю на ваших готовых выступлениях</li>
-            <li>Приоритетная генерация</li>
+        <div class="plan pro">
+          <div class="eyebrow pencil">Pro</div>
+          <div class="price">{PRO_PRICE.toLocaleString('ru-RU')} ₽ <span class="per">в месяц</span></div>
+          <ul class="feat">
+            <li>Выступлений без ограничения</li>
+            <li><strong>Редактируемый .pptx</strong> — открывается в PowerPoint, Keynote и Google Slides</li>
+            <li>Всё, что есть в Free</li>
           </ul>
-          <p class="muted small">Цена будет объявлена до запуска. Бесплатный тариф останется.</p>
+          <a href="/billing" class="btn ghost">Перейти на Pro</a>
+          <p class="muted small">Оплата картой через Т-Банк, продление автоматическое, отмена в любой момент — доступ до конца оплаченного месяца.</p>
         </div>
       </div>
     </div>
@@ -143,7 +154,8 @@ const ld = {
   .three > div { padding-top: 18px; display: grid; gap: 8px; align-content: start; }
   .plans { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 820px; }
   .plan { border: 1px solid var(--c-border-strong); border-radius: 10px; padding: 26px 28px 28px; display: grid; gap: 14px; align-content: start; background: rgb(var(--c-surface)); }
-  .plan.soon { border-style: dashed; background: transparent; }
+  .plan.pro { border-color: rgb(var(--c-ink)); }
+  .price .per { font-family: var(--ui); font-size: 15px; font-weight: 400; color: rgb(var(--c-ink-secondary)); }
   .price { font-family: var(--display); font-size: 40px; font-weight: 600; line-height: 1; }
   .feat { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
   .feat li { position: relative; padding-left: 16px; }

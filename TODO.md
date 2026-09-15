@@ -201,9 +201,7 @@ how-it-works, pricing, FAQ with JSON-LD, sitemap/robots, Caddy two-roots
 routing, web image. Ship gate (J) lifted 2026-09-14 — the .pptx matches. Legal section
 added 2026-09-14 (`/legal/*`): **fill `landing/src/data/operator.ts`
 before launch**, have both documents reviewed, file the Roskomnadzor
-notification; the pricing section still says «Pro — скоро» while billing
-now exists (`36af5aa`, 2 500 ₽) — update it with the real price and the
-Т-Банк mention. Existing accounts (pre-consent) have NULL
+notification; pricing section updated with the real Pro price 2026-09-15. Existing accounts (pre-consent) have NULL
 `terms_accepted_at` — ask them at next sign-in. Next: an OG image (`/og.png` is referenced,
 not yet drawn); `/examples/<intent>/<audience>` from real generated talks
 (three by hand first); blog scaffold; Метрика + Webmaster verification;

@@ -3,6 +3,7 @@ Allow: /
 Disallow: /talks
 Disallow: /jobs
 Disallow: /brand
+Disallow: /billing
 Disallow: /login
 Disallow: /register
 Sitemap: https://tezarium.ru/sitemap-index.xml
