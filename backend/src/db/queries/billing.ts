@@ -116,11 +116,16 @@ export async function applyPaymentStatus(
       // auto_renew follows whether there is a card to renew from: the one just
       // saved, or one saved earlier (a renewal's notification may omit RebillId).
       // A month paid without saving the card leaves auto-renew off.
+      // `$3::text`: a parameter used only in `IS NOT NULL` has no type and pg
+      // refuses the statement — every CONFIRMED notification 500'd for an
+      // hour on 2026-09-15 (the setShareToken incident, again). The unit
+      // tests mock pg and cannot see it; `PREPARE` the statement in psql to
+      // check a parameter change (that is how this fix was verified).
       await client.query(
         `UPDATE workspaces
             SET plan_tier = 'pro', plan_expires_at = $2, renewal_failures = 0,
-                auto_renew = ($3 IS NOT NULL OR tbank_rebill_id IS NOT NULL),
-                tbank_rebill_id = COALESCE($3, tbank_rebill_id), card_last4 = COALESCE($4, card_last4)
+                auto_renew = ($3::text IS NOT NULL OR tbank_rebill_id IS NOT NULL),
+                tbank_rebill_id = COALESCE($3::text, tbank_rebill_id), card_last4 = COALESCE($4::text, card_last4)
           WHERE id = $1`,
         [activate.workspaceId, activate.periodEnd, activate.rebillId, activate.cardLast4],
       )
