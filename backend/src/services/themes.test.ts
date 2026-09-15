@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { THEMES, applyBrand, fitRecipe } from './themes'
+import { THEMES, applyBrand, fitRecipe, validateTheme, isThemeShape } from './themes'
 import { contrastRatio, textOn } from '../lib/brandColor'
 import { worstGround, backgroundSvg, hasTreatment } from '../../../shared/slideBackground'
 
@@ -35,9 +35,18 @@ describe('themes — every text pair clears the floor', () => {
     })
   }
 
-  it('there are four themes and the bold one draws a band', () => {
-    expect(Object.keys(THEMES)).toEqual(['default', 'dark', 'warm', 'bold'])
-    expect(THEMES.bold.background.kind).toBe('band')
+  it('there are twelve themes, every recipe kind is used, and ids are stable', () => {
+    expect(Object.keys(THEMES)).toEqual(['default', 'dark', 'warm', 'bold', 'editorial', 'mono', 'forest', 'ocean', 'sand', 'violet', 'slate', 'play'])
+    expect(new Set(Object.values(THEMES).map((t) => t.background.kind))).toEqual(new Set(['grid', 'blob', 'wash', 'band', 'solid', 'dots']))
+    for (const [id, t] of Object.entries(THEMES)) expect(t.id).toBe(id)
+  })
+
+  it('validateTheme passes every shipped theme untouched', () => {
+    for (const t of Object.values(THEMES)) {
+      const v = validateTheme(t)
+      expect(v.issues, t.id).toEqual([])
+      expect(v.theme).toEqual(t)
+    }
   })
 })
 
@@ -82,5 +91,32 @@ describe('backgroundSvg', () => {
     for (const kind of ['wash', 'grid', 'dots', 'band'] as const) {
       expect(backgroundSvg(p, { kind, hero: 0.5, quiet: 0.2 }, 'hero')).not.toMatch(/opacity/)
     }
+  })
+})
+
+describe('validateTheme — the model proposes, the contrast code disposes', () => {
+  it('corrects a pale secondary text and a pale accent toward the ground’s opposite, and reports each', () => {
+    const t = { ...THEMES.default, id: 'x', palette: { ...THEMES.default.palette, ink2: 'B0B0B0', accent: 'F3D27A' } }
+    const v = validateTheme(t)
+    const pairs = v.issues.map((i) => i.pair)
+    expect(pairs).toContain('ink2/bg')
+    expect(pairs).toContain('accent/bg')
+    expect(contrastRatio(v.theme.palette.ink2, v.theme.palette.bg)).toBeGreaterThanOrEqual(4.5)
+    expect(contrastRatio(v.theme.palette.accent, v.theme.palette.panel)).toBeGreaterThanOrEqual(4.5)
+    // accentText is re-checked against the corrected accent
+    expect(contrastRatio(v.theme.palette.accentText, v.theme.palette.accent)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('lowers a recipe strength that pushes ink2 under the floor, and reports it', () => {
+    const t = { ...THEMES.dark, id: 'y', background: { kind: 'blob' as const, hero: 0.6, quiet: 0.1 } }
+    const v = validateTheme(t)
+    expect(v.theme.background.hero).toBeLessThan(0.6)
+    expect(v.issues.find((i) => i.pair === 'background.hero')).toBeTruthy()
+  })
+
+  it('isThemeShape rejects a missing palette key and a bad hex', () => {
+    expect(isThemeShape(THEMES.warm)).toBe(true)
+    expect(isThemeShape({ ...THEMES.warm, palette: { ...THEMES.warm.palette, ink: '#123' } })).toBe(false)
+    expect(isThemeShape({ id: 'z', name: 'z' })).toBe(false)
   })
 })

@@ -1,7 +1,6 @@
 ---
 // Step 4 — the slides. The same demo talk drawn as 16:9 slides in the
-// four themes the exporter ships, from the exporter's own palettes and
-// background recipes (backend/src/services/themes.ts — keep in step). Faces are the ones a
+// themes the exporter ships, from the shared theme data (shared/themes.ts). Faces are the ones a
 // .pptx can carry without embedding (Georgia / Arial), so what is drawn
 // here is what opens in PowerPoint. The numbers in the CSS below are
 // shared/slideGeometry.ts (percent of width = cqw) — the exporter, the PDF
@@ -13,14 +12,15 @@ import talk from '../data/demo-talk.json'
 // Design v3: the background is the SAME drawing the exporters rasterise —
 // the shared module is imported at build time, so the site never carries
 // a copy of the SVG, only of the recipe (its numbers are the theme's).
-import { backgroundSvg, backgroundCssUrl, backgroundRole, hasTreatment, type BackgroundRecipe } from '../../../shared/slideBackground'
+import { backgroundSvg, backgroundCssUrl, backgroundRole, hasTreatment } from '../../../shared/slideBackground'
+import { THEMES as SHARED_THEMES } from '../../../shared/themes'
 
-const THEMES: Array<{ id: string; name: string; bg: string; panel: string; ink: string; ink2: string; accent: string; accentText: string; background: BackgroundRecipe }> = [
-  { id: 'default', name: 'Тезариум', bg: '#FFFFFF', panel: '#EEF3F3', ink: '#16201F', ink2: '#57635F', accent: '#0F6E6E', accentText: '#FFFFFF', background: { kind: 'grid', hero: 0.12, quiet: 0.06 } },
-  { id: 'dark',    name: 'Тёмная',   bg: '#15211F', panel: '#20302D', ink: '#F4F6F7', ink2: '#C5CFCC', accent: '#5FC4BE', accentText: '#15211F', background: { kind: 'blob', hero: 0.22, quiet: 0.10 } },
-  { id: 'warm',    name: 'Тёплая',   bg: '#FBF8F2', panel: '#F3ECDF', ink: '#1F1A14', ink2: '#5C554B', accent: '#8A5C06', accentText: '#FFFFFF', background: { kind: 'wash', hero: 0.12, quiet: 0.05 } },
-  { id: 'bold',    name: 'Яркая',    bg: '#0B0F2A', panel: '#171C3F', ink: '#FFFFFF', ink2: '#C7CBE6', accent: '#FFB020', accentText: '#0B0F2A', background: { kind: 'band', hero: 1, quiet: 0.35 } },
-]
+// One source for the palettes and recipes (shared/themes.ts) — the site
+// carried a hand copy until L3. Hex gets its '#' here, for CSS.
+const THEMES = Object.values(SHARED_THEMES).map((t) => ({
+  id: t.id, name: t.name, background: t.background,
+  bg: `#${t.palette.bg}`, panel: `#${t.palette.panel}`, ink: `#${t.palette.ink}`, ink2: `#${t.palette.ink2}`, accent: `#${t.palette.accent}`, accentText: `#${t.palette.accentText}`,
+}))
 const slides = talk.slides as any[]
 const pad = (n: number) => String(n).padStart(2, '0')
 const latexToText = (s: string) => s.replace(/\\text\{([^}]*)\}/g, '$1').replace(/\s+-\s+/g, ' − ')
@@ -39,7 +39,7 @@ const vars = (t: typeof THEMES[number]) => `--s-bg:${t.bg};--s-panel:${t.panel};
         </button>
       ))}
     </div>
-    <span class="muted small">четыре темы сегодня; цвет и логотип — ваши</span>
+    <span class="muted small">двенадцать тем; цвет и логотип — ваши</span>
   </div>
 
   <div class="stage-wrap">
@@ -93,7 +93,7 @@ const vars = (t: typeof THEMES[number]) => `--s-bg:${t.bg};--s-panel:${t.panel};
 <style>
   .deck { display: grid; gap: 14px; }
   .dhead { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-  .themes { display: flex; gap: 6px; }
+  .themes { display: flex; gap: 6px; flex-wrap: wrap; }   /* twelve chips (L3): two rows on a narrow deck, never a sideways scroll */
   .th { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px 0 8px; border-radius: 999px; border: 1px solid var(--c-border-strong); background: transparent; color: rgb(var(--c-ink-secondary)); font: 500 13px/1 var(--ui); cursor: pointer; }
   .th[aria-pressed="true"] { background: rgb(var(--c-ink)); color: rgb(var(--c-bg)); border-color: transparent; }
   .sw { width: 18px; height: 18px; border-radius: 50%; border: 1px solid; display: inline-grid; place-items: center; }

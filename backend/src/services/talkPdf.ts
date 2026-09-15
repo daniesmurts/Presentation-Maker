@@ -245,8 +245,15 @@ class Renderer {
     this.doc.addPage()
     this.doc.rect(0, 0, PAGE_W, PAGE_H).fill(hex(this.p.bg))
     const bg = role && this.prepared.backgrounds[role]
-    if (bg) this.doc.image(bg, 0, 0, { width: PAGE_W, height: PAGE_H })
+    if (bg) {
+      // pdfkit embeds a Buffer again on every image() call — twelve pages
+      // of a blob theme were 700 KB of the same picture. Opened once per
+      // role, the object is one XObject referenced from every page.
+      this.bgImages[role] ??= this.doc.openImage(bg)
+      this.doc.image(this.bgImages[role], 0, 0, { width: PAGE_W, height: PAGE_H })
+    }
   }
+  private bgImages: Partial<Record<BackgroundRole, unknown>> = {}
 
   private panel(x: number, y: number, w: number, h: number): void {
     this.doc.roundedRect(x, y, w, h, U(G.fRadius)).fill(hex(this.p.panel))

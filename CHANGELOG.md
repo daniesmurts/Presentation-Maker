@@ -33,6 +33,34 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 
 ## [Unreleased]
 
+### Added
+- **Design v3, layer 3 (first half) — twelve themes, one shared data file,
+  a validator, a gallery** (TODO L3). Theme data moved to
+  `shared/themes.ts`: the backend exports with it, the browser previews
+  with it, the landing builds its deck from it — `Deck.astro` no longer
+  carries a hand copy («keep in step» is gone). Eight new themes: Газета,
+  Монохром, Лес, Океан, Песок, Сирень, Графит, Игра — each a different
+  room on the same composition, each with its recipe, every pair measured
+  by a script before it became code and re-measured by `themes.test.ts`
+  (the Песок accent went A64B22 → 9A4219 for 4.24 on the panel; the Сирень
+  dots 0.35 → 0.20 for ink2 at 4.0 on the hero ground). `validateTheme()`
+  is the one gate every theme goes through, whatever wrote it — a row,
+  a model, a brand kit, an uploaded deck: a failing pair is CORRECTED
+  toward the ground's opposite (`pushUntil`) and reported, the recipe
+  refitted last; the twelve rows pass it untouched, and the test says so.
+  `npm run gallery:themes` renders one fixed 12-slide talk (every layout)
+  in every theme to PDF + .pptx with an index — the page a theme is
+  reviewed on before it ships. Colour arithmetic moved to
+  `shared/color.ts` (the backend's `lib/brandColor` re-exports it).
+  - *Sizes.* A blob raster was 263 KB at 1600 wide — a smooth ramp is
+    high entropy for PNG — so gradients render at 1200 (≤ 184 KB; a blob
+    deck carries ~350 KB of background, one photo's worth) and resvg
+    paints the ground so there is no alpha to compress. The PDF embedded
+    the raster on every page (12 pages of Графит: 763 KB); `openImage`
+    once per role, 212 KB.
+  - The site's theme row wraps at twelve chips instead of scrolling
+    sideways.
+
 ### Fixed
 - **Text that does not fit now shrinks; it used to overflow** — the first
   real deck of Design v3 (2026-09-15, «Understanding Editorial Design»,

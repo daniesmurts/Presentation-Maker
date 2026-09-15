@@ -21,6 +21,7 @@
 // never meets it and its ground is the plain bg (see the drawing).
 
 import { HERO_TYPES } from './slideDesign'
+import { mixHex } from './color'
 
 export type BackgroundKind = 'solid' | 'wash' | 'grid' | 'dots' | 'band' | 'blob'
 export type BackgroundRole = 'hero' | 'quiet'
@@ -62,17 +63,9 @@ export function backgroundRole(slide: { type: string; image?: unknown; design?: 
 
 // ─── Colour arithmetic ──────────────────────────────────────────────────────
 
-function rgb(hex: string): [number, number, number] {
-  return [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16)]
-}
-const h2 = (n: number) => Math.round(Math.max(0, Math.min(255, n))).toString(16).padStart(2, '0').toUpperCase()
-
 /** `t` of `b` over `a`, per channel in sRGB — the blend resvg and a browser
  *  would do for a plain opacity, done here so the result has a name. */
-export function mix(a: string, b: string, t: number): string {
-  const [r1, g1, b1] = rgb(a), [r2, g2, b2] = rgb(b)
-  return h2(r1 + (r2 - r1) * t) + h2(g1 + (g2 - g1) * t) + h2(b1 + (b2 - b1) * t)
-}
+export const mix = mixHex
 
 function strength(recipe: BackgroundRecipe, role: BackgroundRole): number {
   const s = role === 'hero' ? recipe.hero : recipe.quiet

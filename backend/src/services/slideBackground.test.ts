@@ -8,11 +8,15 @@ describe('renderBackgroundPng', () => {
   it('rasterises every shipped theme at 1600×900 as a PNG under 250 KB, and nothing for a role that draws nothing', async () => {
     for (const t of Object.values(THEMES)) for (const role of ['hero', 'quiet'] as const) {
       const r = await renderBackgroundPng(t.palette, t.background, role)
+      if (t.background.kind === 'solid') { expect(r).toBeNull(); continue }   // Монохром draws nothing, by design
       expect(r, `${t.id}/${role}`).not.toBeNull()
       const size = imageSize(r!.buffer)
-      expect(size).toEqual({ width: 1600, height: 900 })
-      // Measured 2026-09-15: grid 37 KB · blob hero 142 KB · wash hero 91 KB · band 15 KB.
-      expect(r!.bytes).toBeLessThan(250_000)
+      const gradient = t.background.kind === 'wash' || t.background.kind === 'blob'
+      expect(size).toEqual(gradient ? { width: 1200, height: 675 } : { width: 1600, height: 900 })
+      // Measured 2026-09-15 (L3, twelve themes): grid 37 KB · band 9 KB · dots 14 KB ·
+      // wash hero ≤ 85 KB · blob ≤ 184 KB at 1200 wide (263 KB at 1600). A blob
+      // deck carries ~350 KB of background — one photo's worth; acceptable.
+      expect(r!.bytes).toBeLessThan(200_000)
     }
     expect(await renderBackgroundPng(THEMES.default.palette, { kind: 'solid', hero: 1, quiet: 1 }, 'hero')).toBeNull()
     expect(await renderBackgroundPng(THEMES.default.palette, { kind: 'wash', hero: 0.5, quiet: 0 }, 'quiet')).toBeNull()

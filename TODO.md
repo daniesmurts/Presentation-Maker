@@ -243,7 +243,7 @@ option is still open.
      carries the message until there is.
   5. Landing: a pricing block (2 500 ₽ / месяц) once item I has a place for it.
 
-### L. Design v3 — backgrounds, rhythm, a theme library · Effort: L · 🚧 L1–L2 SHIPPED (2026-09-15, code) · L3 planned
+### L. Design v3 — backgrounds, rhythm, a theme library · Effort: L · 🚧 L1–L2 SHIPPED, L3 IN PROGRESS (2026-09-15)
 - **Why**: decks are clean but samey. A theme today is `palette + fonts +
   margin` over one composition (J); there are no backgrounds, no decorative
   treatment, no image-led or big-number slides, and the model has no say in
@@ -342,7 +342,10 @@ option is still open.
   types are enabled in the prompt, not after the first overflow on a
   projector.
 
-**L3 — a curated theme library, then generated themes as validated data.** Effort M.
+**L3 — a curated theme library, then generated themes as validated data.** Effort M. 🚧
+- Shipped 2026-09-15: `shared/themes.ts` (twelve themes, `validateTheme`),
+  `shared/color.ts`, `scripts/themeGallery.ts`, the landing on the shared
+  data. Next: generated themes + brand derivation + .pptx palette extraction.
 - Hand-design 8–12 themes as rows in `themes.ts` (bold pitch · editorial ·
   dark tech · warm consulting · playful · mono minimal · …), each with its
   recipe and measured pairs. The eval harness renders **one fixed talk in

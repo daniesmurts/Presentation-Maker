@@ -10,7 +10,8 @@
     "migrate": "node --env-file=../.env scripts/migrate.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "eval:talks": "node --env-file=../.env $(npm root)/.bin/tsx scripts/evalTalks.ts"
+    "eval:talks": "node --env-file=../.env $(npm root)/.bin/tsx scripts/evalTalks.ts",
+    "gallery:themes": "node --env-file=../.env $(npm root)/.bin/tsx scripts/themeGallery.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1059.0",

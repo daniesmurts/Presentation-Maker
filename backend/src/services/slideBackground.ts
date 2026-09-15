@@ -8,7 +8,7 @@ import { backgroundSvg, hasTreatment, BG_W, type BackgroundPalette, type Backgro
 // renderer already vendors (formulaRenderer.ts), so the .pptx and the PDF
 // carry a picture of it. Rasterised at 1600 × 900: one 16:9 slide at
 // 160 px/in, sharp on a projector, and small — a grid or a band is a few
-// KB, a wash under ~60 KB. The .pptx embeds it ONCE per role through a
+// KB, a wash or blob at 1200 wide under ~150 KB. The .pptx embeds it ONCE per role through a
 // slide layout (talkExport.ts), never once per slide.
 //
 // Cached by a hash of the inputs: a deck asks for two rasters (hero, quiet)
@@ -38,7 +38,16 @@ export async function renderBackgroundPng(p: BackgroundPalette, recipe: Backgrou
   if (hit) return hit
   try {
     const { Resvg } = await import('@resvg/resvg-js')
-    const png = new Resvg(svg, { fitTo: { mode: 'width', value: BG_W } }).render().asPng()
+    // Painted on the theme's ground: the blob's fade-to-transparent gives
+    // the raster an alpha channel that PNG compresses badly (the dark blob
+    // went 57 → 222 KB); with the ground filled, the alpha is constant.
+    // Gradients (wash, blob) are the expensive kinds — a smooth 8-bit ramp
+    // is high-entropy for PNG (the slate blob was 263 KB at 1600) — and the
+    // only kinds that lose nothing at a lower raster: 1200 wide, scaled up
+    // by the viewer, is the same ramp. Lines and dots stay at 1600 for
+    // their edges.
+    const width = recipe.kind === 'wash' || recipe.kind === 'blob' ? 1200 : BG_W
+    const png = new Resvg(svg, { fitTo: { mode: 'width', value: width }, background: `#${p.bg}` }).render().asPng()
     const buffer = Buffer.from(png)
     return remember(key, { dataUri: `data:image/png;base64,${buffer.toString('base64')}`, buffer, bytes: buffer.length })
   } catch (err) {
