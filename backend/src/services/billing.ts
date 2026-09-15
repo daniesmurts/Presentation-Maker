@@ -47,6 +47,12 @@ const OPEN_PAYMENT_MINUTES = 30
 const PAID = new Set(['CONFIRMED'])
 const FAILED = new Set(['REJECTED', 'AUTH_FAIL', 'DEADLINE_EXPIRED', 'CANCELED', 'ATTEMPTS_EXPIRED'])
 const REFUNDED = new Set(['REFUNDED', 'PARTIAL_REFUNDED'])
+// A payment never leaves one of these on an intermediate notification.
+// T-Bank posts the steps of one payment concurrently to both replicas, and
+// on the first live payment (2026-09-15) AUTHORIZED arrived 80 ms AFTER
+// CONFIRMED and overwrote it: the workspace was Pro, the row said
+// «обрабатывается» forever. Terminal is terminal.
+const TERMINAL = new Set([...PAID, ...FAILED, ...REFUNDED])
 
 export interface BillingView {
   enabled:     boolean
@@ -217,7 +223,12 @@ async function applyOutcome(
     return applyPaymentStatus(payment.id, status, errorCode, raw, null)
   }
 
-  // Intermediate (FORM_SHOWED, AUTHORIZED, …): keep the latest for the page.
+  // Intermediate (FORM_SHOWED, AUTHORIZED, …): keep the latest for the
+  // page — unless the row is already terminal (see TERMINAL).
+  if (TERMINAL.has(payment.status)) {
+    logger.info({ message: 'Late intermediate notification ignored', orderId: payment.order_id, have: payment.status, got: status })
+    return false
+  }
   return applyPaymentStatus(payment.id, status, errorCode, raw, null)
 }
 

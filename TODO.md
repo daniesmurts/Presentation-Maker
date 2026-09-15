@@ -227,11 +227,13 @@ option is still open.
   expire · cancel/resume), `/api/billing/*`, the «Тариф» page, the locked
   `.pptx` item, the quota hint's link.
 - **Left, in order**:
-  1. Test terminal: put `TBANK_TERMINAL_KEY` / `TBANK_PASSWORD` (test
-     pair) and `BILLING_ENABLED=1` on the VM, `PUBLIC_API_URL=https://tezarium.ru`,
-     `TBANK_TAXATION` / `TBANK_VAT` as the accountant says; pay with the
-     portal's test card; confirm the notification lands (Caddy already
-     proxies `/api/*`), the receipt arrives, `RebillId` is stored.
+  1. ✅ 2026-09-15 — test terminal live: declined card → REJECTED,
+     success card → CONFIRMED, Pro +1 month, RebillId stored. Found and
+     fixed on the way: the Russian Trusted CA missing from the image, and a
+     late AUTHORIZED overwriting CONFIRMED (see CHANGELOG). The founder's
+     own workspace still carries the regressed row from before the fix —
+     `update payments set status='CONFIRMED' where order_id='ws-27195d96-i-mu26zozg-c99c6f' and status='AUTHORIZED'`
+     on the VM (the agent is not permitted to write production data).
   2. A renewal on the test terminal: set `plan_expires_at` to tomorrow,
      wait for the 6 h tick (or run `renewDue()` one-off).
   3. Refunds are done in the cabinet; the webhook records `REFUNDED` and

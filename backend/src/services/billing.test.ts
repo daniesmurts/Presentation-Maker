@@ -92,6 +92,18 @@ describe('applyNotification', () => {
     expect(r.applied).toBe(false)
     expect(queryMock.mock.calls.some(([sql]) => String(sql).includes("plan_tier = 'pro'"))).toBe(false)
   })
+  it('a late AUTHORIZED never overwrites CONFIRMED (first live payment, 2026-09-15: the steps arrived out of order on two replicas)', async () => {
+    const writes = db({ lockedStatus: 'CONFIRMED', payment: { ...paymentRow, status: 'CONFIRMED' } })
+    const r = await applyNotification(confirmed({ Status: 'AUTHORIZED' }))
+    expect(r.applied).toBe(false)
+    expect(writes.some((s) => s.includes('UPDATE payments SET status'))).toBe(false)
+  })
+  it('an intermediate status still moves a NEW row along', async () => {
+    const writes = db({})
+    const r = await applyNotification(confirmed({ Status: 'AUTHORIZED' }))
+    expect(r.applied).toBe(true)
+    expect(writes.some((s) => s.includes('UPDATE payments SET status'))).toBe(true)
+  })
   it('a CONFIRMED for the wrong amount is logged and not applied', async () => {
     db({})
     const r = await applyNotification(confirmed({ Amount: 100 }))
