@@ -7,7 +7,7 @@ import { PRO_PRICE_RUB } from '../lib/planTier'
 import { recordTalkEvent } from '../db/queries/talkEvents'
 import {
   getWorkspaceBilling, listPayments, findPaymentByOrderId, createPayment, setPaymentProviderId, markPaymentFailed,
-  hasOpenPayment, hasRenewalAttemptSince, applyPaymentStatus, setAutoRenew, bumpRenewalFailures, listDueForRenewal, expireLapsedPro,
+  hasOpenPayment, hasRenewalAttemptSince, applyPaymentStatus, setAutoRenew, bumpRenewalFailures, listDueForRenewal, expireLapsedPro, revokePro,
   type PaymentRow, type WorkspaceBilling,
 } from '../db/queries/billing'
 import * as tbank from './tbank/client'
@@ -217,10 +217,22 @@ async function applyOutcome(
   }
 
   if (REFUNDED.has(status)) {
-    // Refunds are done by the operator in T-Bank's cabinet; we record and
-    // do not claw the month back automatically — that is a support decision.
-    logger.warn({ message: 'Payment refunded', orderId: payment.order_id, status })
-    return applyPaymentStatus(payment.id, status, errorCode, raw, null)
+    // Refunds are done by the operator in T-Bank's cabinet. A FULL refund of
+    // the payment that covers the current period ends Pro now and switches
+    // auto-renew off — the money went back, the month goes with it, and
+    // the renewal job must not charge the card again (founder's call,
+    // 2026-09-15, after the first live refund). A partial refund, or a
+    // refund of an earlier period, is recorded and left to support.
+    const applied = await applyPaymentStatus(payment.id, status, errorCode, raw, null)
+    const current = payment.period_end != null && new Date(payment.period_end).getTime() > Date.now()
+    if (applied && status === 'REFUNDED' && current) {
+      const revoked = await revokePro(payment.workspace_id)
+      logger.warn({ message: 'Payment refunded — Pro revoked', orderId: payment.order_id, workspaceId: payment.workspace_id, revoked })
+      recordTalkEvent({ talkId: null, workspaceId: payment.workspace_id, userId: null, event: 'refunded', metadata: { amount_kopecks: payment.amount_kopecks, kind: payment.kind, order_id: payment.order_id, revoked } })
+    } else {
+      logger.warn({ message: 'Payment refunded', orderId: payment.order_id, status, current, applied })
+    }
+    return applied
   }
 
   // Intermediate (FORM_SHOWED, AUTHORIZED, …): keep the latest for the

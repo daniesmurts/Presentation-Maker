@@ -159,6 +159,16 @@ export async function listDueForRenewal(withinHours: number): Promise<WorkspaceB
 }
 
 /** Pro workspaces whose paid month ended more than `graceDays` ago → free. Returns how many. */
+/** A full refund of the current period: Pro ends now and the card is not
+ *  charged again. Returns false when the workspace was not Pro. */
+export async function revokePro(workspaceId: string): Promise<boolean> {
+  const { rowCount } = await pool.query(
+    `UPDATE workspaces SET plan_tier = 'free', plan_expires_at = NULL, auto_renew = FALSE WHERE id = $1 AND plan_tier = 'pro'`,
+    [workspaceId],
+  )
+  return (rowCount ?? 0) > 0
+}
+
 export async function expireLapsedPro(graceDays: number): Promise<number> {
   const { rowCount } = await pool.query(
     `UPDATE workspaces SET plan_tier = 'free'

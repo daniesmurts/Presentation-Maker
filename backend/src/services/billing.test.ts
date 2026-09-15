@@ -104,6 +104,25 @@ describe('applyNotification', () => {
     expect(r.applied).toBe(true)
     expect(writes.some((s) => s.includes('UPDATE payments SET status'))).toBe(true)
   })
+  it('a full refund of the current period drops the tier and switches auto-renew off; a partial one only records', async () => {
+    const paid = { ...paymentRow, status: 'CONFIRMED', period_start: new Date(), period_end: new Date(Date.now() + 20 * 86_400_000) }
+    let writes = db({ lockedStatus: 'CONFIRMED', payment: paid })
+    let r = await applyNotification(confirmed({ Status: 'REFUNDED' }))
+    expect(r.applied).toBe(true)
+    expect(writes.some((s) => s.includes("plan_tier = 'free'") && s.includes('auto_renew = FALSE'))).toBe(true)
+    expect(queryMock.mock.calls.some(([sql, p]) => String(sql).includes('INSERT INTO talk_events') && (p as unknown[])[3] === 'refunded')).toBe(true)
+
+    writes = db({ lockedStatus: 'CONFIRMED', payment: paid })
+    r = await applyNotification(confirmed({ Status: 'PARTIAL_REFUNDED' }))
+    expect(r.applied).toBe(true)
+    expect(writes.some((s) => s.includes("plan_tier = 'free'"))).toBe(false)
+  })
+  it('a refund of an EARLIER period does not touch the tier', async () => {
+    const old = { ...paymentRow, status: 'CONFIRMED', period_start: new Date(Date.now() - 60 * 86_400_000), period_end: new Date(Date.now() - 30 * 86_400_000) }
+    const writes = db({ lockedStatus: 'CONFIRMED', payment: old })
+    await applyNotification(confirmed({ Status: 'REFUNDED' }))
+    expect(writes.some((s) => s.includes("plan_tier = 'free'"))).toBe(false)
+  })
   it('a CONFIRMED for the wrong amount is logged and not applied', async () => {
     db({})
     const r = await applyNotification(confirmed({ Amount: 100 }))

@@ -236,8 +236,9 @@ option is still open.
      on the VM (the agent is not permitted to write production data).
   2. A renewal on the test terminal: set `plan_expires_at` to tomorrow,
      wait for the 6 h tick (or run `renewDue()` one-off).
-  3. Refunds are done in the cabinet; the webhook records `REFUNDED` and
-     leaves the month — decide whether support claws it back.
+  3. ✅ 2026-09-15 — refund tested in the cabinet: webhook → `REFUNDED`;
+     a full refund of the current period now drops the tier and stops
+     auto-renew (decided by the founder after the test).
   4. An e-mail on a failed renewal — there is no mail sender yet; the page
      carries the message until there is.
   5. Landing: a pricing block (2 500 ₽ / месяц) once item I has a place for it.
