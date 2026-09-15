@@ -46,7 +46,7 @@ describe('SlideStage — L2 types and design', () => {
     const agenda: Slide = { type: 'agenda', title: 'План', ...base, body: { items: ['a', 'b', 'c', 'd', 'e'] } }
     const stats: Slide = { type: 'stats', title: 'Цифры', ...base, body: { stats: [{ value: '42 %', label: 'доля', note: null }] } }
     const quote: Slide = { type: 'quote', title: 'Клиент', ...base, body: { quote: 'Мы увидели', attribution: 'Иван' } }
-    const full: Slide = { type: 'image-full', title: 'Вид', ...base, image: { url: 'https://x/y.png', source_url: '', width: 10, height: 10 }, body: { caption: 'подпись' } }
+    const full: Slide = { type: 'image-full', title: 'Вид', ...base, image: { url: 'https://x/y.png', source_url: '', width: 10, height: 10 } as unknown as Slide['image'], body: { caption: 'подпись' } }
     expect(render(<SlideStage slide={section} theme={THEME} scale={1} />).container.textContent).toContain('Часть 2')   // uppercase is CSS
     const ag = render(<SlideStage slide={agenda} theme={THEME} scale={1} />).container
     const nums = [...ag.querySelectorAll('ol')].map((ol) => [...ol.querySelectorAll('li > span:first-child')].map((s) => s.textContent).join(' '))

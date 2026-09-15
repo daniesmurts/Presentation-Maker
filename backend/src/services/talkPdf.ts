@@ -8,7 +8,7 @@ import { getTheme, applyBrand, type AppliedTheme, type BrandKit } from './themes
 import type { Slide, Talk, TalkLanguage } from '../../../shared/types'
 import { G, pt as pctPt } from '../../../shared/slideGeometry'
 import { backgroundRole, type BackgroundRole } from '../../../shared/slideBackground'
-import { normaliseDesign } from '../../../shared/slideDesign'
+import { normaliseDesign, sectionTitle } from '../../../shared/slideDesign'
 import { renderBackgroundPng } from './slideBackground'
 
 // A SLIDES PDF (CLAUDE.md §5.5): one landscape 16:9 page per slide, the same
@@ -193,13 +193,29 @@ class Renderer {
     return this.text(s.toUpperCase(), 'bodyBold', U(G.kickSize), color, x, y, w, { tracking: 1.2, maxH: U(G.kickSize) * 1.6 })
   }
 
+  /** The largest size ≤ `size` at which `s` sets in `n` lines of `w` —
+   *  measured, since pdfkit can; the .pptx estimates the same thing
+   *  (slideGeometry.ts fitTitle). Floor 0.6 × size. */
+  private shrinkToLines(s: string, kind: 'display' | 'displayItalic' | 'body' | 'bodyBold', size: number, w: number, n: number, lineGap = 0): number {
+    let sz = size
+    while (sz > size * 0.6 && this.measure(s, kind, sz, w, undefined, lineGap) > this.maxLines(kind, sz, n, lineGap)) sz *= 0.94
+    return sz
+  }
+
+  /** A bulleted list, shrunk until it fits between `y` and `maxY`. It used
+   *  to stop drawing at `maxY` — the last items silently vanished. */
   private bullets(items: string[], x: number, y: number, w: number, size: number, color: string, maxY: number): number {
+    if (items.length === 0) return 0
+    const indent = U(G.bulletIndent)
+    let sz = size
+    const heightAt = (z: number) => items.reduce((h, it) => h + this.measure(it, 'body', z, w - indent, undefined, this.bodyGap(z)) + U(G.bodyGap), 0)
+    while (sz > size * 0.65 && heightAt(sz) > maxY - y) sz *= 0.94
     let yy = y
-    const dot = U(G.bullet), indent = U(G.bulletIndent)
+    const dot = U(G.bullet)
     for (const item of items) {
-      if (yy >= maxY - size) break
-      this.doc.circle(x + dot / 2, yy + size * 0.55, dot / 2).fill(hex(this.p.accent))
-      yy += this.text(item, 'body', size, color, x + indent, yy, w - indent, { maxH: maxY - yy, lineGap: this.bodyGap(size) }) + U(G.bodyGap)
+      if (yy >= maxY - sz) break
+      this.doc.circle(x + dot / 2, yy + sz * 0.55, dot / 2).fill(hex(this.p.accent))
+      yy += this.text(item, 'body', sz, color, x + indent, yy, w - indent, { maxH: maxY - yy, lineGap: this.bodyGap(sz) }) + U(G.bodyGap)
     }
     return yy - y
   }
@@ -215,7 +231,7 @@ class Renderer {
   /** Content-slide header: the title over a hairline; returns where the body starts. */
   private header(title: string, index: number): number {
     const { doc, p, M } = this
-    const size = U(G.titleSize)
+    const size = this.shrinkToLines(title, 'display', U(G.titleSize), PAGE_W - M * 2, 2)
     const h = this.text(title, 'display', size, p.ink, M, U(G.top), PAGE_W - M * 2, { maxH: this.maxLines('display', size, 2), lineGap: 0 })
     const ruleY = U(G.top) + h + U(G.titlePad)
     doc.rect(M, ruleY, PAGE_W - M * 2, U(G.rule)).fill(hex(p.accent))
@@ -277,7 +293,7 @@ class Renderer {
         this.text(slide.body.presenter, 'body', U(G.tsWhoSize), p.ink2, M, bottom - h, W)
         bottom -= h + U(G.tsTitleGap)
       }
-      const tSize = U(G.tsTitleSize), tw = W * (G.tsMaxW / 100), tMax = this.maxLines('display', tSize, 3)
+      const tw = W * (G.tsMaxW / 100), tSize = this.shrinkToLines(slide.title, 'display', U(G.tsTitleSize), tw, 3), tMax = this.maxLines('display', tSize, 3)
       const th = this.measure(slide.title, 'display', tSize, tw, tMax, 0)
       this.text(slide.title, 'display', tSize, p.ink, M, bottom - th, tw, { maxH: tMax, lineGap: 0 })
       bottom -= th
@@ -304,9 +320,10 @@ class Renderer {
         this.text(slide.body.lead, 'body', U(G.tsWhoSize), p.ink2, M, bottom - h, tw, { maxH: h })
         bottom -= h + U(G.tsTitleGap)
       }
-      const tSize = U(G.tsTitleSize), tMax = this.maxLines('display', tSize, 3)
-      const th = this.measure(slide.title, 'display', tSize, tw, tMax, 0)
-      this.text(slide.title, 'display', tSize, p.ink, M, bottom - th, tw, { maxH: tMax, lineGap: 0 })
+      const title = sectionTitle(slide)
+      const tSize = this.shrinkToLines(title, 'display', U(G.tsTitleSize), tw, 3), tMax = this.maxLines('display', tSize, 3)
+      const th = this.measure(title, 'display', tSize, tw, tMax, 0)
+      this.text(title, 'display', tSize, p.ink, M, bottom - th, tw, { maxH: tMax, lineGap: 0 })
       bottom -= th
       if (slide.body.kicker) {
         bottom -= U(G.tsKickGap)
@@ -324,7 +341,7 @@ class Renderer {
       const top = U(G.top) + 36
       const kh = this.kick(slide.title, M, top, W)
       const qy = top + kh + U(G.tsKickGap)
-      const qSize = U(G.qSize), qw = W * (G.qMaxW / 100)
+      const qw = W * (G.qMaxW / 100), qSize = this.shrinkToLines(`«${slide.body.quote}»`, 'displayItalic', U(G.qSize), qw, 4)
       const qh = this.text(`«${slide.body.quote}»`, 'displayItalic', qSize, p.ink, M, qy, qw, { maxH: this.maxLines('displayItalic', qSize, 4), lineGap: 0 })
       if (slide.body.attribution) this.text(`— ${slide.body.attribution}`, 'bodyBold', subSize, emphasis, M, qy + qh + U(G.titleGap), W, { maxH: subSize * 3 })
       this.footer(this.talkTitle, index)
@@ -360,9 +377,10 @@ class Renderer {
       const top = U(G.top) + 36
       const kh = this.kick(slide.title, M, top, cw)
       const qy = top + kh + U(G.tsKickGap)
-      const qSize = U(G.qSize), qw = cw * (G.qMaxW / 100)
+      const qw = cw * (G.qMaxW / 100)
       const main = slide.type === 'discussion' ? slide.body.question : slide.body.action
       const qKind = slide.type === 'discussion' ? 'displayItalic' as const : 'display' as const
+      const qSize = this.shrinkToLines(main, qKind, U(G.qSize), qw, 3)
       const qh = this.text(main, qKind, qSize, p.ink, M, qy, qw, { maxH: this.maxLines(qKind, qSize, 3), lineGap: 0 })
       let y = qy + qh + U(G.titleGap)
       if (slide.type === 'discussion') {
@@ -394,13 +412,16 @@ class Renderer {
         const items = slide.body.items
         const cols = items.length >= 5 ? 2 : 1
         const gap = U(G.sGap), colW = (W - gap * (cols - 1)) / cols, per = Math.ceil(items.length / cols)
-        const rowH = this.lineH('body', bodySize) + U(G.bodyGap)
-        const numW = U(G.bulletIndent) * 1.4
+        const numW = 0.5 * PT_PER_IN
+        let col = 0, y = top
         items.forEach((t, i) => {
-          const x = M + Math.floor(i / per) * (colW + gap), y = top + (i % per) * rowH
+          if (i > 0 && i % per === 0) { col++; y = top }
+          const x = M + col * (colW + gap)
+          const rowH = this.measure(t, 'body', bodySize, colW - numW, this.maxLines('body', bodySize, 2, 2))
           if (y + rowH > BOTTOM + 2) return
           this.text(String(i + 1).padStart(2, '0'), 'mono', bodySize, emphasis, x, y, numW, { maxH: rowH })
           this.text(t, 'body', bodySize, p.ink, x + numW, y, colW - numW, { maxH: rowH })
+          y += rowH + U(G.bodyGap)
         })
         break
       }
@@ -434,9 +455,12 @@ class Renderer {
       case 'concept': {
         // Panel first, then the text on it — measured, not drawn twice.
         const padX = U(G.fPadX) / 2, padY = 12
-        const defH = this.measure(slide.body.definition, 'display', bodySize, cw - padX * 2, 1.2 * PT_PER_IN, 4)
+        // Three lines at most, shrunk to fit rather than cut with an ellipsis.
+        const dSize = this.shrinkToLines(slide.body.definition, 'display', bodySize, cw - padX * 2, 3, 4)
+        const dMax = this.maxLines('display', dSize, 3, 4)
+        const defH = this.measure(slide.body.definition, 'display', dSize, cw - padX * 2, dMax, 4)
         this.panel(M, top, cw, defH + padY * 2)
-        this.text(slide.body.definition, 'display', bodySize, p.ink, M + padX, top + padY, cw - padX * 2, { maxH: 1.2 * PT_PER_IN, lineGap: 4 })
+        this.text(slide.body.definition, 'display', dSize, p.ink, M + padX, top + padY, cw - padX * 2, { maxH: dMax, lineGap: 4 })
         this.bullets(slide.body.supporting, M, top + defH + padY * 2 + U(G.fExGap), cw, subSize, p.ink2, BOTTOM); break
       }
       case 'formula': {

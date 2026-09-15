@@ -290,6 +290,17 @@ describe('design — an enum the model chooses, coerced like a type', () => {
     expect(out[4]).toMatchObject({ type: 'image-full', image_query: 'Вид', body: { caption: 'подпись' } })
   })
 
+  it('moves a part label out of a section title into the kicker — the model said «Часть 2» twice', () => {
+    const [a, b, c] = normaliseSlides([
+      { type: 'section', title: 'Часть 2: Аутентичность как преимущество', body: { kicker: 'Часть 2' } },
+      { type: 'section', title: 'Part IV — Market', body: {} },
+      { type: 'section', title: 'Аутентичность', body: { kicker: 'Часть 2' } },
+    ], valid, 'ru', true)
+    expect(a).toMatchObject({ title: 'Аутентичность как преимущество', body: { kicker: 'Часть 2' } })
+    expect(b).toMatchObject({ title: 'Market', body: { kicker: 'Part IV' } })
+    expect(c).toMatchObject({ title: 'Аутентичность', body: { kicker: 'Часть 2' } })
+  })
+
   it('demotes a stats slide with no figure and a quote with no text to bullets', () => {
     const [a, b] = normaliseSlides([
       { type: 'stats', title: 'x', body: { stats: [], items: ['a'] } },

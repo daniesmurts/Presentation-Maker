@@ -74,3 +74,29 @@ describe('Design v3 (L2) types', () => {
     expect(findOverfullSlides([mk('quote', { quote: 'слово '.repeat(70), attribution: null })])).toHaveLength(1)
   })
 })
+
+// Fitting (shared/slideGeometry.ts) — the estimates the .pptx exporter
+// lives by. Calibrated on the first real deck of Design v3 (2026-09-15).
+import { titleLines, fitTitle, fitList, listHeight, G } from '../../../shared/slideGeometry'
+
+describe('titleLines / fitTitle / fitList', () => {
+  it('sets «Мультисенсорный опыт: печать + цифра» in two lines at the header size — PowerPoint did, 0.55 said one', () => {
+    expect(titleLines('Мультисенсорный опыт: печать + цифра', 88, G.titleSize)).toBe(2)
+  })
+  it('a four-line section title shrinks until it fits three; a short one keeps its size', () => {
+    const w = 88 * (G.tsMaxW / 100)
+    const long = fitTitle('Часть 3: Возврат физического и мультисенсорного опыта', w, G.tsTitleSize, 3)
+    expect(long.lines).toBe(3)
+    expect(long.size).toBeLessThan(G.tsTitleSize)
+    expect(fitTitle('Проблема', w, G.tsTitleSize, 3)).toEqual({ size: G.tsTitleSize, lines: 1 })
+  })
+  it('a list that overruns its box shrinks to fit, never below 70 %', () => {
+    const items = Array.from({ length: 9 }, () => 'Красота как самоцель, часто в ущерб смыслу и читателю')
+    const avail = 30
+    const size = fitList(items, 88, G.bodySize, avail)
+    expect(size).toBeLessThan(G.bodySize)
+    expect(size).toBeGreaterThanOrEqual(G.bodySize * 0.7 * 0.94)   // the last 6 % step may land just under the floor
+    expect(listHeight(['раз', 'два'], 88, G.bodySize)).toBeLessThan(avail)
+    expect(fitList(['раз', 'два'], 88, G.bodySize, avail)).toBe(G.bodySize)
+  })
+})

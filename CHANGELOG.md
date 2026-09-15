@@ -33,6 +33,33 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 
 ## [Unreleased]
 
+### Fixed
+- **Text that does not fit now shrinks; it used to overflow** — the first
+  real deck of Design v3 (2026-09-15, «Understanding Editorial Design»,
+  opened in PowerPoint): a four-line section title over its kicker and
+  rule, a header title touching the top edge, bullets running through
+  «10 / 10» and off the slide, «04» in the agenda folded into «0 / 4». One
+  cause: PowerPoint applies `normAutofit` only when a box is edited — on
+  open, a box with more text than its height simply overflows, so
+  `fit: 'shrink'` was doing nothing. The exporter now ESTIMATES lines
+  (`shared/slideGeometry.ts` — `fitTitle`, `fitList`) and steps the size
+  down until the estimate fits; the PDF does the same against pdfkit's
+  real metrics (`shrinkToLines`, a `bullets()` that no longer drops the
+  items past `maxY`); the stage runs the shared estimate, so the preview
+  shrinks where the deck will. Glyph widths measured in the browser on
+  the deck's own text: Georgia bold 0.59 em, regular 0.51, italic 0.53,
+  Arial 0.505 — shipped as 0.62 / 0.55 / 0.56 with the wrap loss, on the
+  wide side because an extra estimated line moves a rule down a little
+  and a missing one is an overlap (0.55 for bold said «Мультисенсорный
+  опыт: печать + цифра» was one line; it was two). Text boxes get
+  `margin: 0` — pptxgenjs's 0.1 in inset was the «0 / 4», and no other
+  renderer had it. Agenda rows are as tall as their text. A concept's
+  definition is capped at three lines and its panel follows; the floor
+  for a list is 0.7 × the size, past which slideFit's warning is the cue.
+  And the model says the part twice — «Часть 2: …» with kicker «Часть 2»
+  — so the normaliser moves the label into the kicker and `sectionTitle()`
+  hides it on rows written before that.
+
 ### Added
 - **Design v3, layer 2 — the model is an art director inside an enum;
   five slide types for rhythm** (TODO L2). A slide (and an outline row)

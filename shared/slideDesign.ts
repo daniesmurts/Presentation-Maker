@@ -69,3 +69,12 @@ export function isDefaultDesign(type: SlideType, design: SlideDesign | undefined
 // quote, a question, a call to action, a picture. Everything with body
 // text is quiet unless its design asks for the pattern.
 export const HERO_TYPES: readonly SlideType[] = ['title', 'section', 'quote', 'image-full', 'discussion', 'cta']
+
+/** A section's title without the part label the kicker already says —
+ *  «Часть 2: Аутентичность…» + kicker «Часть 2» → «Аутентичность…». The
+ *  normaliser moves the label at write time; this covers rows written
+ *  before it did (the first real deck of L2), at every renderer. */
+export function sectionTitle(slide: { title: string; body: { kicker: string | null } }): string {
+  const m = slide.title.match(/^(часть|глава|раздел|блок|part|section|chapter)\s*(\d+|[IVX]+)\s*[:.—–-]\s*(.+)$/iu)
+  return m ? m[3].trim() : slide.title
+}

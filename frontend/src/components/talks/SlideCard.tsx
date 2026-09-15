@@ -7,6 +7,7 @@ import SlideEditor from './SlideEditor'
 import Button from '../ui/Button'
 import { inputClass } from '../ui/Field'
 import { copy, SLIDE_TYPE_LABEL } from '../../lib/copy'
+import { sectionTitle } from '../../../../shared/slideDesign'
 
 // Editing is a set of callbacks the page owns; the card only knows which
 // mode it is in. `busy` disables every action while any write is in flight
@@ -248,7 +249,7 @@ function Body({ slide, imageSlot }: { slide: Slide; imageSlot: React.ReactNode }
       return (
         <div className="py-2">
           {slide.body.kicker && <div className="eyebrow text-accent mb-2">{slide.body.kicker}</div>}
-          <h3 className="display font-semibold text-[30px] leading-tight text-ink"><InlineText text={slide.title} /></h3>
+          <h3 className="display font-semibold text-[30px] leading-tight text-ink"><InlineText text={sectionTitle(slide)} /></h3>
           {slide.body.lead && <p className="text-[15px] text-ink-secondary mt-2 max-w-[60ch]"><InlineText text={slide.body.lead} /></p>}
         </div>
       )

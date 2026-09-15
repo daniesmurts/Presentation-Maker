@@ -65,12 +65,63 @@ export const pt   = (v: number, widthPt = 720) => (v / 100) * widthPt
 /** Percent of width → inches, for a 10 in slide. */
 export const inch = (v: number, widthIn = 10) => (v / 100) * widthIn
 
-/** Rough line count for a text box the .pptx exporter cannot measure. An
- *  average Cyrillic glyph in Georgia bold / Arial is ≈0.55 × the font size
- *  wide — 0.5 estimated two lines for a title PowerPoint set in three, and
- *  the title climbed into the rule above it (first PowerPoint check of
- *  themes v2). `size` and `widthPct` in percent of the slide width. */
-export function titleLines(text: string, widthPct: number = 100 - G.marginX * 2, size: number = G.titleSize): number {
-  const perLine = Math.max(6, Math.floor(widthPct / (size * 0.55)))
+// ─── Fitting text the .pptx exporter cannot measure ─────────────────────────
+//
+// PowerPoint applies `normAutofit` only when a box is EDITED; on open a box
+// with more text than its height holds simply overflows — upward for a
+// bottom-anchored title (into the kicker and the rule), downward for a
+// list (through the footer, off the slide). Both shipped in the first real
+// deck of Design v3 (2026-09-15, «Аутентичность как конкурентное
+// преимущество» in four lines over «ЧАСТЬ 2»; a bullets slide running
+// through «10 / 10»). So the exporter ESTIMATES lines from glyph widths
+// and, when the estimate does not fit, shrinks the size until it does —
+// the same arithmetic on the stage, so the preview shows the shrink too.
+//
+// Average advance per Cyrillic glyph, as a fraction of the size: Georgia
+// bold ≈ 0.62 (0.55 estimated «Мультисенсорный опыт: печать + цифра» as one
+// line; PowerPoint set it in two, and the title touched the top edge),
+// Arial regular ≈ 0.56. Both are deliberately on the wide side: an extra
+// estimated line moves a rule down a little; a missing one is an overlap.
+export const DISPLAY_EM = 0.62
+/** Georgia REGULAR / italic — the definition, the quote, the question —
+ *  is narrower than the bold: 0.62 on a four-line definition left the
+ *  concept slide's list at the shrink floor for no reason. */
+export const DISPLAY_REGULAR_EM = 0.55
+export const BODY_EM    = 0.56
+
+/** Lines a text takes in a box `widthPct` wide at `size` (percent of the
+ *  slide width), for the display face. */
+export function titleLines(text: string, widthPct: number = 100 - G.marginX * 2, size: number = G.titleSize, em: number = DISPLAY_EM): number {
+  const perLine = Math.max(6, Math.floor(widthPct / (size * em)))
   return Math.max(1, Math.ceil(text.length / perLine))
+}
+
+/** The largest size ≤ `size` at which `text` fits in `maxLines`, stepping
+ *  down 6 % at a time to a floor of `minScale` × size. Past the floor the
+ *  text still overflows and the fit-warning (slideFit) is the user's cue. */
+export function fitTitle(text: string, widthPct: number, size: number, maxLines: number, em: number = DISPLAY_EM, minScale = 0.6): { size: number; lines: number } {
+  let s = size
+  while (s > size * minScale && titleLines(text, widthPct, s, em) > maxLines) s *= 0.94
+  return { size: s, lines: Math.min(maxLines, titleLines(text, widthPct, s, em)) }
+}
+
+/** Lines a bulleted list takes: each item wrapped in the width less the
+ *  bullet indent, in the body face. */
+export function listLines(items: string[], widthPct: number, size: number, indentPct: number = G.bulletIndent): number {
+  return items.reduce((n, t) => n + titleLines(t, widthPct - indentPct, size, BODY_EM), 0)
+}
+
+/** Height of a list in percent of the slide width: lines × leading + a gap per item. */
+export function listHeight(items: string[], widthPct: number, size: number, line: number = G.bodyLine, gap: number = G.bodyGap, indentPct: number = G.bulletIndent): number {
+  return listLines(items, widthPct, size, indentPct) * size * line + items.length * gap
+}
+
+/** The largest size ≤ `size` at which the list fits `availPct` of height
+ *  (percent of the slide width, like everything here). Floor 0.7: below
+ *  that a list is unreadable from the back row, and slideFit has already
+ *  told the user the slide is over budget. */
+export function fitList(items: string[], widthPct: number, size: number, availPct: number, line: number = G.bodyLine, gap: number = G.bodyGap, indentPct: number = G.bulletIndent, minScale = 0.7): number {
+  let s = size
+  while (s > size * minScale && listHeight(items, widthPct, s, line, gap, indentPct) > availPct) s *= 0.94
+  return s
 }

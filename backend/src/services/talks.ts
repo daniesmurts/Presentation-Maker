@@ -873,7 +873,13 @@ function coerceSlide(input: unknown, validIdx: Set<number>, slideNumber: number,
       result = s; break
     }
     case 'section': {
-      const s: Omit<SectionSlide, 'citations'> = { type, title, notes, body: { kicker: strOrNull(body.kicker), lead: strOrNull(body.lead) } }
+      // «Часть 2: Аутентичность…» with kicker «Часть 2» — the model says
+      // the part twice (first real deck of L2). The label belongs to the
+      // kicker; the title is the section's name. Moved, not dropped, when
+      // the kicker is empty.
+      const m = title.match(/^(часть|глава|раздел|блок|part|section|chapter)\s*(\d+|[IVX]+)\s*[:.—–-]\s*(.+)$/iu)
+      const kicker = strOrNull(body.kicker) ?? (m ? `${m[1]} ${m[2]}` : null)
+      const s: Omit<SectionSlide, 'citations'> = { type, title: m ? m[3].trim() : title, notes, body: { kicker, lead: strOrNull(body.lead) } }
       result = s; break
     }
     case 'agenda': {

@@ -1,7 +1,8 @@
 import type { Slide } from '../../../../shared/types'
 import type { ThemeSwatch } from '../../api/brand'
-import { G } from '../../../../shared/slideGeometry'
+import { G, fitTitle, fitList, DISPLAY_REGULAR_EM } from '../../../../shared/slideGeometry'
 import { backgroundSvg, backgroundCssUrl, backgroundRole, hasTreatment, SOLID } from '../../../../shared/slideBackground'
+import { sectionTitle } from '../../../../shared/slideDesign'
 import { BlockMath, InlineText } from './Math'
 
 // A slide drawn at slide proportions for the projector — 960×540 CSS px,
@@ -31,7 +32,13 @@ export default function SlideStage({ slide, theme, scale, index = 0, total = 1, 
   const hasSide = Boolean(image) && !['title', 'section', 'agenda', 'stats', 'quote', 'image-full', 'summary', 'cta', 'diagram'].includes(slide.type)
   // Design v3 (L2): the colour of a slide's big element under its design.
   const emphasis = slide.design?.emphasis === 'plain' ? c.ink : c.accent
+  // The header's fitted size and the content region under it, in px — the
+  // lists below shrink into their share of it (slideGeometry.ts fitList).
   const m = U(G.marginX)
+  const headFit = fitTitle(slide.title, 100 - G.marginX * 2, G.titleSize, 2)
+  const qW = (hasSide ? STAGE_W - 2 * m - 288 - 28 : STAGE_W - 2 * m)
+  const qFit = fitTitle(slide.type === 'discussion' ? slide.body.question : slide.type === 'cta' ? slide.body.action : '', (qW / STAGE_W) * 100 * (G.qMaxW / 100), G.qSize, 3, slide.type === 'discussion' ? DISPLAY_REGULAR_EM : undefined)
+  const regionH = STAGE_H - U(G.top) - U(headFit.size * G.titleLine) * headFit.lines - U(G.titlePad) - U(G.rule) - U(G.titleGap) - U(G.bottom)
   const pad2 = (n: number) => String(n).padStart(2, '0')
   const kick = (text: string, color = c.accent) => (
     <div style={{ fontSize: U(G.kickSize), letterSpacing: '0.14em', textTransform: 'uppercase', color, fontWeight: 700, fontFamily: BODY }}><InlineText text={text} /></div>
@@ -52,7 +59,7 @@ export default function SlideStage({ slide, theme, scale, index = 0, total = 1, 
               <div style={{ width: U(G.tsRuleW), height: U(G.tsRuleH), background: c.accent, marginBottom: U(G.tsRuleGap) }} />
               {slide.type === 'title' && slide.body.subtitle && <div style={{ marginBottom: U(G.tsKickGap) }}>{kick(slide.body.subtitle, c.ink2)}</div>}
               {slide.type === 'section' && slide.body.kicker && <div style={{ marginBottom: U(G.tsKickGap) }}>{kick(slide.body.kicker, emphasis)}</div>}
-              <h1 style={{ margin: 0, fontFamily: DISPLAY, fontWeight: 700, fontSize: U(G.tsTitleSize), lineHeight: G.titleLine, letterSpacing: '-0.01em', maxWidth: `${G.tsMaxW}%`, textWrap: 'balance' }}><InlineText text={slide.title} /></h1>
+              <h1 style={{ margin: 0, fontFamily: DISPLAY, fontWeight: 700, fontSize: U(fitTitle(slide.type === 'section' ? sectionTitle(slide) : slide.title, (100 - G.marginX * 2) * (G.tsMaxW / 100), G.tsTitleSize, 3).size), lineHeight: G.titleLine, letterSpacing: '-0.01em', maxWidth: `${G.tsMaxW}%`, textWrap: 'balance' }}><InlineText text={slide.type === 'section' ? sectionTitle(slide) : slide.title} /></h1>
               {slide.type === 'title' && slide.body.presenter && <div style={{ marginTop: U(G.tsTitleGap), fontSize: U(G.tsWhoSize), color: c.ink2 }}>{slide.body.presenter}</div>}
               {slide.type === 'section' && slide.body.lead && <div style={{ marginTop: U(G.tsTitleGap), fontSize: U(G.tsWhoSize), color: c.ink2, maxWidth: `${G.tsMaxW}%` }}><InlineText text={slide.body.lead} /></div>}
             </div>
@@ -80,11 +87,12 @@ export default function SlideStage({ slide, theme, scale, index = 0, total = 1, 
           <>
             <div style={{ position: 'absolute', left: m, right: hasSide ? m + 288 + 28 : m, top: U(G.top) + 36, bottom: U(G.bottom) }}>
               {kick(slide.title)}
-              <div style={{ marginTop: U(G.tsKickGap), fontFamily: DISPLAY, fontSize: U(G.qSize), lineHeight: G.titleLine, maxWidth: `${G.qMaxW}%`, fontStyle: slide.type === 'discussion' ? 'italic' : 'normal', fontWeight: slide.type === 'discussion' ? 400 : 700 }}>
+              <div style={{ marginTop: U(G.tsKickGap), fontFamily: DISPLAY, fontSize: U(qFit.size), lineHeight: G.titleLine, maxWidth: `${G.qMaxW}%`, fontStyle: slide.type === 'discussion' ? 'italic' : 'normal', fontWeight: slide.type === 'discussion' ? 400 : 700 }}>
                 <InlineText text={slide.type === 'discussion' ? slide.body.question : slide.body.action} />
               </div>
               <div style={{ marginTop: U(G.titleGap) }}>
-                <List items={slide.type === 'discussion' ? slide.body.prompts : slide.body.reasons} c={c} size={U(G.subSize)} color={c.ink2} />
+                <List items={slide.type === 'discussion' ? slide.body.prompts : slide.body.reasons} c={c} size={U(G.subSize)} color={c.ink2}
+                      box={{ h: STAGE_H - U(G.top) - 36 - U(G.kickSize) * 1.6 - U(G.tsKickGap) - U(qFit.size * G.titleLine) * qFit.lines - U(G.titleGap) - U(G.bottom) - (slide.type === 'cta' && slide.body.contact ? U(G.subSize) * 2 : 0), w: qW }} />
                 {slide.type === 'cta' && slide.body.contact && <div style={{ marginTop: U(G.bodyGap), fontSize: U(G.subSize), fontWeight: 700, color: c.accent }}>{slide.body.contact}</div>}
               </div>
             </div>
@@ -93,9 +101,10 @@ export default function SlideStage({ slide, theme, scale, index = 0, total = 1, 
         ) : (
           <>
             <div style={{ position: 'absolute', left: m, right: m, top: U(G.top), bottom: U(G.bottom), display: 'flex', flexDirection: 'column' }}>
-              <h2 style={{ margin: 0, paddingBottom: U(G.titlePad), borderBottom: `${U(G.rule)}px solid ${c.accent}`, fontFamily: DISPLAY, fontWeight: 700, fontSize: U(G.titleSize), lineHeight: G.titleLine, letterSpacing: '-0.01em', textWrap: 'balance' }}><InlineText text={slide.title} /></h2>
+              {/* The same shrink the exporters apply (slideGeometry.ts fitTitle): a title past two lines gets smaller, here as there. */}
+              <h2 style={{ margin: 0, paddingBottom: U(G.titlePad), borderBottom: `${U(G.rule)}px solid ${c.accent}`, fontFamily: DISPLAY, fontWeight: 700, fontSize: U(headFit.size), lineHeight: G.titleLine, letterSpacing: '-0.01em', textWrap: 'balance' }}><InlineText text={slide.title} /></h2>
               <div style={{ marginTop: U(G.titleGap), flex: 1, minHeight: 0, marginRight: hasSide ? 288 + 28 : 0 }}>
-                <Body slide={slide} c={c} emphasis={emphasis} />
+                <Body slide={slide} c={c} emphasis={emphasis} regionH={regionH} regionW={hasSide ? STAGE_W - 2 * m - 288 - 28 : STAGE_W - 2 * m} />
               </div>
             </div>
             {hasSide && image && (
@@ -111,9 +120,13 @@ export default function SlideStage({ slide, theme, scale, index = 0, total = 1, 
   )
 }
 
-function List({ items, c, size, color }: { items: string[]; c: { accent: string }; size: number; color?: string }) {
+// `box`: the height and width the list may take, in px — the size shrinks
+// to fit, as in the exporters (the same arithmetic, so the preview shows
+// what the deck will).
+function List({ items, c, size, color, box }: { items: string[]; c: { accent: string }; size: number; color?: string; box: { h: number; w: number } }) {
+  const fitted = U(fitList(items, (box.w / STAGE_W) * 100, size / (STAGE_W / 100), (box.h / STAGE_W) * 100))
   return (
-    <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: U(G.bodyGap), fontSize: size, color }}>
+    <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: U(G.bodyGap), fontSize: fitted, color }}>
       {items.map((t, i) => (
         <li key={i} style={{ position: 'relative', paddingLeft: U(G.bulletIndent) }}>
           <span style={{ position: 'absolute', left: 0, top: '0.55em', width: U(G.bullet), height: U(G.bullet), borderRadius: '50%', background: c.accent }} aria-hidden />
@@ -128,17 +141,19 @@ function Panel({ children, c }: { children: React.ReactNode; c: { panel: string 
   return <div style={{ background: c.panel, borderRadius: U(G.fRadius), padding: `${U(G.fPadY)}px ${U(G.fPadX)}px` }}>{children}</div>
 }
 
-function Body({ slide, c, emphasis }: { slide: Slide; c: { bg: string; ink: string; ink2: string; accent: string; panel: string }; emphasis: string }) {
+function Body({ slide, c, emphasis, regionH, regionW }: { slide: Slide; c: { bg: string; ink: string; ink2: string; accent: string; panel: string }; emphasis: string; regionH: number; regionW: number }) {
+  const full = { h: regionH, w: regionW }
   switch (slide.type) {
     case 'bullets': {
       const items = slide.body.items
       if (slide.design?.variant === 'split' && items.length >= 4 && !slide.image) {
         const half = Math.ceil(items.length / 2)
+        const col = { h: regionH, w: (regionW - U(G.sGap)) / 2 }
         return <div style={{ display: 'grid', gap: U(G.sGap), gridTemplateColumns: '1fr 1fr' }}>
-          <List items={items.slice(0, half)} c={c} size={U(G.bodySize)} /><List items={items.slice(half)} c={c} size={U(G.bodySize)} />
+          <List items={items.slice(0, half)} c={c} size={U(G.bodySize)} box={col} /><List items={items.slice(half)} c={c} size={U(G.bodySize)} box={col} />
         </div>
       }
-      return <List items={items} c={c} size={U(G.bodySize)} />
+      return <List items={items} c={c} size={U(G.bodySize)} box={full} />
     }
     case 'agenda': {
       const items = slide.body.items
@@ -178,11 +193,16 @@ function Body({ slide, c, emphasis }: { slide: Slide; c: { bg: string; ink: stri
         </div>
         {slide.body.caption && <p style={{ margin: '8px 0 0', fontSize: U(G.subSize), color: c.ink2 }}><InlineText text={slide.body.caption} /></p>}
       </div>
-    case 'concept':
+    case 'concept': {
+      // The definition at most three lines, shrunk like the exporters do; the
+      // panel's height follows it, and the list takes what is left.
+      const dfit = fitTitle(slide.body.definition, ((regionW - U(G.fPadX) * 2) / STAGE_W) * 100, G.bodySize, 3, DISPLAY_REGULAR_EM)
+      const panelH = U(dfit.size * 1.3) * dfit.lines + U(G.fPadY) * 2
       return <>
-        <Panel c={c}><div style={{ fontFamily: DISPLAY, fontSize: U(G.bodySize), lineHeight: 1.3 }}><InlineText text={slide.body.definition} /></div></Panel>
-        <div style={{ marginTop: U(G.fExGap) }}><List items={slide.body.supporting} c={c} size={U(G.subSize)} color={c.ink2} /></div>
+        <Panel c={c}><div style={{ fontFamily: DISPLAY, fontSize: U(dfit.size), lineHeight: 1.3 }}><InlineText text={slide.body.definition} /></div></Panel>
+        <div style={{ marginTop: U(G.fExGap) }}><List items={slide.body.supporting} c={c} size={U(G.subSize)} color={c.ink2} box={{ h: regionH - panelH - U(G.fExGap), w: regionW }} /></div>
       </>
+    }
     case 'formula':
       return <>
         <Panel c={c}>
@@ -202,7 +222,7 @@ function Body({ slide, c, emphasis }: { slide: Slide; c: { bg: string; ink: stri
       return <div style={{ display: 'grid', gap: U(G.sGap), gridTemplateColumns: `repeat(${slide.body.columns.length}, minmax(0, 1fr))` }}>
         {slide.body.columns.map((col, i) => <div key={i} style={{ borderTop: `${U(G.rule) * 1.6}px solid ${c.ink}`, paddingTop: 6 }}>
           <div style={{ fontSize: U(G.kickSize), letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 700, color: c.accent, marginBottom: 8 }}><InlineText text={col.header} /></div>
-          <List items={col.items} c={c} size={U(G.subSize)} />
+          <List items={col.items} c={c} size={U(G.subSize)} box={{ h: regionH - U(G.rule) * 1.6 - 6 - U(G.kickSize) * 1.6 - 8, w: (regionW - U(G.sGap) * (slide.body.columns.length - 1)) / slide.body.columns.length }} />
         </div>)}
       </div>
     case 'diagram':
@@ -211,16 +231,19 @@ function Body({ slide, c, emphasis }: { slide: Slide; c: { bg: string; ink: stri
           {slide.body.image ? <img src={slide.body.image.url} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} /> : <span style={{ fontSize: U(G.subSize), color: c.ink2 }}>{slide.body.image_query}</span>}
         </div>
         {slide.body.caption && <p style={{ margin: '8px 0 0', fontSize: U(G.subSize), fontWeight: 700 }}><InlineText text={slide.body.caption} /></p>}
-        {slide.body.points.length > 0 && <div style={{ marginTop: 6 }}><List items={slide.body.points} c={c} size={U(G.subSize * 0.85)} color={c.ink2} /></div>}
+        {slide.body.points.length > 0 && <div style={{ marginTop: 6 }}><List items={slide.body.points} c={c} size={U(G.subSize * 0.85)} color={c.ink2} box={{ h: 64, w: regionW }} /></div>}
       </div>
     case 'summary': {
       const [a, b] = G.sCols
-      return <div style={{ display: 'grid', gap: U(G.sGap), gridTemplateColumns: slide.body.next_steps.length > 0 ? `${a}fr ${b}fr` : '1fr', alignItems: 'start' }}>
-        <List items={slide.body.takeaways} c={c} size={U(G.bodySize)} />
+      const hasNext = slide.body.next_steps.length > 0
+      const leftW = hasNext ? ((regionW - U(G.sGap)) * a) / (a + b) : regionW
+      const rightW = regionW - U(G.sGap) - leftW
+      return <div style={{ display: 'grid', gap: U(G.sGap), gridTemplateColumns: hasNext ? `${a}fr ${b}fr` : '1fr', alignItems: 'start' }}>
+        <List items={slide.body.takeaways} c={c} size={U(G.bodySize)} box={{ h: regionH, w: leftW }} />
         {slide.body.next_steps.length > 0 && (
           <div style={{ background: c.panel, borderRadius: U(G.fRadius), padding: `${U(G.sPanelPadY)}px ${U(G.sPanelPadX)}px` }}>
             <div style={{ fontSize: U(G.kickSize), letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 700, color: c.accent, marginBottom: 8 }}>Что дальше</div>
-            <List items={slide.body.next_steps} c={c} size={U(G.subSize)} />
+            <List items={slide.body.next_steps} c={c} size={U(G.subSize)} box={{ h: regionH - U(G.sPanelPadY) * 2 - U(G.kickSize) * 1.6 - 8, w: rightW - U(G.sPanelPadX) * 2 }} />
           </div>
         )}
       </div>
