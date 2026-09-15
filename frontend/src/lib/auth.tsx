@@ -6,9 +6,11 @@ interface AuthState {
   loading:  boolean
   setUser:  (u: User | null) => void
   logout:   () => Promise<void>
+  /** Re-read /me — the quota moved (a download, a new talk). */
+  refresh:  () => Promise<void>
 }
 
-const Ctx = createContext<AuthState>({ user: null, loading: true, setUser: () => {}, logout: async () => {} })
+const Ctx = createContext<AuthState>({ user: null, loading: true, setUser: () => {}, logout: async () => {}, refresh: async () => {} })
 export const useAuth = () => useContext(Ctx)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -20,6 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const logout = async () => { await apiLogout().catch(() => null); setUser(null) }
+  const refresh = async () => { try { setUser(await me()) } catch { /* keep what we have */ } }
 
-  return <Ctx.Provider value={{ user, loading, setUser, logout }}>{children}</Ctx.Provider>
+  return <Ctx.Provider value={{ user, loading, setUser, logout, refresh }}>{children}</Ctx.Provider>
 }

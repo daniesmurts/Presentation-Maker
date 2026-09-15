@@ -5,16 +5,24 @@ import { asyncHandler } from '../lib/asyncHandler'
 import { signToken } from '../lib/jwt'
 import { setSessionCookie, clearSessionCookie } from '../lib/session'
 import { createUserWithWorkspace, findUserByEmail, findPublicUserById, type PublicUser } from '../db/queries/users'
-import { PLAN_LIMITS, tierOf } from '../lib/planTier'
+import { quotaOf } from '../lib/planTier'
+import { countTalksThisMonth } from '../db/queries/talks'
+import { countDownloadsThisMonth } from '../db/queries/talkEvents'
 import { recordTermsAcceptance } from '../db/queries/consent'
 import { passwordIsStrong, PASSWORD_RULES } from '../../../shared/password'
 import { config } from '../lib/config'
 
-// The UI reads the gate from here, never from the tier name: whether .pptx
-// is locked depends on billing being on in THIS installation.
-function withFeatures(user: PublicUser | null): PublicUser | null {
+// The UI reads the gate from here, never from the tier name: what is locked
+// depends on the tier AND on billing being on in THIS installation, and
+// on what was already used this month (quota). Three counts per /me — cheap
+// (indexed by workspace and month), and the menu must know before the
+// click, because a plain <a download> saves a 403 JSON as a file.
+async function withFeatures(user: PublicUser | null): Promise<PublicUser | null> {
   if (!user) return null
-  return { ...user, features: { pptxExport: PLAN_LIMITS[tierOf(user.plan_tier)].features.pptxExport, billing: config.billing.enabled } }
+  const [talks, pptx, pdf] = await Promise.all([
+    countTalksThisMonth(user.workspace_id), countDownloadsThisMonth(user.workspace_id, 'pptx'), countDownloadsThisMonth(user.workspace_id, 'pdf'),
+  ])
+  return { ...user, features: { billing: config.billing.enabled }, quota: quotaOf(user.plan_tier, { talks, pptx, pdf }) }
 }
 import { authenticate } from '../middleware/authenticate'
 import { UnauthorizedError, ValidationError } from '../errors/AppError'
@@ -52,7 +60,7 @@ authRouter.post('/register', authLimiter, asyncHandler(async (req, res) => {
   const user = await createUserWithWorkspace(email, await bcrypt.hash(password, 12), displayName)
   await recordTermsAcceptance(user.id)
   setSessionCookie(res, signToken({ id: user.id, ws: user.workspace_id }))
-  res.status(201).json({ user: withFeatures(await findPublicUserById(user.id)) })
+  res.status(201).json({ user: await withFeatures(await findPublicUserById(user.id)) })
 }))
 
 authRouter.post('/login', authLimiter, asyncHandler(async (req, res) => {
@@ -61,7 +69,7 @@ authRouter.post('/login', authLimiter, asyncHandler(async (req, res) => {
   // Same message for "no such user" and "wrong password".
   if (!user || !(await bcrypt.compare(password, user.password_hash))) throw new UnauthorizedError('Неверный e-mail или пароль')
   setSessionCookie(res, signToken({ id: user.id, ws: user.workspace_id }))
-  res.json({ user: withFeatures(await findPublicUserById(user.id)) })
+  res.json({ user: await withFeatures(await findPublicUserById(user.id)) })
 }))
 
 authRouter.post('/logout', (_req, res) => {
@@ -69,6 +77,6 @@ authRouter.post('/logout', (_req, res) => {
   res.status(204).end()
 })
 
-authRouter.get('/me', authenticate, (req, res) => {
-  res.json({ user: withFeatures(req.user) })
-})
+authRouter.get('/me', authenticate, asyncHandler(async (req, res) => {
+  res.json({ user: await withFeatures(req.user) })
+}))

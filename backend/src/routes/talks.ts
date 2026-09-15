@@ -9,12 +9,12 @@ import { TALK_JOB_QUEUE, type TalkJobPayload } from '../services/talkJobWorker'
 import { normaliseEditedOutline, normaliseEditedSlide, regenerateSlide, applySlideMove, type GenerateParams } from '../services/talks'
 import { createTalkJob, getTalkJobById, confirmTalkJobOutline, createRewriteJob, clearRewriteProposal, type TalkJobRow } from '../db/queries/talkJobs'
 import { findTalkById, listTalks, deleteTalk, replaceSlides, countTalksThisMonth, createTalk, setShareToken, setTalkApproved } from '../db/queries/talks'
-import { recordTalkEvent } from '../db/queries/talkEvents'
+import { recordTalkEvent, countDownloadsThisMonth } from '../db/queries/talkEvents'
 import { generateTalkPptx } from '../services/talkExport'
 import { generateTalkPdf } from '../services/talkPdf'
 import { randomBytes } from 'node:crypto'
 import { parseSlideSelection, selectSlides, selectionSuffix, SelectionError } from '../lib/slideSelection'
-import { assertPlanFeature, assertTalkQuota } from '../lib/planTier'
+import { assertDownloadQuota, assertTalkQuota } from '../lib/planTier'
 import { resolveBrandKit } from '../services/brandKit'
 import { THEMES } from '../services/themes'
 import { setTalkTheme } from '../db/queries/talks'
@@ -173,7 +173,7 @@ talksRouter.get('/:id', asyncHandler(async (req, res) => {
 // GET /api/talks/:id/export.pptx[?slides=2,3,5] — the native deck. This is
 // the product (CLAUDE.md §2); the pricing gate sits on it (lib/planTier.ts).
 talksRouter.get('/:id/export.pptx', asyncHandler(async (req, res) => {
-  assertPlanFeature(req.user.plan_tier, 'pptxExport')
+  assertDownloadQuota(req.user.plan_tier, 'pptx', await countDownloadsThisMonth(req.user.workspace_id, 'pptx'))
   const talk = await findTalkById(req.params.id, req.user.workspace_id)
   if (!talk) throw new NotFoundError('Выступление не найдено')
   if (!talk.slides || talk.slides.length === 0) throw new ValidationError('У этого выступления ещё нет слайдов')
@@ -398,9 +398,10 @@ talksRouter.delete('/:id/slides/:idx/image', asyncHandler(async (req, res) => {
 
 // GET /api/talks/:id/export.pdf[?slides=…][&notes=1] — the slides as a PDF:
 // one 16:9 page per slide in the talk's theme and brand, optionally a notes
-// page after each. Not gated: the .pptx is the editable artefact the gate
-// exists for; the PDF is what gets sent to someone.
+// page after each. Quota-gated like the .pptx since 2026-09-15 (free: two a
+// month) — a PDF is the artefact that gets sent to someone, which is use.
 talksRouter.get('/:id/export.pdf', asyncHandler(async (req, res) => {
+  assertDownloadQuota(req.user.plan_tier, 'pdf', await countDownloadsThisMonth(req.user.workspace_id, 'pdf'))
   const talk = await findTalkById(req.params.id, req.user.workspace_id)
   if (!talk) throw new NotFoundError('Выступление не найдено')
   if (!talk.slides || talk.slides.length === 0) throw new ValidationError('У этого выступления ещё нет слайдов')

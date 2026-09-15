@@ -19,7 +19,8 @@ export interface PublicUser {
   plan_tier:    string
   plan_expires_at: string | null
   /** What this tier may do here — set by the auth route from lib/planTier.ts. */
-  features?:    { pptxExport: boolean; billing: boolean }
+  features?:    { billing: boolean }
+  quota?:       Record<'talks' | 'pptx' | 'pdf', { used: number; limit: number | null }>
 }
 
 export async function findUserByEmail(email: string): Promise<UserRow | null> {

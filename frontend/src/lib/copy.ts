@@ -72,6 +72,8 @@ export const copy = {
     talks: 'Выступления', newTalk: 'Новое выступление', newShort: 'Создать', brand: 'Бренд', plan: 'Тариф', logout: 'Выйти',
     works: 'Работы', workspace: 'Пространство', posts: 'Посты', ads: 'Реклама', soon: 'скоро',
     soonHint: (what: string) => `${what} — скоро. Тот же стол: тезисы → план → материал → экспорт.`,
+    // The rail's last line: the tier and this month's talks against the limit.
+    usage: (tier: string, used: number, limit: number | null) => limit == null ? tier : `${tier} · ${used} из ${limit} в этом месяце`,
   },
   auth: {
     loginTitle:    'Вход',
@@ -197,7 +199,7 @@ export const copy = {
     free:         'Бесплатный',
     pro:          'Pro',
     price:        (rub: number) => `${rub.toLocaleString('ru-RU')} ₽ в месяц`,
-    leadFree:     'Бесплатно — 10 выступлений в месяц, PDF, ссылка и режим докладчика. Pro — без ограничения по числу выступлений и с редактируемым .pptx.',
+    leadFree:     'Бесплатно — 2 выступления в месяц, 1 скачивание .pptx и 2 PDF, ссылка и режим докладчика. Pro — без ограничений.',
     leadPro:      'Выступлений без ограничения, редактируемый .pptx, PDF, ссылка и режим докладчика.',
     subscribe:    (rub: number) => `Перейти на Pro — ${rub.toLocaleString('ru-RU')} ₽ в месяц`,
     payAgain:     'Оплатить месяц',
@@ -226,6 +228,9 @@ export const copy = {
     off:          'Оплата в этой установке не подключена.',
     // Where a locked action sits (download menu, quota) — one line and a link.
     pptxLocked:   '.pptx — на тарифе Pro',
+    // The month's downloads of a format are used up: what happened, and the way out.
+    quotaUsed:    (fmt: string, limit: number) => `${fmt} — лимит на месяц исчерпан (${limit})`,
+    quotaLeft:    (fmt: string, left: number, limit: number) => `${fmt}: осталось ${left} из ${limit} в этом месяце`,
     upgradeLink:  'Перейти на Pro',
   },
   brandKit: {

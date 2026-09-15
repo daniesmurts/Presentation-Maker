@@ -24,8 +24,15 @@ export default function TalkPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { toast } = useToast()
-  const { user } = useAuth()
-  const pptxOpen = user?.features?.pptxExport ?? true
+  const { user, refresh } = useAuth()
+  // Downloads are metered per month on free (quota from /me). The menu must
+  // know before the click: a plain <a download> saves a 403 JSON as a file.
+  // After a click the count moves on the server, so /me is re-read a moment
+  // later and the next open of the menu shows the new state.
+  const left = (f: 'pptx' | 'pdf') => { const q = user?.quota?.[f]; return q && q.limit != null ? Math.max(0, q.limit - q.used) : Infinity }
+  const pptxOpen = left('pptx') > 0
+  const pdfOpen = left('pdf') > 0
+  const afterDownload = () => { setTimeout(() => void refresh(), 1500) }
   const { data: talk, isLoading, error } = useQuery({ queryKey: ['talk', id], queryFn: () => getTalk(id) })
   const { data: brandData } = useQuery({ queryKey: ['brand'], queryFn: getBrand, staleTime: 60_000 })
 
@@ -205,21 +212,31 @@ export default function TalkPage() {
                   403 JSON the browser would save as a file — so a locked .pptx
                   is a link to the tariff page, not a download that fails. */}
               {pptxOpen ? (
-                <a role="menuitem" href={`/api/talks/${id}/export.pptx${selQuery}`} download className="block px-3 py-2 text-sm text-ink hover:bg-surface-soft">
+                <a role="menuitem" href={`/api/talks/${id}/export.pptx${selQuery}`} download onClick={afterDownload} className="block px-3 py-2 text-sm text-ink hover:bg-surface-soft">
                   {selected.size > 0 ? copy.talk.downloadSelected('.pptx', selected.size) : copy.talk.downloadAll('.pptx')}
+                  {Number.isFinite(left('pptx')) && <span className="block text-xs text-ink-tertiary">{copy.billing.quotaLeft('.pptx', left('pptx'), user!.quota.pptx.limit!)}</span>}
                 </a>
               ) : (
                 <Link role="menuitem" to="/billing" className="flex items-center justify-between gap-2 px-3 py-2 text-sm text-ink-secondary hover:bg-surface-soft">
-                  {copy.billing.pptxLocked} <span className="text-accent text-xs font-medium">{copy.billing.upgradeLink} →</span>
+                  {copy.billing.quotaUsed('.pptx', user?.quota?.pptx.limit ?? 0)} <span className="text-accent text-xs font-medium">{copy.billing.upgradeLink} →</span>
                 </Link>
               )}
-              <a role="menuitem" href={`/api/talks/${id}/export.pdf${selQuery}`} download className="block px-3 py-2 text-sm text-ink hover:bg-surface-soft">
-                {selected.size > 0 ? copy.talk.downloadSelected('PDF', selected.size) : copy.talk.downloadAll('PDF')}
-              </a>
-              {talk.notes_enabled && (
-                <a role="menuitem" href={`/api/talks/${id}/export.pdf${selQuery}${selQuery ? '&' : '?'}notes=1`} download className="block px-3 py-2 text-sm text-ink hover:bg-surface-soft">
-                  {copy.talk.withNotes}
-                </a>
+              {pdfOpen ? (
+                <>
+                  <a role="menuitem" href={`/api/talks/${id}/export.pdf${selQuery}`} download onClick={afterDownload} className="block px-3 py-2 text-sm text-ink hover:bg-surface-soft">
+                    {selected.size > 0 ? copy.talk.downloadSelected('PDF', selected.size) : copy.talk.downloadAll('PDF')}
+                    {Number.isFinite(left('pdf')) && <span className="block text-xs text-ink-tertiary">{copy.billing.quotaLeft('PDF', left('pdf'), user!.quota.pdf.limit!)}</span>}
+                  </a>
+                  {talk.notes_enabled && (
+                    <a role="menuitem" href={`/api/talks/${id}/export.pdf${selQuery}${selQuery ? '&' : '?'}notes=1`} download onClick={afterDownload} className="block px-3 py-2 text-sm text-ink hover:bg-surface-soft">
+                      {copy.talk.withNotes}
+                    </a>
+                  )}
+                </>
+              ) : (
+                <Link role="menuitem" to="/billing" className="flex items-center justify-between gap-2 px-3 py-2 text-sm text-ink-secondary hover:bg-surface-soft">
+                  {copy.billing.quotaUsed('PDF', user?.quota?.pdf.limit ?? 0)} <span className="text-accent text-xs font-medium">{copy.billing.upgradeLink} →</span>
+                </Link>
               )}
               {selected.size > 0 && <button role="menuitem" type="button" onClick={() => setSelected(new Set())} className="block w-full text-left px-3 py-2 text-sm text-ink-secondary hover:bg-surface-soft">{copy.talk.clearSelection}</button>}
             </div>

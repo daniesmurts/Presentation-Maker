@@ -9,7 +9,9 @@ export interface User {
   plan_tier:    string
   plan_expires_at: string | null
   /** The gate as it stands in this installation (billing off → everything open). */
-  features:     { pptxExport: boolean; billing: boolean }
+  features:     { billing: boolean }
+  // used / limit this calendar month; limit null = no limit (backend/src/lib/planTier.ts quotaOf)
+  quota:        Record<'talks' | 'pptx' | 'pdf', { used: number; limit: number | null }>
 }
 
 export const me       = () => client.get<{ user: User }>('/api/auth/me').then((r) => r.data.user)

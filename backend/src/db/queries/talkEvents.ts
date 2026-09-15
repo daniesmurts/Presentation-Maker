@@ -19,3 +19,13 @@ export function recordTalkEvent(e: TalkEvent): void {
     [e.talkId, e.workspaceId, e.userId, e.event, e.format ?? null, e.metadata ? JSON.stringify(e.metadata) : null],
   ).catch((err) => logger.warn({ message: 'Failed to record talk event', error: (err as Error).message }))
 }
+
+/** Exports of `format` from this workspace since the start of the calendar month — the download quota's count. */
+export async function countDownloadsThisMonth(workspaceId: string, format: 'pptx' | 'pdf'): Promise<number> {
+  const { rows } = await pool.query<{ n: string }>(
+    `SELECT COUNT(*)::text AS n FROM talk_events
+      WHERE workspace_id = $1 AND event = 'exported' AND format = $2 AND created_at >= date_trunc('month', NOW())`,
+    [workspaceId, format],
+  )
+  return Number(rows[0]?.n ?? 0)
+}

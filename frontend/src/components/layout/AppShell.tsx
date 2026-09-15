@@ -52,7 +52,10 @@ export default function AppShell() {
           {user?.plan_tier === 'pro' && <span className="ml-auto text-[10px] uppercase tracking-[0.08em] bg-accent-light text-accent rounded-full px-1.5 leading-4">Pro</span>}
         </NavLink>
         <div className="mt-auto pt-3 border-t border-border flex items-center gap-1 px-1">
-          <span className="text-xs text-ink-secondary truncate min-w-0 flex-1">{user?.display_name || user?.email}</span>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs text-ink-secondary truncate">{user?.display_name || user?.email}</div>
+            {user?.quota && <NavLink to="/billing" className="block text-[11px] text-ink-tertiary hover:text-ink truncate">{copy.nav.usage(user.plan_tier === 'pro' ? 'Pro' : 'Free', user.quota.talks.used, user.quota.talks.limit)}</NavLink>}
+          </div>
           <ThemeToggle />
           <button onClick={signOut} title={copy.nav.logout} aria-label={copy.nav.logout}
                   className="h-9 w-9 inline-flex items-center justify-center rounded-md text-ink-secondary hover:text-ink hover:bg-surface flex-shrink-0">
