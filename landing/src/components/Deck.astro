@@ -1,7 +1,7 @@
 ---
 // Step 4 — the slides. The same demo talk drawn as 16:9 slides in the
-// three themes the exporter ships, from the exporter's own palettes
-// (backend/src/services/themes.ts — keep in step). Faces are the ones a
+// four themes the exporter ships, from the exporter's own palettes and
+// background recipes (backend/src/services/themes.ts — keep in step). Faces are the ones a
 // .pptx can carry without embedding (Georgia / Arial), so what is drawn
 // here is what opens in PowerPoint. The numbers in the CSS below are
 // shared/slideGeometry.ts (percent of width = cqw) — the exporter, the PDF
@@ -10,16 +10,25 @@
 // Sizes are in container-query units, so the same markup is the big stage
 // and the thumbnail strip.
 import talk from '../data/demo-talk.json'
+// Design v3: the background is the SAME drawing the exporters rasterise —
+// the shared module is imported at build time, so the site never carries
+// a copy of the SVG, only of the recipe (its numbers are the theme's).
+import { backgroundSvg, backgroundCssUrl, backgroundRole, hasTreatment, type BackgroundRecipe } from '../../../shared/slideBackground'
 
-const THEMES = [
-  { id: 'default', name: 'Тезариум', bg: '#FFFFFF', panel: '#EEF3F3', ink: '#16201F', ink2: '#57635F', accent: '#0F6E6E', accentText: '#FFFFFF' },
-  { id: 'dark',    name: 'Тёмная',   bg: '#15211F', panel: '#20302D', ink: '#F4F6F7', ink2: '#C5CFCC', accent: '#5FC4BE', accentText: '#15211F' },
-  { id: 'warm',    name: 'Тёплая',   bg: '#FBF8F2', panel: '#F3ECDF', ink: '#1F1A14', ink2: '#5C554B', accent: '#8A5C06', accentText: '#FFFFFF' },
+const THEMES: Array<{ id: string; name: string; bg: string; panel: string; ink: string; ink2: string; accent: string; accentText: string; background: BackgroundRecipe }> = [
+  { id: 'default', name: 'Тезариум', bg: '#FFFFFF', panel: '#EEF3F3', ink: '#16201F', ink2: '#57635F', accent: '#0F6E6E', accentText: '#FFFFFF', background: { kind: 'grid', hero: 0.12, quiet: 0.06 } },
+  { id: 'dark',    name: 'Тёмная',   bg: '#15211F', panel: '#20302D', ink: '#F4F6F7', ink2: '#C5CFCC', accent: '#5FC4BE', accentText: '#15211F', background: { kind: 'blob', hero: 0.22, quiet: 0.10 } },
+  { id: 'warm',    name: 'Тёплая',   bg: '#FBF8F2', panel: '#F3ECDF', ink: '#1F1A14', ink2: '#5C554B', accent: '#8A5C06', accentText: '#FFFFFF', background: { kind: 'wash', hero: 0.12, quiet: 0.05 } },
+  { id: 'bold',    name: 'Яркая',    bg: '#0B0F2A', panel: '#171C3F', ink: '#FFFFFF', ink2: '#C7CBE6', accent: '#FFB020', accentText: '#0B0F2A', background: { kind: 'band', hero: 1, quiet: 0.35 } },
 ]
 const slides = talk.slides as any[]
 const pad = (n: number) => String(n).padStart(2, '0')
 const latexToText = (s: string) => s.replace(/\\text\{([^}]*)\}/g, '$1').replace(/\s+-\s+/g, ' − ')
-const vars = (t: typeof THEMES[number]) => `--s-bg:${t.bg};--s-panel:${t.panel};--s-ink:${t.ink};--s-ink2:${t.ink2};--s-accent:${t.accent};--s-accent-text:${t.accentText}`
+const bgVar = (t: typeof THEMES[number], role: 'hero' | 'quiet') => {
+  const p = { bg: t.bg.slice(1), accent: t.accent.slice(1), ink: t.ink.slice(1), panel: t.panel.slice(1) }
+  return hasTreatment(t.background, role) ? backgroundCssUrl(backgroundSvg(p, t.background, role)) : 'none'
+}
+const vars = (t: typeof THEMES[number]) => `--s-bg:${t.bg};--s-panel:${t.panel};--s-ink:${t.ink};--s-ink2:${t.ink2};--s-accent:${t.accent};--s-accent-text:${t.accentText};--s-bg-hero:${bgVar(t, 'hero')};--s-bg-quiet:${bgVar(t, 'quiet')}`
 ---
 <div class="deck" id="deck" data-theme-id="default" data-slide="0" style={vars(THEMES[0])}>
   <div class="dhead">
@@ -30,12 +39,12 @@ const vars = (t: typeof THEMES[number]) => `--s-bg:${t.bg};--s-panel:${t.panel};
         </button>
       ))}
     </div>
-    <span class="muted small">три темы сегодня; цвет и логотип — ваши</span>
+    <span class="muted small">четыре темы сегодня; цвет и логотип — ваши</span>
   </div>
 
   <div class="stage-wrap">
     {slides.map((s, i) => (
-      <div class="slide" data-i={i} aria-hidden={i === 0 ? 'false' : 'true'}>
+      <div class={`slide ${backgroundRole(s.type)}`} data-i={i} aria-hidden={i === 0 ? 'false' : 'true'}>
         {/* The exporter puts the BRAND name on the title slide's footer, the talk's title on every other. */}
         <div class="foot"><span class="ft">{s.type === 'title' ? '' : talk.title}</span><span class="fn">{pad(i + 1)} / {pad(slides.length)}</span></div>
         {s.type === 'title' ? (
@@ -66,7 +75,7 @@ const vars = (t: typeof THEMES[number]) => `--s-bg:${t.bg};--s-panel:${t.panel};
   <div class="strip" role="tablist" aria-label="Слайды">
     {slides.map((s, i) => (
       <button type="button" role="tab" class="thumb" data-go={i} aria-selected={i === 0 ? 'true' : 'false'} aria-label={`Слайд ${i + 1}: ${s.title}`}>
-        <div class="slide mini" aria-hidden="true">
+        <div class={`slide mini ${backgroundRole(s.type)}`} aria-hidden="true">
           <div class="foot"><span class="ft">{s.type === 'title' ? '' : talk.title}</span><span class="fn">{pad(i + 1)} / {pad(slides.length)}</span></div>
           {s.type === 'title' ? (
             <div class="lay title"><div class="rule"></div><div class="kick">{s.body.subtitle}</div><h3 class="h">{s.title}</h3></div>
@@ -96,7 +105,9 @@ const vars = (t: typeof THEMES[number]) => `--s-bg:${t.bg};--s-panel:${t.panel};
   .stage-wrap .slide[aria-hidden="false"] { opacity: 1; }
 
   /* ── A slide. 16:9, everything in cqw so the thumbnail is the same drawing. ── */
-  .slide { container-type: inline-size; background: var(--s-bg); color: var(--s-ink); font-family: Arial, "Helvetica Neue", sans-serif; overflow: hidden; }
+  .slide { container-type: inline-size; background: var(--s-bg); color: var(--s-ink); font-family: Arial, "Helvetica Neue", sans-serif; overflow: hidden; background-size: 100% 100%; }
+  .slide.hero { background-image: var(--s-bg-hero); }
+  .slide.quiet { background-image: var(--s-bg-quiet); }
   .slide .lay { position: absolute; left: 6cqw; right: 6cqw; top: 6cqw; bottom: 9cqw; display: flex; flex-direction: column; }
   .slide .h { font-family: Georgia, "PT Serif", serif; font-weight: 700; font-size: 4.4cqw; line-height: 1.12; letter-spacing: -0.01em; margin: 0 0 3.2cqw; padding-bottom: 2cqw; border-bottom: 0.25cqw solid var(--s-accent); text-wrap: balance; }
   .slide .b { list-style: none; margin: 0; padding: 0; font-size: 2.55cqw; line-height: 1.35; display: grid; gap: 1.5cqw; }

@@ -154,4 +154,21 @@ describe('brand kit applied to a theme', () => {
     const zip = await unzip(await generateTalkPptx(talk(DECK.slice(0, 2), 'warm')))
     expect(await zip.file('ppt/slides/slide2.xml')!.async('string')).toContain('8A5C06')
   }, 30_000)
+
+  // Design v3 (TODO L1): the background raster is embedded ONCE per role
+  // through a slide layout — pptxgenjs writes a media part per slide for a
+  // per-slide background, which on 40 slides is 40 copies. Hero slides
+  // (title, question, cta) use one layout, content the other, and no slide
+  // carries its own <p:bg> to override the picture.
+  it('embeds the background once per role via slide layouts, and slides inherit it', async () => {
+    const zip = await unzip(await generateTalkPptx(talk(DECK, 'bold')))
+    const media = Object.keys(zip.files).filter((n) => /^ppt\/media\/.+\.png$/.test(n) && !zip.files[n].dir)
+    expect(media.filter((n) => n.includes('TZ_HERO')).length).toBe(1)
+    expect(media.filter((n) => n.includes('TZ_QUIET')).length).toBe(1)
+    const layoutOf = async (i: number) => (await zip.file(`ppt/slides/_rels/slide${i}.xml.rels`)!.async('string')).match(/slideLayout\d+/)![0]
+    expect(await layoutOf(1)).toBe(await layoutOf(6))        // title and discussion: hero
+    expect(await layoutOf(2)).toBe(await layoutOf(8))        // bullets and summary: quiet
+    expect(await layoutOf(1)).not.toBe(await layoutOf(2))
+    expect(await zip.file('ppt/slides/slide1.xml')!.async('string')).not.toContain('<p:bg>')
+  }, 30_000)
 })

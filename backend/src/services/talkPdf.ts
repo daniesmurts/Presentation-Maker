@@ -7,6 +7,8 @@ import { contrastRatio, textOn } from '../lib/brandColor'
 import { getTheme, applyBrand, type AppliedTheme, type BrandKit } from './themes'
 import type { Slide, Talk, TalkLanguage } from '../../../shared/types'
 import { G, pt as pctPt } from '../../../shared/slideGeometry'
+import { backgroundRole, type BackgroundRole } from '../../../shared/slideBackground'
+import { renderBackgroundPng } from './slideBackground'
 
 // A SLIDES PDF (CLAUDE.md §5.5): one landscape 16:9 page per slide, the same
 // theme data the .pptx uses — not the parent's reading-order handout. The
@@ -68,6 +70,7 @@ interface Picture { buffer: Buffer; w: number; h: number }
 interface Prepared {
   images:   Map<number, Picture>                 // slide index → its picture, fitted
   formulas: Map<string, { buffer: Buffer; aspect: number }>   // latex → rendered PNG
+  backgrounds: Partial<Record<BackgroundRole, Buffer>>   // Design v3: the theme's treatment per role, rasterised
 }
 
 export interface PdfOptions {
@@ -81,7 +84,12 @@ export interface PdfOptions {
 async function prepare(slides: Slide[], theme: AppliedTheme): Promise<Prepared> {
   const images = new Map<number, Picture>()
   const formulas = new Map<string, { buffer: Buffer; aspect: number }>()
+  const backgrounds: Partial<Record<BackgroundRole, Buffer>> = {}
   await Promise.all([
+    ...(['hero', 'quiet'] as const).map(async (role) => {
+      const r = await renderBackgroundPng(theme.palette, theme.background, role)
+      if (r) backgrounds[role] = r.buffer
+    }),
     ...slides.map(async (slide, i) => {
       const image = slide.type === 'diagram' ? slide.body.image : slide.image
       if (!image) return
@@ -97,7 +105,7 @@ async function prepare(slides: Slide[], theme: AppliedTheme): Promise<Prepared> 
         })
       : []),
   ])
-  return { images, formulas }
+  return { images, formulas, backgrounds }
 }
 
 export async function generateTalkPdf(talk: Pick<Talk, 'title' | 'slides' | 'language' | 'theme_id'>, opts: PdfOptions = {}): Promise<Buffer> {
@@ -214,9 +222,13 @@ class Renderer {
     return ruleY + U(G.rule) + U(G.titleGap)
   }
 
-  private page(): void {
+  /** A new page on the flat ground, with the role's background picture
+   *  over it when the theme draws one (a notes page has none). */
+  private page(role: BackgroundRole | null = null): void {
     this.doc.addPage()
     this.doc.rect(0, 0, PAGE_W, PAGE_H).fill(hex(this.p.bg))
+    const bg = role && this.prepared.backgrounds[role]
+    if (bg) this.doc.image(bg, 0, 0, { width: PAGE_W, height: PAGE_H })
   }
 
   private panel(x: number, y: number, w: number, h: number): void {
@@ -238,7 +250,7 @@ class Renderer {
 
   slide(slide: Slide, index: number): void {
     const { doc, p, M } = this
-    this.page()
+    this.page(backgroundRole(slide.type))
     const W = PAGE_W - M * 2
     const image = slide.type === 'diagram' ? slide.body.image : slide.image
     const hasSide = Boolean(image) && slide.type !== 'diagram' && !['title', 'summary', 'cta'].includes(slide.type)

@@ -1,6 +1,7 @@
 import type { Slide } from '../../../../shared/types'
 import type { ThemeSwatch } from '../../api/brand'
 import { G } from '../../../../shared/slideGeometry'
+import { backgroundSvg, backgroundCssUrl, backgroundRole, hasTreatment, SOLID } from '../../../../shared/slideBackground'
 import { BlockMath, InlineText } from './Math'
 
 // A slide drawn at slide proportions for the projector — 960×540 CSS px,
@@ -8,7 +9,9 @@ import { BlockMath, InlineText } from './Math'
 // reflows between the preview thumbnail and the fullscreen stage. Themes v2:
 // every number is shared/slideGeometry.ts (percent of width → px here, 1 =
 // 9.6 px), the same source as the .pptx, the PDF and the public site's
-// deck, in the faces a .pptx can carry (Georgia / Arial).
+// deck, in the faces a .pptx can carry (Georgia / Arial). Design v3: the
+// theme's background recipe is drawn here as the SAME SVG the exporters
+// rasterise (shared/slideBackground.ts), inlined as a CSS background.
 
 export const STAGE_W = 960
 export const STAGE_H = 540
@@ -21,6 +24,9 @@ interface Props { slide: Slide; theme: ThemeSwatch; scale: number; index?: numbe
 
 export default function SlideStage({ slide, theme, scale, index = 0, total = 1, talkTitle = '' }: Props) {
   const c = { bg: `#${theme.bg}`, ink: `#${theme.ink}`, ink2: `#${theme.ink2}`, accent: `#${theme.accent}`, panel: `#${theme.panel}` }
+  const recipe = theme.background ?? SOLID
+  const role = backgroundRole(slide.type)
+  const bgImage = hasTreatment(recipe, role) ? backgroundCssUrl(backgroundSvg({ bg: theme.bg, accent: theme.accent, ink: theme.ink, panel: theme.panel }, recipe, role)) : undefined
   const image = slide.type === 'diagram' ? slide.body.image : slide.image
   const hasSide = Boolean(image) && !['title', 'summary', 'cta', 'diagram'].includes(slide.type)
   const m = U(G.marginX)
@@ -36,7 +42,7 @@ export default function SlideStage({ slide, theme, scale, index = 0, total = 1, 
 
   return (
     <div style={{ width: STAGE_W * scale, height: STAGE_H * scale, overflow: 'hidden', flexShrink: 0 }}>
-      <div style={{ width: STAGE_W, height: STAGE_H, transform: `scale(${scale})`, transformOrigin: 'top left', background: c.bg, color: c.ink, position: 'relative', fontFamily: BODY, lineHeight: G.bodyLine }}>
+      <div style={{ width: STAGE_W, height: STAGE_H, transform: `scale(${scale})`, transformOrigin: 'top left', background: c.bg, backgroundImage: bgImage, backgroundSize: '100% 100%', color: c.ink, position: 'relative', fontFamily: BODY, lineHeight: G.bodyLine }}>
         {slide.type === 'title' ? (
           <>
             <div style={{ position: 'absolute', left: m, right: m, bottom: U(G.tsBottom), display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>

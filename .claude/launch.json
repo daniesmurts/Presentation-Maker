@@ -20,6 +20,16 @@
         "--workspace=backend"
       ],
       "port": 3000
+    },
+    {
+      "name": "site",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--workspace=landing"
+      ],
+      "port": 4321
     }
   ]
 }

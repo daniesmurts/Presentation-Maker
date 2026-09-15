@@ -34,6 +34,50 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 ## [Unreleased]
 
 ### Added
+- **Design v3, layer 1 — the slide background is data** (TODO L1). A theme
+  now names a background recipe (`shared/slideBackground.ts`: `solid ·
+  wash · grid · dots · band · blob`, one strength for hero slides — title,
+  question, call to action — and a fainter one for content) and there is
+  a fourth theme, **Яркая**: deep navy, white type, an amber wedge, for a
+  pitch. Why this shape and not the two obvious ones (uploaded `.pptx`
+  templates to reflow into; the model emitting colours and shapes per
+  slide) is recorded under TODO L — in short, both break the one guarantee
+  themes v2 bought, that the .pptx, the PDF, the stage and the site are
+  the same drawing.
+  - *One drawing, four renderers.* The recipe is ONE SVG. The React stage
+    and `Deck.astro` inline it as a CSS background (the site imports the
+    shared module at build time, so it no longer carries a copy of the
+    drawing, only of the recipe numbers); the .pptx and the PDF rasterise
+    it through `@resvg/resvg-js`, the path the formula renderer already
+    used — pptxgenjs has no gradient fills, pdfkit no patterns, and §3.5
+    wants PNG in decks anyway. Rasters are cached by a hash of the SVG.
+  - *Embedded once, not once per slide.* pptxgenjs dedupes media only
+    within one slide, so a per-slide `background.data` on 40 slides is 40
+    copies. The exporter defines two slide layouts (`TZ_HERO`, `TZ_QUIET`)
+    carrying the raster and slides inherit it — a slide must not set its
+    own `background` then, or the colour overrides the picture, which is
+    why the per-slide `s.background = { color }` lines are gone. Measured
+    per deck: grid 74 KB · band 23 KB · wash 127 KB · blob 200 KB. Our own
+    importer reads such a deck back with zero pictures (a `<p:bg>` is not
+    a `<p:pic>`).
+  - *Contrast is measured against the treatment, not the palette* (§3.8).
+    Every colour in the SVG is premixed — no opacity except the blob's
+    fade to transparent, which stays within the same two colours — so the
+    ground under a text box has a name: `worstGround()`. The strengths
+    shipped are the ones found by lowering until every pair cleared 4.5:
+    the dark blob started at 0.45 (ink2 3.86) and ships at 0.22 (6.56);
+    the warm wash at 0.18 put the accent at 4.28, ships at 0.12 (4.64).
+    `band` is geometric, not arithmetic: the hero wedge (1300,0 → 1600,0
+    → 1600,400) ends above every text zone — a full-height band would have
+    run under the footer's «01 / 05», where ink2 on amber fails. All of it
+    is in `themes.test.ts`; a brand accent tints the background too, so
+    `applyBrand` refits the recipe (`fitRecipe`, 0.02 steps to 0) for the
+    new palette.
+  - *Seen, not assumed* (§3.10): the eight rasters on a contact sheet
+    (which caught the small blob drawing a hard bg-coloured edge over the
+    large one — an opaque gradient end, now transparent), the PDF pages
+    through pdftoppm, the site's deck in the browser with the bold theme
+    selected, the .pptx re-read by `pptxImport.ts`.
 - **Pro subscription through Т-Банк — 2 500 ₽ a month** (TODO K). Internet
   acquiring (developer.tbank.ru/eacq): `Init` with `Recurrent=Y` opens the
   hosted form and saves the card; the notification (`POST

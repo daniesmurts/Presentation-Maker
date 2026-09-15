@@ -10,6 +10,8 @@ import type {
   ComparisonSlide, DiagramSlide, DiscussionSlide, CtaSlide, SummarySlide, TalkLanguage,
 } from '../../../shared/types'
 import { G, inch, titleLines } from '../../../shared/slideGeometry'
+import { backgroundRole, type BackgroundRole } from '../../../shared/slideBackground'
+import { renderBackgroundPng } from './slideBackground'
 
 // Native .pptx export — ported from the parent's presentationExport.ts
 // (CLAUDE.md §2), restructured so the THEME is data (themes.ts) and no
@@ -43,6 +45,8 @@ interface Ctx {
   margin:   number
   title:    string                       // the talk's title, for the footer
   pos:      { index: number; total: number }
+  /** Slide-layout name per background role (Design v3, L1). */
+  layouts:  Record<BackgroundRole, string>
 }
 
 // Percent of width → inches, and → points for font sizes (1 unit = 7.2 pt).
@@ -64,7 +68,6 @@ export async function generateTalkPptx(talk: Pick<Talk, 'title' | 'slides' | 'la
   if (!slides || slides.length === 0) throw new Error('No slides to export')
 
   const theme = applyBrand(getTheme(opts.themeId ?? talk.theme_id), opts.brand ?? null, contrastRatio, textOn)
-  const ctx: Ctx = { theme, language: talk.language, margin: theme.margin, title: talk.title, pos: { index: 0, total: slides.length } }
   if (opts.brand?.accent && theme.labelColor !== theme.palette.accent) {
     logger.info({ message: '[PPTX export] brand accent below 4.5:1 on the theme ground — labels fall back to ink2', accent: opts.brand.accent, theme: theme.id, ratio: contrastRatio(opts.brand.accent, theme.palette.bg).toFixed(2) })
   }
@@ -73,8 +76,22 @@ export async function generateTalkPptx(talk: Pick<Talk, 'title' | 'slides' | 'la
   const pptx = new PptxGenJS()
   pptx.defineLayout({ name: 'TEZARIUM_16_9', width: SLIDE_W, height: SLIDE_H })
   pptx.layout = 'TEZARIUM_16_9'
-  pptx.author = L[ctx.language].author
+  pptx.author = L[talk.language].author
   pptx.title  = talk.title
+
+  // Design v3: the background is a slide LAYOUT per role — the raster is
+  // embedded once and every slide of that role inherits it. A slide must
+  // not set its own `background` then, or the colour overrides the
+  // picture; the layout carries the flat colour when there is no picture.
+  const layouts: Record<BackgroundRole, string> = { hero: 'TZ_HERO', quiet: 'TZ_QUIET' }
+  let bgBytes = 0
+  for (const role of ['hero', 'quiet'] as const) {
+    const png = await renderBackgroundPng(theme.palette, theme.background, role)
+    bgBytes += png?.bytes ?? 0
+    pptx.defineSlideMaster({ title: layouts[role], background: png ? { data: png.dataUri } : { color: theme.palette.bg } })
+  }
+  if (bgBytes) logger.info({ message: '[PPTX export] background rasters embedded', theme: theme.id, kind: theme.background.kind, bytes: bgBytes })
+  const ctx: Ctx = { theme, language: talk.language, margin: theme.margin, title: talk.title, pos: { index: 0, total: slides.length }, layouts }
 
   // Sequential, not Promise.all — pptxgenjs slides render in call order and
   // an image fetch has no reason to race the others.
@@ -153,6 +170,11 @@ async function addSideImage(s: Pptx, ctx: Ctx, image: SlideImage | null | undefi
 
 // ─── Per-slide-type rendering ──────────────────────────────────────────────
 
+/** A new slide on the layout for its background role. */
+function newSlide(pptx: Pptx, slide: Slide, ctx: Ctx): Pptx {
+  return pptx.addSlide({ masterName: ctx.layouts[backgroundRole(slide.type)] })
+}
+
 async function addSlide(pptx: Pptx, slide: Slide, ctx: Ctx): Promise<void> {
   switch (slide.type) {
     case 'title':      addTitleSlide(pptx, slide, ctx); return
@@ -194,7 +216,6 @@ function addFooter(s: Pptx, ctx: Ctx, left: string | null): void {
 function addHeader(s: Pptx, ctx: Ctx, title: string): number {
   const { palette: p, fonts } = ctx.theme
   const m = ctx.margin
-  s.background = { color: p.bg }
   const lines = Math.min(2, titleLines(title))
   const titleH = I(G.titleSize * G.titleLine) * lines
   const y = I(G.top)
@@ -225,11 +246,10 @@ function body(ctx: Ctx, extra: Record<string, unknown> = {}) {
 // and low-left, the presenter under it — the block anchored to the bottom.
 // The brand logo sits top-left; the brand name takes the footer's left.
 function addTitleSlide(pptx: Pptx, slide: TitleSlide, ctx: Ctx): void {
-  const s = pptx.addSlide()
+  const s = newSlide(pptx, slide, ctx)
   const { palette: p, fonts } = ctx.theme
   const m = ctx.margin
   const w = SLIDE_W - m * 2
-  s.background = { color: p.bg }
 
   const brand = ctx.theme.brand
   if (brand?.logo) {
@@ -267,7 +287,7 @@ function addTitleSlide(pptx: Pptx, slide: TitleSlide, ctx: Ctx): void {
 }
 
 async function addBulletsSlide(pptx: Pptx, slide: BulletsSlide, ctx: Ctx): Promise<void> {
-  const s = pptx.addSlide()
+  const s = newSlide(pptx, slide, ctx)
   const top = addHeader(s, ctx, slide.title)
   const r = contentRegion(ctx, Boolean(slide.image))
   if (slide.body.items.length > 0) {
@@ -278,7 +298,7 @@ async function addBulletsSlide(pptx: Pptx, slide: BulletsSlide, ctx: Ctx): Promi
 }
 
 async function addConceptSlide(pptx: Pptx, slide: ConceptSlide, ctx: Ctx): Promise<void> {
-  const s = pptx.addSlide()
+  const s = newSlide(pptx, slide, ctx)
   const top = addHeader(s, ctx, slide.title)
   const { palette: p, fonts } = ctx.theme
   const r = contentRegion(ctx, Boolean(slide.image))
@@ -306,7 +326,7 @@ const FORMULA_GAP       = 0.08
 const EXPLANATION_H     = 0.9
 
 async function addFormulaSlide(pptx: Pptx, slide: FormulaSlide, ctx: Ctx): Promise<void> {
-  const s = pptx.addSlide()
+  const s = newSlide(pptx, slide, ctx)
   const top = addHeader(s, ctx, slide.title)
   const { palette: p, fonts } = ctx.theme
   const r = contentRegion(ctx, Boolean(slide.image))
@@ -361,7 +381,7 @@ async function addFormulaSlide(pptx: Pptx, slide: FormulaSlide, ctx: Ctx): Promi
 }
 
 async function addComparisonSlide(pptx: Pptx, slide: ComparisonSlide, ctx: Ctx): Promise<void> {
-  const s = pptx.addSlide()
+  const s = newSlide(pptx, slide, ctx)
   const top = addHeader(s, ctx, slide.title)
   const { palette: p } = ctx.theme
   const r = contentRegion(ctx, Boolean(slide.image))
@@ -383,7 +403,7 @@ async function addComparisonSlide(pptx: Pptx, slide: ComparisonSlide, ctx: Ctx):
 }
 
 async function addDiagramSlide(pptx: Pptx, slide: DiagramSlide, ctx: Ctx): Promise<void> {
-  const s = pptx.addSlide()
+  const s = newSlide(pptx, slide, ctx)
   const top = addHeader(s, ctx, slide.title)
   const { palette: p, fonts } = ctx.theme
   const m = ctx.margin
@@ -407,9 +427,8 @@ async function addDiagramSlide(pptx: Pptx, slide: DiagramSlide, ctx: Ctx): Promi
 // Question: no header rule — the slide's title becomes the kicker, the
 // question is the slide, large and italic; the prompts sit under it quieter.
 async function addDiscussionSlide(pptx: Pptx, slide: DiscussionSlide, ctx: Ctx): Promise<void> {
-  const s = pptx.addSlide()
+  const s = newSlide(pptx, slide, ctx)
   const { palette: p, fonts } = ctx.theme
-  s.background = { color: p.bg }
   const r = contentRegion(ctx, Boolean(slide.image))
   const top = I(G.top) + 0.5
   const kh = kick(s, ctx, slide.title, r.x, top, r.w)
@@ -429,9 +448,8 @@ async function addDiscussionSlide(pptx: Pptx, slide: DiscussionSlide, ctx: Ctx):
 // Call to action: the ask set large in the display face, the reasons under
 // it, the contact line in the label colour. One ask per slide, so nothing competes.
 function addCtaSlide(pptx: Pptx, slide: CtaSlide, ctx: Ctx): void {
-  const s = pptx.addSlide()
+  const s = newSlide(pptx, slide, ctx)
   const { palette: p, fonts } = ctx.theme
-  s.background = { color: p.bg }
   const m = ctx.margin
   const w = SLIDE_W - m * 2
   const top = I(G.top) + 0.5
@@ -455,7 +473,7 @@ function addCtaSlide(pptx: Pptx, slide: CtaSlide, ctx: Ctx): void {
 
 // Summary: the takeaways left, «Что дальше» in a panel on the right.
 function addSummarySlide(pptx: Pptx, slide: SummarySlide, ctx: Ctx): void {
-  const s = pptx.addSlide()
+  const s = newSlide(pptx, slide, ctx)
   const top = addHeader(s, ctx, slide.title)
   const { palette: p } = ctx.theme
   const m = ctx.margin

@@ -243,6 +243,129 @@ option is still open.
      carries the message until there is.
   5. Landing: a pricing block (2 500 ₽ / месяц) once item I has a place for it.
 
+### L. Design v3 — backgrounds, rhythm, a theme library · Effort: L · 🚧 L1 SHIPPED (2026-09-15, code) · L2–L3 planned
+- **Why**: decks are clean but samey. A theme today is `palette + fonts +
+  margin` over one composition (J); there are no backgrounds, no decorative
+  treatment, no image-led or big-number slides, and the model has no say in
+  how a slide *looks*. Users compare us to design-led tools whose decks are
+  not "AI-painted" — they are a tight design system, restraint, and a
+  content plan placed into it. That is the shape this codebase already has;
+  what is missing is the vocabulary.
+- **Decided against** (2026-09-15, before any code):
+  - *Uploaded `.pptx` templates the platform reflows into.* Masters +
+    placeholders don't map onto our slide types, text overflows, and it is
+    a second rendering path — the PDF, the stage and the site would stop
+    matching the export, which is the one guarantee J bought. A template
+    file carries the designer's *output*, not the rules that made it good.
+  - *The model emits colours / positions / shapes per slide.* Slides in
+    one deck don't cohere (each is an independent sample), contrast is
+    unverified (§3.8 — the amber incident forty times per deck), and
+    pptxgenjs cannot draw most of it (no CSS, no gradient fills, no
+    filters): a pretty preview and a broken export.
+- **Decided for**: the theme is the design system as **data**; the model is
+  an **art director inside an enum**; generated design is **theme JSON
+  that a validator measures** before it is accepted. Three layers, each
+  shippable alone, in this order.
+
+**L1 — Theme v3: background recipes + a decoration vocabulary.** Effort M. 🟢 code 2026-09-15
+- Shipped: `shared/slideBackground.ts` (six kinds, two roles, premixed
+  colours, `worstGround`), `backend/src/services/slideBackground.ts`
+  (resvg raster, hashed cache), the recipe on every theme, `fitRecipe` in
+  `applyBrand`, two slide layouts in the .pptx, the PDF page, the stage,
+  `Deck.astro` importing the shared module, the Яркая theme, tests for
+  every pair and for the once-per-role embedding. See CHANGELOG.
+- Left from the L1 list: `scale` (the type-scale multiplier) — not needed
+  by the four themes, deferred to the first theme that wants it; the
+  `image+scrim` kind — belongs with `image-full` in L2; the concept /
+  comparison / diagram body redesign — moved to L2 where the new types
+  are drawn anyway. Text over a treatment is measured against the
+  computed worst ground, not sampled from the raster: the SVG has no
+  opacity, so the arithmetic IS the sample.
+- `Theme` gains `background: BackgroundRecipe` and `scale: 'display' | 'quiet' | 'bold'`
+  (a type-scale multiplier the geometry reads; slide size stays fixed so
+  `slideFit` budgets stay true). A recipe is a small SVG parameterised by
+  the palette: `solid · wash (2-stop gradient) · grid · dots · band
+  (diagonal accent) · blob · image+scrim`. Per-recipe *placement*: which
+  slide types get the full treatment (title, section, image-full) and
+  which get the quiet one (everything with body text).
+- **Rendering**: the same SVG in four places. Stage and site inline it;
+  pptx and PDF get it rasterised **SVG → PNG via `@resvg/resvg-js`** —
+  the pipeline `formulaRenderer.ts` already vendors — placed full-bleed
+  under the slide. This sidesteps pptxgenjs's missing gradient support and
+  honours §3.5 (PNG/JPEG only in decks). Render once per (theme, recipe,
+  slide-type-class) and cache by hash, not once per slide; 1920×1080 at
+  the most. Measure the PNG bytes per deck and record the number — a
+  40-slide deck must not become a 40 MB file.
+- **Text over a treatment is measured against the *treatment*, not the
+  palette ground**: sample the recipe's darkest/lightest region under the
+  text box (the same `contrastRatio` helper, run against the sampled
+  colour) and apply a scrim (`panel` at the theme's alpha) when it fails.
+  Write the measured ratio per theme × recipe into `themes.ts` like every
+  other pair.
+- The 4th theme — bold, high-contrast, for pitches (open follow-up from J)
+  — ships here as the first theme that *needs* a background to look right.
+- Redo the concept / comparison / diagram bodies with the same care as the
+  v2 header/footer (the open follow-up from J) — L2 will expose them, so
+  do it here, not after.
+
+**L2 — the model chooses design from an enum; slide types for rhythm.** Effort M.
+- `OutlineSlide` and `SlideBase` gain
+  `design?: { variant, emphasis, backdrop, image_brief? }` where
+  `variant` is per-type (`stats: 'hero-number' | 'three-up' · bullets:
+  'plain' | 'split' | 'image-led' · quote: 'large' | 'attributed' …`),
+  `emphasis: 'accent' | 'plain'`, `backdrop: 'none' | 'pattern' | 'image'`.
+  The model **never emits a colour or a coordinate**. `normaliseOutline` /
+  `normaliseEditedSlide` coerce unknown values to the type's default,
+  exactly as they coerce `type` (§2). The `regenerateSlide` instruction
+  path accepts design words ("make this a big number").
+- New slide types (§5.3): `section`, `stats`, `quote`, `image-full`,
+  `agenda` — one discriminated type per layout, own `body`, own `slideFit`
+  budget, own layout in pptx / PDF / stage / site / handout. `image-full`
+  is the first slide where the picture is the layout, not a decoration;
+  `stats` is where JetBrains Mono / the theme's `mono` face earns its place.
+- Prompt the outline pass with the *rhythm* rule, not with taste: a
+  section break every 5–8 slides, at most one `stats` per section, a
+  `quote` only when the material contains one, never two `image-full` in a
+  row. The eval harness (`talkEvalHarness.ts`) gets a rhythm check so a
+  prompt change that makes every slide a hero is caught as a regression.
+- Cyrillic budgets (§3.3) for the new types are calibrated before the
+  types are enabled in the prompt, not after the first overflow on a
+  projector.
+
+**L3 — a curated theme library, then generated themes as validated data.** Effort M.
+- Hand-design 8–12 themes as rows in `themes.ts` (bold pitch · editorial ·
+  dark tech · warm consulting · playful · mono minimal · …), each with its
+  recipe and measured pairs. The eval harness renders **one fixed talk in
+  every theme** to a gallery page (the thumbnail strip already noted under
+  I) — that gallery is how a theme is reviewed before it ships and is
+  also the landing's «примеры».
+- **Generated themes**: from a description («финтех, надёжно, тёмная») or
+  from a brand kit, the model emits **theme JSON** against the `Theme`
+  schema; `validateTheme()` measures every text-carrying pair against the
+  floors (body 4.5, labels 4.5 at ≤ 12 pt bold, graphics 3.0) and either
+  auto-corrects (darken toward ink, the `labelColor` fallback generalised)
+  or rejects with a reason the user can read (§3.2). The model proposes,
+  the contrast code disposes. Brand kit (E) becomes a *derivation* — accent
+  in, a full validated palette out — instead of an accent override.
+- Uploaded `.pptx` as a **brand source, not a layout source**: run it
+  through `pptxImport.ts`, extract theme colours / fonts / the logo from
+  the master, seed the generator above. "Make it look like our decks"
+  without reflowing into their placeholders.
+- Generated *images* belong here and nowhere else: abstract on-`mood`
+  backdrops for `image-full` / `section`, SVG schematics for `diagram`
+  (the old ИСПУМ backlog item, unblocked by the same resvg path). Every
+  one of them lands in `slideImageSource.ts` like every other image (§5.4).
+
+- **Not in L**: per-slide free-form styling, a template marketplace,
+  user-editable layouts on a canvas. Each is a product (CLAUDE.md §5).
+- **Gate to ship each layer**: the produced `.pptx` re-read by our own
+  importer, the PDF pages looked at, and the same talk screenshotted on the
+  stage — the four renderers still agree (J's guarantee is the thing L
+  must not spend).
+
 ### The plan is built. What is next is not more building.
 Every item in CLAUDE.md §8 is shipped and deployed. The next TODO entries
 should come from users, usage_log and talk_events — not from this file.
+L is the exception on record: it came from comparing our decks with
+design-led tools, and its first layer is small enough to ship before the
+first user data arrives.

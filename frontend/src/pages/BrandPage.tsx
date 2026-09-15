@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Upload, X } from 'lucide-react'
 import { getBrand, updateBrand, uploadLogo, removeLogo, setStyleLearning, type Brand, type ThemeSwatch } from '../api/brand'
+import { backgroundSvg, backgroundCssUrl, hasTreatment, SOLID } from '../../../shared/slideBackground'
 import { Checkbox } from '../components/ui/Field'
 import { errorMessage } from '../api/client'
 import Button from '../components/ui/Button'
@@ -110,9 +111,14 @@ export default function BrandPage() {
 // top-left), coloured from the same data the exporter uses.
 function SlidePreview({ theme, accent, name, logoUrl, caption }: { theme: ThemeSwatch; accent: string | null; name: string; logoUrl: string | null; caption: string }) {
   const a = accent ?? theme.accent
+  // The title slide's background at hero strength, tinted with the brand
+  // accent the way the export tints it (the strength is the theme's; the
+  // exporter refits it for a pale accent — this preview does not).
+  const recipe = theme.background ?? SOLID
+  const bgImage = hasTreatment(recipe, 'hero') ? backgroundCssUrl(backgroundSvg({ bg: theme.bg, accent: a, ink: theme.ink, panel: theme.panel }, recipe, 'hero')) : undefined
   return (
     <figure className="m-0">
-      <div className="aspect-video rounded-md border border-border overflow-hidden relative" style={{ background: `#${theme.bg}`, fontFamily: 'Arial, sans-serif' }}>
+      <div className="aspect-video rounded-md border border-border overflow-hidden relative" style={{ background: `#${theme.bg}`, backgroundImage: bgImage, backgroundSize: '100% 100%', fontFamily: 'Arial, sans-serif' }}>
         {logoUrl && <img src={logoUrl} alt="" className="absolute left-[6%] top-[6%] h-[12%] max-w-[22%] object-contain" />}
         <div className="absolute left-[6%] right-[6%] bottom-[11%]">
           <div className="h-[3px] w-[9%] mb-[3%]" style={{ background: `#${a}` }} />
