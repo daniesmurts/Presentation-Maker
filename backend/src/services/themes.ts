@@ -6,8 +6,9 @@ export * from '../../../shared/themes'
 
 /** For the picker and the stage: id, name, the colours a swatch needs, and
  *  the background recipe so the browser draws the same treatment. */
-export function listThemes(): Array<{ id: string; name: string; bg: string; ink: string; ink2: string; accent: string; panel: string; background: BackgroundRecipe }> {
-  return Object.values(THEMES).map((t) => ({ id: t.id, name: t.name, bg: t.palette.bg, ink: t.palette.ink, ink2: t.palette.ink2, accent: t.palette.accent, panel: t.palette.panel, background: t.background }))
+export function listThemes(custom?: Theme | null): Array<{ id: string; name: string; bg: string; ink: string; ink2: string; accent: string; panel: string; background: BackgroundRecipe }> {
+  const all = custom ? [custom, ...Object.values(THEMES)] : Object.values(THEMES)
+  return all.map((t) => ({ id: t.id, name: t.name, bg: t.palette.bg, ink: t.palette.ink, ink2: t.palette.ink2, accent: t.palette.accent, panel: t.palette.panel, background: t.background }))
 }
 
 // ─── Brand kit → theme ──────────────────────────────────────────────────────
@@ -24,6 +25,8 @@ export interface BrandKit {
   accent?: string | null           // 6-digit hex, no '#'
   name?:   string | null
   logo?:   { dataUri: string; buffer: Buffer } | null
+  /** The workspace's own theme (L3), picked as theme_id = 'custom'. */
+  customTheme?: Theme | null
 }
 
 export interface AppliedTheme extends Theme {
@@ -67,7 +70,9 @@ export function fitRecipe(p: ThemePalette, recipe: BackgroundRecipe, labelColor:
 }
 
 /** Unknown id → default, never a throw: a talk row written by an older
- *  build may name a theme that has since been renamed. */
-export function getTheme(id: string | null | undefined): Theme {
+ *  build may name a theme that has since been renamed. `custom` resolves
+ *  to the brand kit's theme when there is one, else the default. */
+export function getTheme(id: string | null | undefined, brand?: BrandKit | null): Theme {
+  if (id === 'custom') return brand?.customTheme ?? DEFAULT_THEME
   return (id && THEMES[id]) || DEFAULT_THEME
 }

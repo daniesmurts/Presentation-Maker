@@ -112,7 +112,7 @@ async function prepare(slides: Slide[], theme: AppliedTheme): Promise<Prepared> 
 export async function generateTalkPdf(talk: Pick<Talk, 'title' | 'slides' | 'language' | 'theme_id'>, opts: PdfOptions = {}): Promise<Buffer> {
   const slides = talk.slides ?? []
   if (slides.length === 0) throw new Error('No slides to export')
-  const theme = applyBrand(getTheme(opts.themeId ?? talk.theme_id), opts.brand ?? null, contrastRatio, textOn)
+  const theme = applyBrand(getTheme(opts.themeId ?? talk.theme_id, opts.brand), opts.brand ?? null, contrastRatio, textOn)
   const prepared = await prepare(slides, theme)
   const PDFDocument = (await import('pdfkit')).default
 

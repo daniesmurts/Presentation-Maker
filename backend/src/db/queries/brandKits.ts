@@ -8,6 +8,7 @@ export interface BrandKitRow {
   logo_mime:    string | null
   logo_width:   number | null
   logo_height:  number | null
+  custom_theme: unknown | null      // a Theme JSON (shared/themes.ts), validated before it was written
   updated_at:   string
 }
 
@@ -43,6 +44,17 @@ export async function setBrandLogo(workspaceId: string, logo: { path: string; mi
        SET logo_path = $2, logo_mime = $3, logo_width = $4, logo_height = $5, updated_at = NOW()
      RETURNING *`,
     [workspaceId, logo?.path ?? null, logo?.mime ?? null, logo?.width ?? null, logo?.height ?? null],
+  )
+  return rows[0]
+}
+
+/** The workspace's custom theme (Design v3, L3) — a validated Theme JSON, or null to remove it. */
+export async function setCustomTheme(workspaceId: string, theme: unknown | null): Promise<BrandKitRow> {
+  const { rows } = await pool.query<BrandKitRow>(
+    `INSERT INTO brand_kits (workspace_id, custom_theme) VALUES ($1, $2)
+     ON CONFLICT (workspace_id) DO UPDATE SET custom_theme = $2, updated_at = NOW()
+     RETURNING *`,
+    [workspaceId, theme === null ? null : JSON.stringify(theme)],
   )
   return rows[0]
 }

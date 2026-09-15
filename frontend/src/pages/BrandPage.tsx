@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Upload, X } from 'lucide-react'
-import { getBrand, updateBrand, uploadLogo, removeLogo, setStyleLearning, type Brand, type ThemeSwatch } from '../api/brand'
+import { getBrand, updateBrand, uploadLogo, removeLogo, setStyleLearning, generateTheme, deriveTheme, themeFromPptx, saveTheme, removeTheme, type Brand, type ThemeSwatch, type ThemeCandidate, type Theme } from '../api/brand'
 import { backgroundSvg, backgroundCssUrl, hasTreatment, SOLID } from '../../../shared/slideBackground'
 import { Checkbox } from '../components/ui/Field'
 import { errorMessage } from '../api/client'
@@ -102,7 +102,88 @@ export default function BrandPage() {
           <SlidePreview theme={dark} accent={previewAccent} name={name} logoUrl={logoUrl} caption={copy.brandKit.previewOnDark} />
         </div>
       </section>
+
+      <CustomTheme current={data.custom_theme} hasAccent={Boolean(brand.accent)} name={name} logoUrl={logoUrl}
+                   onSaved={(custom, themes) => qc.setQueryData(['brand'], (old: typeof data) => (old ? { ...old, custom_theme: custom, themes } : old))} />
     </div>
+  )
+}
+
+// ─── The workspace's own theme (Design v3, L3) ─────────────────────────────
+//
+// Three ways to propose, one preview, one save. The candidate shows the
+// validator's corrections by name: a user who typed «пастельный жёлтый»
+// should see why the accent came back darker, not wonder.
+
+const swatchOf = (t: Theme): ThemeSwatch => ({ id: t.id, name: t.name, bg: t.palette.bg, ink: t.palette.ink, ink2: t.palette.ink2, accent: t.palette.accent, panel: t.palette.panel, background: t.background })
+
+function CustomTheme({ current, hasAccent, name, logoUrl, onSaved }: { current: Theme | null; hasAccent: boolean; name: string; logoUrl: string | null; onSaved: (custom: Theme | null, themes: ThemeSwatch[]) => void }) {
+  const C = copy.brandKit.custom
+  const { toast } = useToast()
+  const [description, setDescription] = useState('')
+  const [candidate, setCandidate] = useState<ThemeCandidate | null>(null)
+  const [busy, setBusy] = useState(false)
+  async function propose(fn: () => Promise<ThemeCandidate>) {
+    setBusy(true)
+    try { setCandidate(await fn()) } catch (err) { toast(errorMessage(err), 'error') } finally { setBusy(false) }
+  }
+  async function save() {
+    if (!candidate) return
+    setBusy(true)
+    try { const r = await saveTheme(candidate.theme); onSaved(r.theme, r.themes); setCandidate(null); toast(C.saved, 'success') }
+    catch (err) { toast(errorMessage(err), 'error') } finally { setBusy(false) }
+  }
+  async function remove() {
+    setBusy(true)
+    try { const r = await removeTheme(); onSaved(null, r.themes); toast(C.removed, 'success') }
+    catch (err) { toast(errorMessage(err), 'error') } finally { setBusy(false) }
+  }
+  return (
+    <section aria-label={C.heading} className="space-y-4 border-t border-border pt-6">
+      <div>
+        <h2 className="display font-semibold text-[21px] leading-snug text-ink">{C.heading}</h2>
+        <p className="text-sm text-ink-secondary mt-1 max-w-[62ch]">{C.lead}</p>
+        {current && <p className="text-sm text-ink mt-2">{C.current(current.name)} <Button size="sm" variant="ghost" onClick={() => void remove()} disabled={busy}>{C.remove}</Button></p>}
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-[1fr_auto] items-end">
+        <Field label={C.describe} htmlFor="theme-desc">
+          <input id="theme-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={C.describePh} maxLength={200} className={inputClass}
+                 onKeyDown={(e) => { if (e.key === 'Enter' && description.trim().length >= 3) { e.preventDefault(); void propose(() => generateTheme(description.trim())) } }} />
+        </Field>
+        <Button variant="secondary" onClick={() => void propose(() => generateTheme(description.trim()))} loading={busy} disabled={description.trim().length < 3}>{C.propose}</Button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="text-ink-secondary">{C.fromAccent}:</span>
+        <Button size="sm" variant="secondary" onClick={() => void propose(() => deriveTheme('light'))} disabled={busy || !hasAccent}>{C.fromAccentLight}</Button>
+        <Button size="sm" variant="secondary" onClick={() => void propose(() => deriveTheme('dark'))} disabled={busy || !hasAccent}>{C.fromAccentDark}</Button>
+        <span className="text-ink-secondary ml-3">{C.fromPptx}:</span>
+        <label className="h-8 px-3 inline-flex items-center gap-1.5 rounded-md text-sm border border-border bg-surface cursor-pointer hover:bg-surface-soft" title={C.fromPptxHint}>
+          <Upload className="w-4 h-4" aria-hidden /> {copy.brandKit.upload.replace('логотип', 'файл')}
+          <input type="file" accept=".pptx" className="sr-only" disabled={busy}
+                 onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void propose(() => themeFromPptx(f)) }} />
+        </label>
+      </div>
+
+      {candidate && (
+        <div className="space-y-3 p-4 rounded-md bg-surface-soft">
+          <div className="eyebrow">{C.candidate} — {candidate.theme.name}</div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <SlidePreview theme={swatchOf(candidate.theme)} accent={null} name={name} logoUrl={logoUrl} caption={`${candidate.theme.fonts.display} · ${candidate.theme.fonts.body} · ${candidate.theme.background.kind}`} />
+            <div className="text-xs space-y-1">
+              {candidate.issues.length === 0
+                ? <p className="text-success">{C.noIssues}</p>
+                : <>
+                    <p className="text-ink-secondary">{C.issues(candidate.issues.length)}</p>
+                    <ul className="space-y-0.5 text-ink">{candidate.issues.map((i) => <li key={i.pair} className="font-mono">{C.issue(i.pair, i.ratio, i.floor)}</li>)}</ul>
+                  </>}
+            </div>
+          </div>
+          <Button onClick={() => void save()} loading={busy}>{C.save}</Button>
+        </div>
+      )}
+    </section>
   )
 }
 

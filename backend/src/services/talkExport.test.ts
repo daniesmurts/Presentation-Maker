@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 vi.mock('../lib/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } }))
 import { generateTalkPptx } from './talkExport'
+import { THEMES } from './themes'
 import type { Slide } from '../../../shared/types'
 
 const base = { notes: '', citations: [] }
@@ -153,6 +154,16 @@ describe('brand kit applied to a theme', () => {
   it('the warm theme exists and differs from default', async () => {
     const zip = await unzip(await generateTalkPptx(talk(DECK.slice(0, 2), 'warm')))
     expect(await zip.file('ppt/slides/slide2.xml')!.async('string')).toContain('8A5C06')
+  }, 30_000)
+
+  // Design v3 (L3): a talk on theme_id 'custom' is drawn in the workspace's
+  // own theme, carried in the brand kit; without one it falls back to the default.
+  it('renders the brand kit’s custom theme for theme_id = custom, and the default without one', async () => {
+    const custom = { ...THEMES.warm, id: 'custom', name: 'Наша', palette: { ...THEMES.warm.palette, accent: '7A1E1E' } }
+    const zip = await unzip(await generateTalkPptx(talk(DECK.slice(0, 2), 'custom'), { brand: { customTheme: custom } }))
+    expect(await zip.file('ppt/slides/slide2.xml')!.async('string')).toContain('7A1E1E')
+    const plain = await unzip(await generateTalkPptx(talk(DECK.slice(0, 2), 'custom')))
+    expect(await plain.file('ppt/slides/slide2.xml')!.async('string')).toContain(THEMES.default.palette.accent)
   }, 30_000)
 
   // Design v3 (TODO L2): the rhythm types and the two variants render;

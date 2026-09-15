@@ -456,3 +456,55 @@ export async function importPptx(buffer: Buffer): Promise<{
     return { slides: [], language: 'ru', sourceSlideCount: 0, imported: [] }
   }
 }
+
+// ─── The deck's colour scheme (Design v3, L3) ───────────────────────────────
+//
+// An uploaded .pptx as a BRAND SOURCE, not a layout source: its theme part
+// (ppt/theme/theme1.xml) carries the twelve scheme colours and the two
+// faces; that is enough to seed a theme of ours — «make it look like our
+// decks» without reflowing into their placeholders. Returns null when the
+// part is missing or unreadable; the caller falls back to the default.
+
+export interface PptxColorScheme {
+  dk1: string; lt1: string; dk2: string; lt2: string
+  accent1: string; accent2: string
+  majorFont: string | null; minorFont: string | null
+}
+
+function schemeColour(node: unknown): string | null {
+  if (!node || typeof node !== 'object') return null
+  const n = node as Record<string, Record<string, string> | undefined>
+  // <a:srgbClr val="…"/> or <a:sysClr val="windowText" lastClr="000000"/>
+  const srgb = n['a:srgbClr']?.['@val']
+  const sys = n['a:sysClr']?.['@lastClr']
+  const v = (srgb ?? sys ?? '').toUpperCase()
+  return /^[0-9A-F]{6}$/.test(v) ? v : null
+}
+
+export async function extractPptxColorScheme(buffer: Buffer): Promise<PptxColorScheme | null> {
+  try {
+    const JSZip = (await import('jszip')).default
+    const zip = await JSZip.loadAsync(buffer)
+    const file = zip.file(/^ppt\/theme\/theme1\.xml$/)[0]
+    if (!file) return null
+    const xml = parser.parse(await file.async('string')) as Record<string, unknown>
+    const theme = xml['a:theme'] as Record<string, unknown> | undefined
+    const elements = theme?.['a:themeElements'] as Record<string, unknown> | undefined
+    const clr = elements?.['a:clrScheme'] as Record<string, unknown> | undefined
+    if (!clr) return null
+    const get = (k: string) => schemeColour(clr[`a:${k}`])
+    const dk1 = get('dk1'), lt1 = get('lt1')
+    if (!dk1 || !lt1) return null
+    const fonts = elements?.['a:fontScheme'] as Record<string, Record<string, Record<string, string>>> | undefined
+    const face = (k: 'a:majorFont' | 'a:minorFont') => fonts?.[k]?.['a:latin']?.['@typeface'] ?? null
+    return {
+      dk1, lt1,
+      dk2: get('dk2') ?? dk1, lt2: get('lt2') ?? lt1,
+      accent1: get('accent1') ?? dk2Fallback(dk1), accent2: get('accent2') ?? get('accent1') ?? dk1,
+      majorFont: face('a:majorFont'), minorFont: face('a:minorFont'),
+    }
+  } catch {
+    return null
+  }
+}
+const dk2Fallback = (dk1: string) => dk1

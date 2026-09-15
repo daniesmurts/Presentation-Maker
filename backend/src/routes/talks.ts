@@ -16,6 +16,7 @@ import { randomBytes } from 'node:crypto'
 import { parseSlideSelection, selectSlides, selectionSuffix, SelectionError } from '../lib/slideSelection'
 import { assertDownloadQuota, assertTalkQuota } from '../lib/planTier'
 import { resolveBrandKit } from '../services/brandKit'
+import { getBrandKit } from '../db/queries/brandKits'
 import { THEMES } from '../services/themes'
 import { setTalkTheme } from '../db/queries/talks'
 import { checkSpendCap } from '../services/spendCap'
@@ -494,7 +495,8 @@ talksRouter.post('/:id/approve', asyncHandler(async (req, res) => {
 // refused here; the exporter would silently fall back to default.
 talksRouter.patch('/:id', asyncHandler(async (req, res) => {
   const themeId = (req.body as { theme_id?: unknown })?.theme_id
-  if (typeof themeId !== 'string' || !THEMES[themeId]) throw new ValidationError('Неизвестная тема')
+  const hasCustom = themeId === 'custom' && Boolean((await getBrandKit(req.user.workspace_id))?.custom_theme)
+  if (typeof themeId !== 'string' || (!THEMES[themeId] && !hasCustom)) throw new ValidationError('Неизвестная тема')
   const talk = await setTalkTheme(req.params.id, req.user.workspace_id, themeId)
   if (!talk) throw new NotFoundError('Выступление не найдено')
   res.json({ talk })

@@ -6,6 +6,8 @@ import { findTalkByShareToken } from '../db/queries/talks'
 import { getTalkMediaById } from '../db/queries/talkMedia'
 import { downloadObject } from '../services/objectStorage'
 import { listThemes } from '../services/themes'
+import { readStoredTheme } from '../services/themeGenerator'
+import { getBrandKit } from '../db/queries/brandKits'
 import type { SharedTalk } from '../../../shared/types'
 
 // Read-only share link (CLAUDE.md §5.6): no account, no auth — the token is
@@ -41,7 +43,10 @@ sharedRouter.get('/:token', asyncHandler(async (req, res) => {
     }) as SharedTalk['slides'],
   }
   res.setHeader('Cache-Control', 'private, no-store')
-  res.json({ talk: shared, themes: listThemes() })
+  // The custom theme travels with a shared talk that uses it — the viewer
+  // has no account, so the swatch list is the one place it can come from.
+  const custom = talk.theme_id === 'custom' ? readStoredTheme((await getBrandKit(talk.workspace_id))?.custom_theme) : null
+  res.json({ talk: shared, themes: listThemes(custom) })
 }))
 
 sharedRouter.get('/:token/media/:mediaId/image', asyncHandler(async (req, res) => {

@@ -69,7 +69,7 @@ export async function generateTalkPptx(talk: Pick<Talk, 'title' | 'slides' | 'la
   const slides = talk.slides
   if (!slides || slides.length === 0) throw new Error('No slides to export')
 
-  const theme = applyBrand(getTheme(opts.themeId ?? talk.theme_id), opts.brand ?? null, contrastRatio, textOn)
+  const theme = applyBrand(getTheme(opts.themeId ?? talk.theme_id, opts.brand), opts.brand ?? null, contrastRatio, textOn)
   if (opts.brand?.accent && theme.labelColor !== theme.palette.accent) {
     logger.info({ message: '[PPTX export] brand accent below 4.5:1 on the theme ground — labels fall back to ink2', accent: opts.brand.accent, theme: theme.id, ratio: contrastRatio(opts.brand.accent, theme.palette.bg).toFixed(2) })
   }

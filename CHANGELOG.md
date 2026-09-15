@@ -60,6 +60,33 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
     once per role, 212 KB.
   - The site's theme row wraps at twelve chips instead of scrolling
     sideways.
+- **Design v3, layer 3 (second half) — a theme from anywhere, one gate.**
+  A workspace may keep ONE custom theme (`brand_kits.custom_theme`,
+  migration 014, expand-only), picked on a talk as `theme_id = 'custom'`
+  and carried to the exporters through the brand kit (a shared talk
+  carries it too — the viewer has no account). Three ways to propose it,
+  all on the brand page («Своя тема»), each returning a candidate with the
+  validator's corrections by name, saved only on «Сохранить»:
+  - *By description* — `generateThemeFromDescription`: the model answers
+    with theme JSON (palette, two faces from an allow-list of what a .pptx
+    carries unembedded, a recipe); `coerceTheme` fills what is missing
+    from the light or dark base by the ground's luminance (a dark answer
+    with no `panel` got the dark base's, not a white panel on black), then
+    `validateTheme`. Feature `theme_generate` in usage_log, 600 tokens.
+  - *From the brand accent* — `deriveThemeFromAccent`: the whole palette
+    from one colour (ground tinted 3 % / 12 % toward it, ink pulled 15 %,
+    a wash), light or dark, then validated — the brand kit as a derivation
+    instead of an accent override; a pale accent comes back darker and
+    says so.
+  - *From an uploaded .pptx* — `extractPptxColorScheme` reads
+    `ppt/theme/theme1.xml` (dk1/lt1 as `sysClr lastClr`, the rest
+    `srgbClr`, the major/minor faces) → lt1 ground, dk1 ink, lt2 panel,
+    accent1 (accent2 when accent1 is the ink). A brand SOURCE, never a
+    layout source (TODO L). Checked against four real PowerPoint decks
+    from ~/Downloads, not our own output (§9): Office blue 4472C4 clears
+    white at 4.9 and fails the E7E6E6 panel at 3.9 — corrected to 3A61A7.
+  - `accentText` corrections snap to white or black outright — the
+    step-walk produced E8E9E9 on a darkened Office blue.
 
 ### Fixed
 - **Text that does not fit now shrinks; it used to overflow** — the first

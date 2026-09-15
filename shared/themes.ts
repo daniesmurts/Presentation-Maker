@@ -276,7 +276,10 @@ export function validateTheme(input: Theme): ValidatedTheme {
   const check = (key: 'ink' | 'ink2' | 'ink3' | 'accent' | 'accentText', ground: string, floor: number, label: string) => {
     const ratio = contrastRatio(p[key], ground)
     if (ratio >= floor) return
-    const fixed = pushUntil(p[key], ground, key === 'accentText' ? opposite(ground) : opposite(ground), floor)
+    // Text ON the accent is white or black outright — a step-walked E8E9E9
+    // is an odd colour for a title band; everything else moves as little
+    // as it must.
+    const fixed = key === 'accentText' ? opposite(ground) : pushUntil(p[key], ground, opposite(ground), floor)
     issues.push({ pair: label, ratio: +ratio.toFixed(2), floor, fixed })
     p[key] = fixed
   }
