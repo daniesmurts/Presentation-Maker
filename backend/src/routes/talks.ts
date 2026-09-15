@@ -17,7 +17,9 @@ import { parseSlideSelection, selectSlides, selectionSuffix, SelectionError } fr
 import { assertDownloadQuota, assertTalkQuota } from '../lib/planTier'
 import { resolveBrandKit } from '../services/brandKit'
 import { getBrandKit } from '../db/queries/brandKits'
-import { THEMES } from '../services/themes'
+import { THEMES, getTheme } from '../services/themes'
+import { generateImage, imagePromptForSlide, aspectForSlide, isImageGenConfigured, PROMPT_MAX_CHARS } from '../services/imageGen'
+import { hasSlideImage, getSlideImageQuery } from '../services/talks'
 import { setTalkTheme } from '../db/queries/talks'
 import { checkSpendCap } from '../services/spendCap'
 import { storeSlideImage, collectTalkMediaPaths, deleteMediaObjects, MAX_IMAGE_BYTES } from '../services/talkMedia'
@@ -384,6 +386,57 @@ talksRouter.post('/:id/slides/:idx/image', (req, res, next) => {
   if (!req.file) throw new ValidationError('Выберите файл PNG или JPEG')
   const image = await storeSlideImage(talk, idx, req.file.buffer)
   res.status(201).json({ talk: await persist(talk, slides.map((s, i) => (i === idx ? withSlideImage(s, image) : s)), req.user.workspace_id) })
+}))
+
+// ─── Generated pictures (Design v3, L3) ────────────────────────────────────
+//
+// The prompt is proposed from the slide and the theme (imageGen.ts) and
+// shown before generation; the user may rewrite it. The picture lands in
+// storage exactly like an upload. Sequential and capped at deck level:
+// each picture is a paid call.
+
+// GET /api/talks/:id/slides/:idx/image/prompt — the proposed prompt.
+talksRouter.get('/:id/slides/:idx/image/prompt', asyncHandler(async (req, res) => {
+  const { talk, slides, idx } = await loadTalkSlide(req.params.id, req.user.workspace_id, req.params.idx)
+  const theme = getTheme(talk.theme_id, await resolveBrandKit(req.user.workspace_id))
+  res.json({ prompt: imagePromptForSlide(slides[idx], theme, talk.language), available: isImageGenConfigured(), max: PROMPT_MAX_CHARS })
+}))
+
+// POST /api/talks/:id/slides/:idx/image/generate { prompt? }
+talksRouter.post('/:id/slides/:idx/image/generate', asyncHandler(async (req, res) => {
+  const { talk, slides, idx } = await loadTalkSlide(req.params.id, req.user.workspace_id, req.params.idx)
+  const theme = getTheme(talk.theme_id, await resolveBrandKit(req.user.workspace_id))
+  const raw = (req.body as { prompt?: unknown })?.prompt
+  const prompt = (typeof raw === 'string' && raw.trim() ? raw.trim() : imagePromptForSlide(slides[idx], theme, talk.language)).slice(0, PROMPT_MAX_CHARS)
+  const picture = await generateImage(prompt, aspectForSlide(slides[idx]), { userId: req.user.id, workspaceId: req.user.workspace_id, language: talk.language })
+  const image = { ...(await storeSlideImage(talk, idx, picture.buffer)), query: prompt, source_host: talk.language === 'ru' ? 'Сгенерировано' : 'Generated' }
+  recordTalkEvent({ talkId: talk.id, workspaceId: req.user.workspace_id, userId: req.user.id, event: 'image_generated', metadata: { slide: idx, type: slides[idx].type } })
+  res.status(201).json({ talk: await persist(talk, slides.map((s, i) => (i === idx ? withSlideImage(s, image) : s)), req.user.workspace_id), prompt })
+}))
+
+// POST /api/talks/:id/images/generate — every slide that wants a picture
+// and has none: image-full and diagram always, anything else with a query.
+// Capped; a failure on one slide does not stop the others.
+const DECK_IMAGE_CAP = 8
+talksRouter.post('/:id/images/generate', asyncHandler(async (req, res) => {
+  const talk = await findTalkById(req.params.id, req.user.workspace_id)
+  if (!talk?.slides) throw new NotFoundError('Выступление не найдено')
+  const theme = getTheme(talk.theme_id, await resolveBrandKit(req.user.workspace_id))
+  const wants = (s: Slide) => !hasSlideImage(s) && (s.type === 'image-full' || s.type === 'diagram' || getSlideImageQuery(s).length > 0)
+  const targets = talk.slides.map((s, i) => ({ s, i })).filter(({ s }) => wants(s)).slice(0, DECK_IMAGE_CAP)
+  let slides = talk.slides
+  let done = 0, failed = 0
+  for (const { s, i } of targets) {
+    try {
+      const prompt = imagePromptForSlide(s, theme, talk.language)
+      const picture = await generateImage(prompt, aspectForSlide(s), { userId: req.user.id, workspaceId: req.user.workspace_id, language: talk.language })
+      const image = { ...(await storeSlideImage(talk, i, picture.buffer)), query: prompt, source_host: talk.language === 'ru' ? 'Сгенерировано' : 'Generated' }
+      slides = slides.map((x, j) => (j === i ? withSlideImage(x, image) : x))
+      done++
+    } catch { failed++ }
+  }
+  recordTalkEvent({ talkId: talk.id, workspaceId: req.user.workspace_id, userId: req.user.id, event: 'image_generated', metadata: { done, failed, of: talk.slides.length } })
+  res.json({ talk: done > 0 ? await persist(talk, slides, req.user.workspace_id) : talk, done, failed, skipped: targets.length === 0 })
 }))
 
 // DELETE /api/talks/:id/slides/:idx/image — detaches; the object stays until

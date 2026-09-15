@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Trash2, Download, Plus, Link2, Check, ChevronDown, Copy, Play, Wand2, CheckCircle2 } from 'lucide-react'
-import { getTalk, deleteTalk, updateSlide, regenerateSlide, deleteSlide, insertSlide, moveSlide, uploadSlideImage, removeSlideImage, setTalkTheme, shareTalk, unshareTalk, startRewrite, applyRewrite, dismissRewrite, replaceTalkSlides, getJob, approveTalk } from '../api/talks'
+import { Trash2, Download, Plus, Link2, Check, ChevronDown, Copy, Play, Wand2, CheckCircle2, Sparkles } from 'lucide-react'
+import { getTalk, deleteTalk, updateSlide, regenerateSlide, deleteSlide, insertSlide, moveSlide, uploadSlideImage, removeSlideImage, setTalkTheme, shareTalk, unshareTalk, startRewrite, applyRewrite, dismissRewrite, replaceTalkSlides, getJob, approveTalk, getImagePrompt, generateSlideImage, generateDeckImages } from '../api/talks'
 import RewriteReview from '../components/talks/RewriteReview'
 import { remapAfterMove, remapAfterDelete, remapAfterInsert, toSlideNumbers, rangeBetween } from '../lib/slideSelection'
 import { getBrand } from '../api/brand'
@@ -100,6 +100,19 @@ export default function TalkPage() {
       : undefined,
     onUpload:      (idx, file) => void run(() => uploadSlideImage(id, idx, file), false),
     onRemoveImage: (idx) => void run(() => removeSlideImage(id, idx), false),
+    // Generated pictures (Design v3, L3) — only when the server has a provider.
+    ...(brandData?.image_generation ? {
+      getPrompt:  (idx: number) => getImagePrompt(id, idx).then((r) => r.prompt),
+      onGenerate: (idx: number, prompt: string) => run(() => generateSlideImage(id, idx, prompt || undefined), false).then(() => {}),
+    } : {}),
+  }
+  async function drawDeck() {
+    setBusy(true)
+    try {
+      const r = await generateDeckImages(id)
+      qc.setQueryData(['talk', id], r.talk)
+      toast(copy.talk.image.deckDone(r.done, r.failed), r.done > 0 ? 'success' : 'error')
+    } catch (err) { toast(errorMessage(err), 'error') } finally { setBusy(false) }
   }
   async function beginRewrite() {
     if (!instruction.trim()) return
@@ -181,6 +194,11 @@ export default function TalkPage() {
         <Button variant="quiet" onClick={() => setRewriteOpen((o) => !o)} disabled={busy || Boolean(rewriteJob)} title={copy.rewrite.lead} aria-label={copy.rewrite.button}>
           <Wand2 className="w-4 h-4" aria-hidden /> <span className="hidden lg:inline">{copy.rewrite.button}</span>
         </Button>
+        {brandData?.image_generation && (
+          <Button variant="quiet" onClick={() => void drawDeck()} disabled={busy} title={copy.talk.image.deckHint} aria-label={copy.talk.image.deck}>
+            <Sparkles className="w-4 h-4" aria-hidden /> <span className="hidden lg:inline">{copy.talk.image.deck}</span>
+          </Button>
+        )}
         <div className="flex items-center gap-1">
           <Button variant={talk.share_token ? 'secondary' : 'quiet'} loading={share.isPending} onClick={() => share.mutate(!talk.share_token)}
                   aria-label={copy.talk.share.button} title={copy.talk.share.hint}>

@@ -138,9 +138,13 @@ CLAUDE.md §8 step 3.
   project yet. When one does: port `yandexImages.ts`, the picker UI, and
   `autoFillImages` at generation (best-effort, capped at 20 per deck);
   https at ingest AND at render (§3.6) for web results.
-- **Phase 3 — generated schematics** (SVG/Mermaid → PNG via resvg, which
-  is already installed for formulas). On the parent's backlog, blocked
-  on rendering, not on the idea.
+- **Phase 3 — generated pictures.** 🟢 SHIPPED (2026-09-15, YandexART) —
+  see CHANGELOG. Left: Kandinsky (Fusion Brain) as a second provider
+  behind the same `generateImage` (key + secret; fusionbrain.ai was not
+  reachable from the agent sandbox, so its endpoint shape is unverified);
+  SVG/Mermaid schematics through resvg for `diagram` — a drawn schematic,
+  not a painted one; search (Yandex Images, same folder + key) for the
+  slides that want a real thing rather than an illustration.
 
 ### C. Deploy pipeline · Effort: M · when there is a first external user
 Parent's `deploy.sh` shape (§9): CI gate on exact commit → image guard →
@@ -347,8 +351,7 @@ option is still open.
   `shared/color.ts`, `scripts/themeGallery.ts`, the landing on the shared
   data; `services/themeGenerator.ts` (description · accent · .pptx),
   `brand_kits.custom_theme`, the brand page's «Своя тема». See CHANGELOG.
-- Left: generated IMAGES (abstract backdrops for image-full / section,
-  SVG schematics for diagram) — the one L3 item not started; a theme
+- Left: a theme
   gallery page inside the app (the script exists); more than one custom
   theme per workspace (needs a themes table — expand when asked).
 - Hand-design 8–12 themes as rows in `themes.ts` (bold pitch · editorial ·

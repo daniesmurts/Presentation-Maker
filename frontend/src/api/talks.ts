@@ -46,6 +46,10 @@ export function uploadSlideImage(id: string, idx: number, file: File) {
   return client.post<{ talk: Talk }>(`/api/talks/${id}/slides/${idx}/image`, form, { timeout: 60_000 }).then(unwrap)
 }
 export const removeSlideImage = (id: string, idx: number) => client.delete<{ talk: Talk }>(`/api/talks/${id}/slides/${idx}/image`).then(unwrap)
+// Generated pictures (Design v3, L3): the proposed prompt, one slide, the whole deck.
+export const getImagePrompt = (id: string, idx: number) => client.get<{ prompt: string; available: boolean; max: number }>(`/api/talks/${id}/slides/${idx}/image/prompt`).then((r) => r.data)
+export const generateSlideImage = (id: string, idx: number, prompt?: string) => client.post<{ talk: Talk }>(`/api/talks/${id}/slides/${idx}/image/generate`, { prompt }).then(unwrap)
+export const generateDeckImages = (id: string) => client.post<{ talk: Talk; done: number; failed: number; skipped: boolean }>(`/api/talks/${id}/images/generate`).then((r) => r.data)
 
 // ─── Import ─────────────────────────────────────────────────────────────────
 export interface ImportResult { talk: Talk; source_slide_count: number; images_imported: number; images_dropped: number }

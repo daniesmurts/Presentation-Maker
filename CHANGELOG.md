@@ -34,6 +34,37 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 ## [Unreleased]
 
 ### Added
+- **Generated pictures — YandexART** (TODO B phase 3 / L3's last item;
+  CLAUDE.md §5.4). `services/imageGen.ts`: one picture per call through
+  Yandex AI Studio's OpenAI-compatible endpoint, model
+  `aliceai-image-art-3.0`, JPEG back in ~3 s (1344 × 768 for 16:9); stored
+  through the same `storeSlideImage` path as an upload, so the .pptx, the
+  PDF, the stage and the share page need nothing new. Routes: the
+  proposed prompt for a slide, generate for one slide (prompt editable),
+  generate for the deck (image-full and diagram always, anything with a
+  query, capped at 8, one failure does not stop the rest). Cost
+  ($0.0183 per picture, `config/pricing.ts`) lands in `usage_log` as
+  feature `image_generate`, and both spend caps run before the call.
+  `talk_events` gains `image_generated` with `{slide, type}` /
+  `{done, failed, of}` (§3.9). The controls appear only when
+  `YANDEX_FOLDER_ID` + `YANDEX_API_KEY` are set.
+  - *What the live setup taught (2026-09-15), in the module's header so
+    nobody repeats it:* the URI alias `yandex-art/latest` answers «Access
+    to model denied» with every role and scope in place (retired); the
+    async `imageGenerationAsync` accepts `yandex-art-2.0` and then stays
+    `done: false` for minutes; the key needs the scope
+    `yc.ai.imageGeneration.execute` AND the account the role on the
+    folder — a key scoped to language models passes YandexGPT and fails
+    ART, which is how the first hour went.
+  - *The prompt comes from the slide, not from the model — and was
+    tuned on pictures, not on prose.* The first builder («calm, clean
+    shapes, colours #0F6E6E and #FFFFFF, no text, no logos, no faces, no
+    watermarks») produced two flat colour blocks: mood words and hex
+    codes crowded out the subject. The one shipped: subject first, «flat
+    vector illustration for a presentation slide», one manner clause per
+    theme, the palette as colour NAMES (`colourName()` — twelve hue
+    buckets, «кремовый» for tinted paper), one short negative. Three
+    variants generated and looked at before it was written.
 - **Design v3, layer 3 (first half) — twelve themes, one shared data file,
   a validator, a gallery** (TODO L3). Theme data moved to
   `shared/themes.ts`: the backend exports with it, the browser previews

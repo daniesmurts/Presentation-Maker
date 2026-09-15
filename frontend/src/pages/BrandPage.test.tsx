@@ -12,7 +12,7 @@ const swatches = Object.values(THEMES).map((t) => ({ id: t.id, name: t.name, bg:
 const candidate: Theme = { ...THEMES.dark, id: 'custom', name: 'Финтех' }
 vi.mock('../api/brand', async (orig) => ({
   ...(await orig<typeof import('../api/brand')>()),
-  getBrand: vi.fn(async () => ({ brand: { accent: '2F4FD0', name: 'ООО Пример', logo: null, contrast: [] }, themes: swatches, custom_theme: null, style_learning: false })),
+  getBrand: vi.fn(async () => ({ brand: { accent: '2F4FD0', name: 'ООО Пример', logo: null, contrast: [] }, themes: swatches, custom_theme: null, style_learning: false, image_generation: false })),
   generateTheme: vi.fn(async () => ({ theme: candidate, issues: [{ pair: 'accent/bg', ratio: 3.2, floor: 4.5 }] })),
   saveTheme: vi.fn(async (theme: Theme) => ({ theme, issues: [], themes: [{ id: 'custom', name: theme.name, bg: theme.palette.bg, ink: theme.palette.ink, ink2: theme.palette.ink2, accent: theme.palette.accent, panel: theme.palette.panel, background: theme.background }, ...swatches] })),
 }))
@@ -40,7 +40,7 @@ describe('BrandPage — custom theme', () => {
 
   it('the accent buttons are disabled without a brand accent', async () => {
     const api = await import('../api/brand')
-    vi.mocked(api.getBrand).mockResolvedValueOnce({ brand: { accent: null, name: null, logo: null, contrast: [] }, themes: swatches, custom_theme: null, style_learning: false })
+    vi.mocked(api.getBrand).mockResolvedValueOnce({ brand: { accent: null, name: null, logo: null, contrast: [] }, themes: swatches, custom_theme: null, style_learning: false, image_generation: false })
     mount()
     expect((await screen.findByRole('button', { name: 'светлая' })) as HTMLButtonElement).toHaveProperty('disabled', true)
   })

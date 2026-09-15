@@ -27,3 +27,8 @@ export function calculateDeepSeekCost(
   const peakMultiplier = isDeepSeekPeakHour(at) ? 1 : 0.5
   return ((inputTokens / 1_000_000) * FLASH_RATE.in + (outputTokens / 1_000_000) * FLASH_RATE.out) * peakMultiplier
 }
+
+// YandexART (Yandex AI Studio) — one price per generated image, USD without
+// VAT, from the AI Studio pricing page on 2026-09-15 («1 request for image
+// generation»). Charged per request whatever the size.
+export const YANDEX_ART_COST_USD = 0.0182786856

@@ -49,7 +49,8 @@ on-prem install keeps `.pptx` open to everyone.
   rewrite. «Только по моим материалам» holds on rewrites too.
 - ✅ **Upload an image onto a slide** (PNG or JPEG up to 8 MB) on any slide
   type the deck lays out — replace or remove it; it goes into the `.pptx`
-  at its true aspect ratio. 📋 Image search (needs a provider). *(TODO B)*
+  at its true aspect ratio.
+- ✅ **Draw a picture for a slide** («Нарисовать») — from a prompt the app proposes from the slide and the theme (what is shown, then the manner and the theme's colours in words), editable before drawing; and «Нарисовать картинки» for the whole talk — every picture slide and schematic without one, up to eight at a time. About 2 ₽ a picture, counted against the workspace's spend cap. Needs the YandexART credentials in the environment; without them the controls are not shown. 📋 Image search (a real photo of a real thing) is still open. *(TODO B)*
 - ✅ **Upload an existing `.pptx`** (up to 20 MB) as a talk: slide order,
   titles, text, speaker notes and each slide's main picture come through;
   template pictures repeated across slides are left behind. No model call

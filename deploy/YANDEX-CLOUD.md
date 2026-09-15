@@ -257,6 +257,14 @@ STORAGE_SECRET_KEY=<static key secret>
 
 # Platform-wide cost backstop, USD per day. Set it.
 GLOBAL_DAILY_SPEND_CAP_USD=10
+
+# Generated pictures (YandexART via AI Studio). Optional — without them the
+# «Нарисовать» controls do not appear. Service account: role
+# ai.imageGeneration.user ON THE FOLDER; API key with the scope
+# yc.ai.imageGeneration.execute (a key scoped to languageModels only answers
+# «Access to model denied»). ~$0.018 per picture, counted in usage_log.
+YANDEX_FOLDER_ID=<folder id, b1g…>
+YANDEX_API_KEY=<the API key secret>
 ```
 
 ## 6. DNS

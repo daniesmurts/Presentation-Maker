@@ -11,7 +11,7 @@ export interface Brand {
   logo:     { url: string; width: number | null; height: number | null } | null
   contrast: BrandContrast[]
 }
-export interface BrandResponse { brand: Brand; themes: ThemeSwatch[]; custom_theme: Theme | null; style_learning: boolean }
+export interface BrandResponse { brand: Brand; themes: ThemeSwatch[]; custom_theme: Theme | null; style_learning: boolean; image_generation: boolean }
 // Design v3 (L3): a candidate theme from one of three sources, with the
 // corrections the validator made; PUT saves it (validated again).
 export interface ThemeIssue { pair: string; ratio: number; floor: number }

@@ -7,6 +7,7 @@ import { getBrandKit, upsertBrandKit, setBrandLogo, setCustomTheme, type BrandKi
 import { identifyOoxml } from '../lib/fileType'
 import { coerceTheme, readStoredTheme, generateThemeFromDescription, deriveThemeFromAccent, themeFromPptx, CUSTOM_THEME_ID } from '../services/themeGenerator'
 import { validateTheme, type ValidatedTheme } from '../services/themes'
+import { isImageGenConfigured } from '../services/imageGen'
 import type { TalkLanguage } from '../../../shared/types'
 import { uploadObject, downloadObject, deleteObject } from '../services/objectStorage'
 import { sniffMime } from '../services/slideImageSource'
@@ -39,7 +40,7 @@ function toResponse(kit: BrandKitRow | null) {
 brandRouter.get('/', asyncHandler(async (req, res) => {
   const kit = await getBrandKit(req.user.workspace_id)
   const custom = readStoredTheme(kit?.custom_theme)
-  res.json({ brand: toResponse(kit), themes: listThemes(custom), custom_theme: custom, style_learning: await getWorkspaceStyleLearning(req.user.workspace_id) })
+  res.json({ brand: toResponse(kit), themes: listThemes(custom), custom_theme: custom, style_learning: await getWorkspaceStyleLearning(req.user.workspace_id), image_generation: isImageGenConfigured() })
 }))
 
 // ─── The workspace's own theme (Design v3, L3) ─────────────────────────────

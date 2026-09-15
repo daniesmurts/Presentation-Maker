@@ -154,6 +154,18 @@ export const copy = {
     image: {
       upload: 'Загрузить изображение', replace: 'Заменить', remove: 'Убрать изображение',
       hint: 'PNG или JPEG до 8 МБ', credit: (host: string) => host,
+      // Generated pictures (Design v3, L3). The prompt is shown and editable:
+      // the user should see what is asked for, not wonder why it came back
+      // as two colour blocks.
+      generate:     'Нарисовать',
+      generateHint: 'Картинка по описанию слайда, в цветах темы. Около 2 ₽ за картинку.',
+      promptLabel:  'Что нарисовать',
+      promptHint:   'Сначала — что изображено, потом манера. Текст на картинке не получится — не просите.',
+      go:           'Нарисовать',
+      redo:         'Нарисовать заново',
+      deck:         'Нарисовать картинки',
+      deckHint:     'Для слайдов с картинкой и схем, у которых картинки ещё нет — до восьми за раз.',
+      deckDone:     (done: number, failed: number) => done === 0 ? (failed > 0 ? 'Не удалось нарисовать — попробуйте позже' : 'Все слайды с картинками уже заполнены') : `Нарисовано: ${done}${failed ? `, не получилось: ${failed}` : ''}`,
     },
     download:   'Скачать .pptx',
     downloadPdf:'Скачать PDF',

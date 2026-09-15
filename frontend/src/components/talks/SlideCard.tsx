@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Copy, Check, AlertTriangle, Image as ImageIcon, ArrowUp, ArrowDown, Pencil, RefreshCw, Trash2, Undo2, Upload, X } from 'lucide-react'
+import { Copy, Check, AlertTriangle, Image as ImageIcon, ArrowUp, ArrowDown, Pencil, RefreshCw, Trash2, Undo2, Upload, X, Sparkles } from 'lucide-react'
 import type { Slide, SlideImage, TalkLanguage } from '../../../../shared/types'
 import { BlockMath, InlineText } from './Math'
 import { slideToText } from './slideText'
@@ -21,6 +21,9 @@ export interface SlideEditActions {
   onUndo?:      (idx: number) => void   // present only while a previous version is held
   onUpload:     (idx: number, file: File) => void
   onRemoveImage:(idx: number) => void
+  /** Generated pictures (Design v3, L3): absent when generation is not configured. */
+  onGenerate?:  (idx: number, prompt: string) => Promise<void>
+  getPrompt?:   (idx: number) => Promise<string>
 }
 
 // The manuscript row («Редакция»): the slide on the left, the speaker's
@@ -77,7 +80,8 @@ export default function SlideCard({ slide, number, total, language, notesEnabled
   // would store a picture the deck never shows.
   const canHaveImage = !['title', 'section', 'agenda', 'stats', 'quote', 'summary', 'cta'].includes(slide.type)
   const imageSlot = !canHaveImage ? null : edit
-    ? <ImageSlot query={imageQuery ?? ''} image={image ?? null} busy={edit.busy} onUpload={(f) => edit.onUpload(idx, f)} onRemove={() => edit.onRemoveImage(idx)} />
+    ? <ImageSlot query={imageQuery ?? ''} image={image ?? null} busy={edit.busy} onUpload={(f) => edit.onUpload(idx, f)} onRemove={() => edit.onRemoveImage(idx)}
+                 onGenerate={edit.onGenerate ? (p) => edit.onGenerate!(idx, p) : undefined} getPrompt={edit.getPrompt ? () => edit.getPrompt!(idx) : undefined} />
     : image ? <ImageSlot query={imageQuery ?? ''} image={image} /> : null
 
   const cell = 'py-6 border-b border-border min-w-0'
@@ -185,11 +189,45 @@ function Chip({ label, icon, onClick, disabled, danger, active, iconOnly, classN
 // The one image slot: a picture with a credit line and replace/remove, or a
 // dashed slot with the model's suggested query and an upload control. A
 // real <label> wraps the hidden file input so the whole chip is the target.
-function ImageSlot({ query, image, busy, onUpload, onRemove }: {
+function ImageSlot({ query, image, busy, onUpload, onRemove, onGenerate, getPrompt }: {
   query: string; image: SlideImage | null; busy?: boolean
   onUpload?: (file: File) => void; onRemove?: () => void
+  onGenerate?: (prompt: string) => Promise<void>; getPrompt?: () => Promise<string>
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
+  // The generate disclosure: opened with the proposed prompt, editable,
+  // one action. Explanation at the control (CLAUDE.md §6).
+  const [promptOpen, setPromptOpen] = useState(false)
+  const [prompt, setPrompt] = useState('')
+  const [generating, setGenerating] = useState(false)
+  async function openPrompt() {
+    if (!getPrompt) return
+    setPromptOpen(true)
+    if (!prompt) { try { setPrompt(await getPrompt()) } catch { /* the field stays empty; the user can type */ } }
+  }
+  async function generate() {
+    if (!onGenerate) return
+    setGenerating(true)
+    try { await onGenerate(prompt.trim()); setPromptOpen(false) } finally { setGenerating(false) }
+  }
+  const generateButton = onGenerate && (
+    <button type="button" onClick={() => void openPrompt()} disabled={busy || generating} title={copy.talk.image.generateHint}
+            className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-border bg-surface hover:bg-surface-soft hover:text-ink">
+      <Sparkles className="w-3.5 h-3.5" aria-hidden /> {image ? copy.talk.image.redo : copy.talk.image.generate}
+    </button>
+  )
+  const promptPanel = promptOpen && onGenerate && (
+    <div className="mt-2 p-3 rounded-md bg-surface-soft space-y-2">
+      <label className="block text-xs font-medium text-ink-secondary">{copy.talk.image.promptLabel}
+        <textarea className={`${inputClass} mt-1 resize-y font-normal`} rows={3} maxLength={500} value={prompt} onChange={(e) => setPrompt(e.target.value)} disabled={generating} />
+      </label>
+      <p className="text-[11px] text-ink-tertiary">{copy.talk.image.promptHint}</p>
+      <div className="flex gap-2">
+        <Button size="sm" onClick={() => void generate()} loading={generating} disabled={busy}>{copy.talk.image.go}</Button>
+        <Button size="sm" variant="ghost" onClick={() => setPromptOpen(false)} disabled={generating}>{copy.talk.edit.cancel}</Button>
+      </div>
+    </div>
+  )
   const pick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
     if (f && onUpload) onUpload(f)
@@ -207,19 +245,25 @@ function ImageSlot({ query, image, busy, onUpload, onRemove }: {
           {onUpload && <label className="inline-flex items-center gap-1 h-8 px-2 rounded-md border border-border cursor-pointer hover:bg-surface-soft hover:text-ink">
             <Upload className="w-3.5 h-3.5" aria-hidden /> {copy.talk.image.replace}{fileInput}
           </label>}
+          {generateButton}
           {onRemove && <button type="button" onClick={onRemove} disabled={busy} className="inline-flex items-center gap-1 h-8 px-2 rounded-md border border-border hover:bg-danger-bg hover:text-danger">
             <X className="w-3.5 h-3.5" aria-hidden /> {copy.talk.image.remove}
           </button>}
         </figcaption>
+        {promptPanel}
       </figure>
     )
   }
   return (
     <div className="border border-dashed border-border-strong rounded-md px-3 py-2.5 flex flex-wrap items-center gap-3 text-xs text-ink-secondary">
       <span className="inline-flex items-center gap-2"><ImageIcon className="w-4 h-4 flex-shrink-0" aria-hidden /> {query ? copy.talk.imageSlot(query) : copy.talk.image.hint}</span>
-      {onUpload && <label className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-border bg-surface cursor-pointer hover:bg-surface-soft hover:text-ink ml-auto">
-        <Upload className="w-3.5 h-3.5" aria-hidden /> {copy.talk.image.upload}{fileInput}
-      </label>}
+      <span className="ml-auto inline-flex items-center gap-2">
+        {generateButton}
+        {onUpload && <label className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-border bg-surface cursor-pointer hover:bg-surface-soft hover:text-ink">
+          <Upload className="w-3.5 h-3.5" aria-hidden /> {copy.talk.image.upload}{fileInput}
+        </label>}
+      </span>
+      {promptPanel && <div className="basis-full">{promptPanel}</div>}
     </div>
   )
 }

@@ -7,7 +7,10 @@ export interface TalkEvent {
   userId:      string | null
   // 'subscribed' | 'renewed' | 'payment_failed' | 'renewal_failed' carry
   // { amount_kopecks, kind, order_id } (CLAUDE.md §3.9 — record the shape).
-  event:       'exported' | 'subscribed' | 'renewed' | 'payment_failed' | 'renewal_failed' | 'refunded' | 'auto_renew_off' | 'auto_renew_on'
+  // 'image_generated' carries { slide, type } for one picture and
+  // { done, failed, of } for a whole-deck pass — a deck that got 8 pictures
+  // is different evidence from one that got 1 (§3.9).
+  event:       'exported' | 'subscribed' | 'renewed' | 'payment_failed' | 'renewal_failed' | 'refunded' | 'auto_renew_off' | 'auto_renew_on' | 'image_generated'
   format?:     'pptx' | 'pdf'
   metadata?:   Record<string, unknown>
 }
