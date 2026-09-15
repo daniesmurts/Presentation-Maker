@@ -43,8 +43,14 @@ COPY --from=builder /app/backend/dist backend/dist
 # the exact code that will serve the traffic.
 COPY backend/migrations backend/migrations
 COPY backend/scripts/migrate.js backend/scripts/migrate.js
-# Vendored fonts for the PDF export — no system font stack in the image.
+# Vendored fonts for the PDF export — no system font stack in the image —
+# and the Russian Trusted Root CA (Минцифры): securepay.tinkoff.ru is
+# signed by it and no default trust store has it, so every T-Bank call
+# failed with SELF_SIGNED_CERT_IN_CHAIN on the first live checkout
+# (2026-09-15). Node reads extra roots from this variable at startup;
+# the bundled Mozilla store stays in force for everything else.
 COPY backend/assets backend/assets
+ENV NODE_EXTRA_CA_CERTS=/app/backend/assets/certs/russian_trusted_ca_bundle.pem
 
 ARG BUILD_VERSION=dev
 RUN echo "$BUILD_VERSION" > /app/VERSION
