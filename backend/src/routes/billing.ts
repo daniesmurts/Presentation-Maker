@@ -47,7 +47,8 @@ billingRouter.get('/', asyncHandler(async (req, res) => {
 
 // POST /api/billing/checkout → { url } — the hosted payment form to redirect to.
 billingRouter.post('/checkout', checkoutLimiter, asyncHandler(async (req, res) => {
-  res.json(await startCheckout(req.user.workspace_id, req.user.email))
+  const saveCard = (req.body as Record<string, unknown> | null)?.save_card !== false
+  res.json(await startCheckout(req.user.workspace_id, req.user.email, { saveCard }))
 }))
 
 // GET /api/billing/verify?order=… — the return page asks whether its order

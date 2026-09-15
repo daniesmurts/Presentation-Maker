@@ -138,6 +138,12 @@ describe('applyNotification', () => {
 })
 
 describe('startCheckout', () => {
+  it('save_card=false sends Init without Recurrent — one month, no card saved (also what T-Bank’s «Тест 1» counts)', async () => {
+    db({})
+    tbankInit.mockResolvedValue({ paymentId: '900002', paymentUrl: 'https://securepay.tinkoff.ru/new/plain', status: 'NEW' })
+    await startCheckout('w1', 'user@example.test', { saveCard: false })
+    expect(tbankInit.mock.calls[0][0].recurrent).toBe(false)
+  })
   it('creates the row, signs Init with Recurrent and a receipt, returns the form URL', async () => {
     db({})
     tbankInit.mockResolvedValue({ paymentId: '900001', paymentUrl: 'https://securepay.tinkoff.ru/new/abc', status: 'NEW' })

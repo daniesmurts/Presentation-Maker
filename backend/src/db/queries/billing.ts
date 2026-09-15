@@ -113,9 +113,13 @@ export async function applyPaymentStatus(
       [paymentId, status, errorCode, raw == null ? null : JSON.stringify(raw), activate?.periodStart ?? null, activate?.periodEnd ?? null],
     )
     if (activate) {
+      // auto_renew follows whether there is a card to renew from: the one just
+      // saved, or one saved earlier (a renewal's notification may omit RebillId).
+      // A month paid without saving the card leaves auto-renew off.
       await client.query(
         `UPDATE workspaces
-            SET plan_tier = 'pro', plan_expires_at = $2, renewal_failures = 0, auto_renew = TRUE,
+            SET plan_tier = 'pro', plan_expires_at = $2, renewal_failures = 0,
+                auto_renew = ($3 IS NOT NULL OR tbank_rebill_id IS NOT NULL),
                 tbank_rebill_id = COALESCE($3, tbank_rebill_id), card_last4 = COALESCE($4, card_last4)
           WHERE id = $1`,
         [activate.workspaceId, activate.periodEnd, activate.rebillId, activate.cardLast4],

@@ -203,6 +203,8 @@ export const copy = {
     leadPro:      'Выступлений без ограничения, редактируемый .pptx, PDF, ссылка и режим докладчика.',
     subscribe:    (rub: number) => `Перейти на Pro — ${rub.toLocaleString('ru-RU')} ₽ в месяц`,
     payAgain:     'Оплатить месяц',
+    saveCard:     'Сохранить карту и продлевать автоматически',
+    saveCardHint: 'Без этого вы оплачиваете один месяц; когда он закончится, тариф вернётся на бесплатный. Отменить автопродление можно в любой момент.',
     proUntil:     (date: string) => `Pro до ${date}`,
     renewsOn:     (date: string, last4: string | null) => `Продлится ${date}${last4 ? ` с карты ····${last4}` : ''}`,
     endsOn:       (date: string) => `Автопродление выключено — Pro закончится ${date}`,

@@ -113,7 +113,14 @@ export function nextPeriod(currentExpiry: Date | null, now = new Date()): { star
 
 // ─── Checkout ───────────────────────────────────────────────────────────────
 
-export async function startCheckout(workspaceId: string, email: string): Promise<{ url: string; order_id: string }> {
+// `saveCard` (default true): Recurrent=Y, the card is saved and the month
+// renews itself. False pays one month, plain: no RebillId, auto-renew off
+// — for the user who does not want a subscription, and for T-Bank's
+// cabinet «Тест 1», which does not count a recurrent parent payment as a
+// plain successful one (2026-09-15: three CONFIRMED payments, test still
+// «не пройдено»).
+export async function startCheckout(workspaceId: string, email: string, opts: { saveCard?: boolean } = {}): Promise<{ url: string; order_id: string }> {
+  const saveCard = opts.saveCard !== false
   const t = assertEnabled()
   const ws = await getWorkspaceBilling(workspaceId)
   if (!ws) throw new AppError('Рабочее пространство не найдено', 404, 'NOT_FOUND')
@@ -129,7 +136,7 @@ export async function startCheckout(workspaceId: string, email: string): Promise
   try {
     result = await tbank.init({
       amountKopecks: PRO_AMOUNT_KOPECKS, orderId: row.order_id, description: `Тезариум Pro — 1 месяц`,
-      customerKey: workspaceId, recurrent: true,
+      customerKey: workspaceId, recurrent: saveCard,
       successUrl: successUrl + row.order_id, failUrl, notificationUrl,
       receipt: tbank.subscriptionReceipt(email, PRO_AMOUNT_KOPECKS, 'Подписка Тезариум Pro, 1 месяц'),
     })
@@ -138,7 +145,7 @@ export async function startCheckout(workspaceId: string, email: string): Promise
     throw err
   }
   await setPaymentProviderId(row.id, result.paymentId, result.status)
-  logger.info({ message: 'Checkout started', workspaceId, orderId: row.order_id, paymentId: result.paymentId })
+  logger.info({ message: 'Checkout started', workspaceId, orderId: row.order_id, paymentId: result.paymentId, saveCard })
   return { url: result.paymentUrl, order_id: row.order_id }
 }
 

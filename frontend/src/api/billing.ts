@@ -22,7 +22,7 @@ export interface Billing {
 }
 
 export const getBilling = () => client.get<Billing>('/api/billing').then((r) => r.data)
-export const checkout   = () => client.post<{ url: string; order_id: string }>('/api/billing/checkout').then((r) => r.data)
+export const checkout   = (saveCard = true) => client.post<{ url: string; order_id: string }>('/api/billing/checkout', { save_card: saveCard }).then((r) => r.data)
 export const verifyOrder = (order: string) => client.get<{ status: string; paid: boolean }>('/api/billing/verify', { params: { order } }).then((r) => r.data)
 export const cancelRenewal = () => client.post<Billing>('/api/billing/cancel').then((r) => r.data)
 export const resumeRenewal = () => client.post<Billing>('/api/billing/resume').then((r) => r.data)

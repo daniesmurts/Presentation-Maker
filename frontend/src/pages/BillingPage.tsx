@@ -6,6 +6,7 @@ import { getBilling, checkout, verifyOrder, cancelRenewal, resumeRenewal, type B
 import { me } from '../api/auth'
 import { errorMessage } from '../api/client'
 import Button from '../components/ui/Button'
+import { Checkbox } from '../components/ui/Field'
 import Spinner from '../components/ui/Spinner'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../lib/toast'
@@ -65,10 +66,11 @@ export default function BillingPage() {
     setBusy(true)
     try { apply(await fn()); toast(ok, 'success') } catch (err) { toast(errorMessage(err), 'error') } finally { setBusy(false) }
   }
+  const [saveCard, setSaveCard] = useState(true)
   async function pay() {
     setBusy(true)
     try {
-      const { url } = await checkout()
+      const { url } = await checkout(saveCard)
       window.location.assign(url)   // the hosted form; T-Bank brings the user back to /billing
     } catch (err) { toast(errorMessage(err), 'error'); setBusy(false) }
   }
@@ -114,7 +116,10 @@ export default function BillingPage() {
 
           <div className="flex items-center gap-2 flex-wrap">
             {!isPro || renewalBroken || !data.card_last4 ? (
-              <Button onClick={() => void pay()} loading={busy}>{isPro ? copy.billing.payAgain : copy.billing.subscribe(data.price_rub)}</Button>
+              <div className="space-y-2">
+                <Checkbox checked={saveCard} onChange={setSaveCard} label={copy.billing.saveCard} hint={copy.billing.saveCardHint} />
+                <Button onClick={() => void pay()} loading={busy}>{isPro ? copy.billing.payAgain : copy.billing.subscribe(data.price_rub)}</Button>
+              </div>
             ) : data.auto_renew ? (
               <Button variant="secondary" onClick={() => void run(cancelRenewal, copy.billing.cancelled)} loading={busy}>{copy.billing.cancel}</Button>
             ) : (
