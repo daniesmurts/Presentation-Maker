@@ -6,6 +6,7 @@ vi.mock('../lib/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error:
 
 import { checkSpendCap, invalidateSpendCapCache } from './spendCap'
 import { checkGlobalSpendCap, parseDailyCapUsd, GlobalSpendCapExceededError } from './globalSpendCap'
+import { config } from '../lib/config'
 import { pickEffectiveCap, assertTalkQuota, assertDownloadQuota, quotaOf, PLAN_LIMITS } from '../lib/planTier'
 import { SpendCapExceededError, PlanLimitError } from '../errors/AppError'
 
@@ -75,12 +76,20 @@ describe('assertTalkQuota', () => {
 })
 
 describe('download quota', () => {
-  it('with billing off there is no download limit — nothing to upgrade to', () => {
-    // vitest runs with BILLING_ENABLED unset/0: the free downloads are unlimited.
-    expect(PLAN_LIMITS.free.downloadsPerMonth.pptx).toBe(Infinity)
-    expect(() => assertDownloadQuota('free', 'pptx', 1_000)).not.toThrow()
-    expect(quotaOf('free', { talks: 1, pptx: 3, pdf: 0 }).pptx).toEqual({ used: 3, limit: null })
-    expect(quotaOf('free', { talks: 1, pptx: 3, pdf: 0 }).talks).toEqual({ used: 1, limit: 2 })
+  // The suite runs under whatever .env the machine has: billing on (the
+  // free quota is 1 .pptx / 2 PDF) or off (unlimited — nothing to upgrade to).
+  it('free: metered per format with billing on, unlimited with it off; talks are 2 either way', () => {
+    if (config.billing.enabled) {
+      expect(PLAN_LIMITS.free.downloadsPerMonth).toEqual({ pptx: 1, pdf: 2 })
+      expect(() => assertDownloadQuota('free', 'pptx', 0)).not.toThrow()
+      expect(() => assertDownloadQuota('free', 'pptx', 1)).toThrow(PlanLimitError)
+      expect(quotaOf('free', { talks: 1, pptx: 1, pdf: 0 }).pptx).toEqual({ used: 1, limit: 1 })
+    } else {
+      expect(PLAN_LIMITS.free.downloadsPerMonth.pptx).toBe(Infinity)
+      expect(() => assertDownloadQuota('free', 'pptx', 1_000)).not.toThrow()
+      expect(quotaOf('free', { talks: 1, pptx: 3, pdf: 0 }).pptx).toEqual({ used: 3, limit: null })
+    }
+    expect(quotaOf('free', { talks: 1, pptx: 0, pdf: 0 }).talks).toEqual({ used: 1, limit: 2 })
   })
   it('pro is unlimited and reports null limits', () => {
     expect(() => assertDownloadQuota('pro', 'pdf', 10_000)).not.toThrow()
