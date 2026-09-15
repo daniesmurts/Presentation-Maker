@@ -44,7 +44,7 @@ const vars = (t: typeof THEMES[number]) => `--s-bg:${t.bg};--s-panel:${t.panel};
 
   <div class="stage-wrap">
     {slides.map((s, i) => (
-      <div class={`slide ${backgroundRole(s.type)}`} data-i={i} aria-hidden={i === 0 ? 'false' : 'true'}>
+      <div class={`slide ${backgroundRole(s)}`} data-i={i} aria-hidden={i === 0 ? 'false' : 'true'}>
         {/* The exporter puts the BRAND name on the title slide's footer, the talk's title on every other. */}
         <div class="foot"><span class="ft">{s.type === 'title' ? '' : talk.title}</span><span class="fn">{pad(i + 1)} / {pad(slides.length)}</span></div>
         {s.type === 'title' ? (
@@ -75,7 +75,7 @@ const vars = (t: typeof THEMES[number]) => `--s-bg:${t.bg};--s-panel:${t.panel};
   <div class="strip" role="tablist" aria-label="Слайды">
     {slides.map((s, i) => (
       <button type="button" role="tab" class="thumb" data-go={i} aria-selected={i === 0 ? 'true' : 'false'} aria-label={`Слайд ${i + 1}: ${s.title}`}>
-        <div class={`slide mini ${backgroundRole(s.type)}`} aria-hidden="true">
+        <div class={`slide mini ${backgroundRole(s)}`} aria-hidden="true">
           <div class="foot"><span class="ft">{s.type === 'title' ? '' : talk.title}</span><span class="fn">{pad(i + 1)} / {pad(slides.length)}</span></div>
           {s.type === 'title' ? (
             <div class="lay title"><div class="rule"></div><div class="kick">{s.body.subtitle}</div><h3 class="h">{s.title}</h3></div>

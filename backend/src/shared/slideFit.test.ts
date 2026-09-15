@@ -58,3 +58,19 @@ describe('slideBodyText', () => {
     expect(slideBodyText(title)).toEqual(['под'])
   })
 })
+
+describe('Design v3 (L2) types', () => {
+  const mk = (type: string, body: unknown): Slide => ({ type, title: 'Т', notes: '', citations: [], body } as unknown as Slide)
+  it('reads their visible text', () => {
+    expect(slideBodyText(mk('section', { kicker: 'Часть 2', lead: null }))).toEqual(['Часть 2'])
+    expect(slideBodyText(mk('agenda', { items: ['a', 'b'] }))).toEqual(['a', 'b'])
+    expect(slideBodyText(mk('stats', { stats: [{ value: '42 %', label: 'доля', note: null }] }))).toEqual(['42 %', 'доля', ''])
+    expect(slideBodyText(mk('quote', { quote: 'q', attribution: 'a' }))).toEqual(['q', 'a'])
+    expect(slideBodyText(mk('image-full', { caption: 'c' }))).toEqual(['c'])
+  })
+  it('a seven-item agenda fits, a nine-item one does not; a four-line quote is the ceiling', () => {
+    expect(findOverfullSlides([mk('agenda', { items: Array.from({ length: 7 }, (_, i) => `пункт ${i}`) })])).toHaveLength(0)
+    expect(findOverfullSlides([mk('agenda', { items: Array.from({ length: 9 }, (_, i) => `пункт ${i}`) })])).toHaveLength(1)
+    expect(findOverfullSlides([mk('quote', { quote: 'слово '.repeat(70), attribution: null })])).toHaveLength(1)
+  })
+})

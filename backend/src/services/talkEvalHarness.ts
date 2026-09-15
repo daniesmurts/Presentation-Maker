@@ -19,7 +19,58 @@ export interface TalkScore {
   bulletsShare:          number   // the prompt asks for ≤ 1/3 — did the model comply
   typeDistribution:      Partial<Record<SlideType, number>>
   imageQueryShare:       number   // share of non-title/summary/cta slides carrying an image query
+  rhythm:                RhythmScore
   durationMs:            number
+}
+
+// Design v3 (L2): the rhythm the outline prompt asks for, as numbers, so a
+// prompt change that makes every slide a hero — or none — is a regression
+// the harness sees. `violations` lists the rules broken, by name.
+export interface RhythmScore {
+  heroShare:   number     // share of slides drawn on the hero background (title, section, quote, image-full, discussion, cta, or backdrop=pattern)
+  sections:    number
+  violations:  string[]
+}
+
+const HERO_ROLE = new Set<SlideType>(['title', 'section', 'quote', 'image-full', 'discussion', 'cta'])
+
+/** Rhythm rules from buildOutlinePrompt, checked on the written deck. */
+export function scoreRhythm(slides: Slide[]): RhythmScore {
+  const v: string[] = []
+  const n = slides.length
+  const isHero = (s: Slide) => HERO_ROLE.has(s.type) || s.design?.backdrop === 'pattern'
+  const heroShare = n ? slides.filter(isHero).length / n : 0
+  const sections = slides.filter((s) => s.type === 'section').length
+  const quotes = slides.filter((s) => s.type === 'quote').length
+  const agendaAt = slides.findIndex((s) => s.type === 'agenda')
+
+  if (n >= 10 && sections === 0) v.push('no-section-in-long-talk')
+  if (n < 10 && sections > 0) v.push('section-in-short-talk')
+  if (n >= 8 && agendaAt === -1) v.push('no-agenda')
+  if (agendaAt > 1) v.push('agenda-not-second')
+  if (quotes > 1) v.push('more-than-one-quote')
+  if (heroShare > 0.5) v.push('hero-share-over-half')
+  for (let i = 1; i < n; i++) {
+    if (slides[i].type === 'image-full' && slides[i - 1].type === 'image-full') { v.push('two-image-full-in-a-row'); break }
+  }
+  for (let i = 1; i < n; i++) {
+    if (slides[i].type === 'section' && slides[i - 1].type === 'section') { v.push('two-sections-in-a-row'); break }
+  }
+  // At most one stats per part (a part = the run between sections).
+  let statsInPart = 0
+  for (const s of slides) {
+    if (s.type === 'section') statsInPart = 0
+    else if (s.type === 'stats' && ++statsInPart > 1) { v.push('two-stats-in-a-part'); break }
+  }
+  // A section every 5–8 slides: no part longer than 10 once there are sections.
+  if (sections > 0) {
+    let run = 0
+    for (const s of slides) {
+      if (s.type === 'section') run = 0
+      else if (++run > 10) { v.push('part-longer-than-10'); break }
+    }
+  }
+  return { heroShare, sections, violations: v }
 }
 
 export interface TalkEvalReport {
@@ -42,7 +93,7 @@ export function scoreSlides(slides: Slide[], notesEnabled: boolean): Omit<TalkSc
   const notesEligible = notesEnabled ? slides.filter((s) => s.type !== 'title') : []
   const wordCounts = notesEligible.map((s) => countWords(s.notes))
 
-  const imageEligible = slides.filter((s) => !['title', 'summary', 'cta'].includes(s.type))
+  const imageEligible = slides.filter((s) => !['title', 'section', 'agenda', 'stats', 'quote', 'summary', 'cta'].includes(s.type))
   const withQuery = imageEligible.filter((s) => hasSlideImage(s) || getSlideImageQuery(s).length > 0)
 
   const typeDistribution: Partial<Record<SlideType, number>> = {}
@@ -56,6 +107,7 @@ export function scoreSlides(slides: Slide[], notesEnabled: boolean): Omit<TalkSc
     bulletsShare:          slides.length ? (typeDistribution.bullets ?? 0) / slides.length : 0,
     typeDistribution,
     imageQueryShare:       imageEligible.length ? withQuery.length / imageEligible.length : 0,
+    rhythm:                scoreRhythm(slides),
   }
 }
 

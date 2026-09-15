@@ -10,7 +10,7 @@ import {
   isStrictToBrief, chunkArray, buildExpansionPrompt, planTalk, expandTalk, renderSlidesAsText,
   OUTLINE_TITLE_MAX_CHARS, OUTLINE_BRIEF_MAX_CHARS, type GenerateParams,
 } from './talks'
-import { MAX_SLIDE_COUNT } from '../../../shared/types'
+import { MAX_SLIDE_COUNT, type Slide, type OutlineSlide } from '../../../shared/types'
 
 const PARAMS: GenerateParams = {
   userId: 'u1', workspaceId: 'w1', title: 'Тема', brief: '', intent: 'inform', audience: 'team',
@@ -91,7 +91,8 @@ describe('token budgets (CLAUDE.md §3.3)', () => {
   })
 
   it('budgets the whole supported slide range without hitting the wall in Russian', () => {
-    // 60 slides × 90 + 800 = 6200 < 8192 — headroom, not a coincidence.
+    // 60 slides × 120 + 800 = 8000 < 8192 — under the wall, with the design
+    // field (L2) having taken most of the headroom; the next field chunks the outline.
     expect(outlineMaxTokens(MAX_SLIDE_COUNT, 'ru')).toBeLessThan(OUTPUT_TOKEN_CEILING)
   })
 
@@ -260,5 +261,97 @@ describe('renderSlidesAsText', () => {
     expect(text).toContain('SPEAKER NOTES:')
     expect(text).toContain('→ go')
     expect(text.split('\n---\n')).toHaveLength(7)
+  })
+})
+
+// ─── Design v3 (TODO L2) ─────────────────────────────────────────────────────
+
+import { applyOutlineDesign, buildOutlinePrompt } from './talks'
+import { normaliseDesign, isDefaultDesign, defaultDesign } from '../../../shared/slideDesign'
+
+describe('design — an enum the model chooses, coerced like a type', () => {
+  const valid = new Set<number>()
+
+  it('coerces the new types to their body shapes', () => {
+    const out = normaliseSlides([
+      { type: 'section', title: 'Рынок', body: { kicker: 'Часть 2', lead: '' } },
+      { type: 'agenda', title: 'План', body: { items: ['a', 'b', 3] } },
+      { type: 'stats', title: 'Цифры', body: { stats: [{ value: 42, label: 'доля' }, { value: '×3', label: 'рост', note: 'за год' }, { value: '', label: 'пусто' }, { value: '4', label: 'x' }, { value: '5', label: 'y' }] } },
+      { type: 'quote', title: 'Клиент', body: { quote: '«Мы увидели»', attribution: 'Иван' } },
+      { type: 'image-full', title: 'Вид', body: { caption: 'подпись' } },
+    ], valid, 'ru', true)
+    expect(out[0]).toMatchObject({ type: 'section', body: { kicker: 'Часть 2', lead: null } })
+    expect(out[1]).toMatchObject({ type: 'agenda', body: { items: ['a', 'b'] } })
+    // a numeric value is still a figure; an empty one is dropped; at most three
+    expect(out[2]).toMatchObject({ type: 'stats', body: { stats: [{ value: '42', label: 'доля', note: null }, { value: '×3', label: 'рост', note: 'за год' }, { value: '4', label: 'x', note: null }] } })
+    // the model's own quote marks are stripped — the layout draws them
+    expect(out[3]).toMatchObject({ type: 'quote', body: { quote: 'Мы увидели', attribution: 'Иван' } })
+    // image-full without a query gets its title — the picture is the slide
+    expect(out[4]).toMatchObject({ type: 'image-full', image_query: 'Вид', body: { caption: 'подпись' } })
+  })
+
+  it('demotes a stats slide with no figure and a quote with no text to bullets', () => {
+    const [a, b] = normaliseSlides([
+      { type: 'stats', title: 'x', body: { stats: [], items: ['a'] } },
+      { type: 'quote', title: 'y', body: { quote: '' } },
+    ], valid, 'ru', true)
+    expect(a).toMatchObject({ type: 'bullets', body: { items: ['a'] } })
+    expect(b).toMatchObject({ type: 'bullets' })
+  })
+
+  it('keeps a non-default design, drops a default one, and coerces an unknown variant to the type’s default', () => {
+    const out = normaliseSlides([
+      { type: 'bullets', title: 'a', body: { items: [] }, design: { variant: 'split', emphasis: 'plain', backdrop: 'pattern' } },
+      { type: 'bullets', title: 'b', body: { items: [] }, design: { variant: 'plain', emphasis: 'accent', backdrop: 'none' } },
+      { type: 'stats', title: 'c', body: { stats: [{ value: '1', label: 'l' }] }, design: { variant: 'split', emphasis: 'loud', backdrop: 'image' } },
+      { type: 'bullets', title: 'd', body: { items: [] }, design: 'big' },
+    ], valid, 'ru', true)
+    expect(out[0].design).toEqual({ variant: 'split', emphasis: 'plain', backdrop: 'pattern' })
+    expect('design' in out[1]).toBe(false)
+    expect('design' in out[2]).toBe(false)   // every field invalid → the default → omitted
+    expect('design' in out[3]).toBe(false)
+  })
+
+  it('normaliseDesign never emits a variant another type owns', () => {
+    expect(normaliseDesign('bullets', { variant: 'hero-number' }).variant).toBe('plain')
+    expect(normaliseDesign('stats', { variant: 'hero-number' }).variant).toBe('hero-number')
+    expect(isDefaultDesign('quote', defaultDesign('quote'))).toBe(true)
+  })
+
+  it('normaliseOutline carries a non-default design and the edited outline does too', () => {
+    const out = normaliseOutline([
+      { type: 'title', title: 'a' },
+      { type: 'stats', title: 'b', brief: 'x', design: { variant: 'hero-number' } },
+      { type: 'summary', title: 'c' },
+    ], 3, 'ru')
+    expect(out[1].design).toEqual({ variant: 'hero-number', emphasis: 'accent', backdrop: 'none' })
+    expect('design' in out[0]).toBe(false)
+    const edited = normaliseEditedOutline([{ type: 'bullets', title: 't', design: { backdrop: 'pattern' } }])!
+    expect(edited[0].design).toEqual({ variant: 'plain', emphasis: 'accent', backdrop: 'pattern' })
+  })
+
+  it('applyOutlineDesign: the outline wins slide-for-slide; a batch of another length is left alone', () => {
+    const base = { notes: '', citations: [] }
+    const slides = [
+      { type: 'bullets', title: 'a', ...base, body: { items: [] }, design: { variant: 'plain', emphasis: 'plain', backdrop: 'none' } },
+      { type: 'stats', title: 'b', ...base, body: { stats: [{ value: '1', label: 'l', note: null }] } },
+    ] as Slide[]
+    const outline: OutlineSlide[] = [
+      { type: 'bullets', title: 'a', brief: '', design: { variant: 'split', emphasis: 'accent', backdrop: 'none' } },
+      { type: 'stats', title: 'b', brief: '', design: { variant: 'three-up', emphasis: 'accent', backdrop: 'none' } },
+    ]
+    const out = applyOutlineDesign(slides, outline)
+    expect(out[0].design).toEqual({ variant: 'split', emphasis: 'accent', backdrop: 'none' })
+    expect('design' in out[1]).toBe(false)    // the outline's design was the default → omitted
+    expect(applyOutlineDesign(slides, outline.slice(0, 1))).toBe(slides)
+  })
+
+  it('the outline prompt names the rhythm rules and the design vocabulary, and asks for no sections in a short talk', () => {
+    const long = buildOutlinePrompt({ ...PARAMS, slideCountTarget: 20 }, 20)
+    expect(long).toContain('"design"')
+    expect(long).toMatch(/section.*5–8/)
+    expect(long).toContain('"hero-number"')
+    const short = buildOutlinePrompt({ ...PARAMS, slideCountTarget: 6 }, 6)
+    expect(short).toMatch(/Без "section"|No "section"/)
   })
 })

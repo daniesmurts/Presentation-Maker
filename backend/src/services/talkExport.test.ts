@@ -155,6 +155,39 @@ describe('brand kit applied to a theme', () => {
     expect(await zip.file('ppt/slides/slide2.xml')!.async('string')).toContain('8A5C06')
   }, 30_000)
 
+  // Design v3 (TODO L2): the rhythm types and the two variants render;
+  // the text lands in the slide XML; a split bullets slide has two text
+  // boxes; a stats slide's figures are in the display face, not the mono.
+  it('renders section, agenda, stats (both variants), quote and image-full, with the design applied', async () => {
+    const deck: Slide[] = [
+      { type: 'section', title: 'Рынок', ...base, body: { kicker: 'Часть 2', lead: 'Где деньги' } },
+      { type: 'agenda', title: 'План', ...base, body: { items: ['Раз', 'Два', 'Три', 'Четыре', 'Пять'] } },
+      { type: 'stats', title: 'Цифры', ...base, body: { stats: [{ value: '42 %', label: 'доля', note: null }, { value: '×3', label: 'рост', note: 'за год' }] } },
+      { type: 'stats', title: 'Одна', ...base, design: { variant: 'hero-number', emphasis: 'plain', backdrop: 'none' }, body: { stats: [{ value: '1,2 млрд', label: 'выручка', note: null }] } },
+      { type: 'quote', title: 'Клиент', ...base, body: { quote: 'Мы увидели', attribution: 'Иван' } },
+      { type: 'image-full', title: 'Вид', ...base, image_query: 'дашборд', body: { caption: 'подпись' } },
+      { type: 'bullets', title: 'Шесть', ...base, design: { variant: 'split', emphasis: 'accent', backdrop: 'pattern' }, body: { items: ['a', 'b', 'c', 'd', 'e', 'f'] } },
+    ]
+    const zip = await unzip(await generateTalkPptx(talk(deck, 'default')))
+    const xml = async (i: number) => zip.file(`ppt/slides/slide${i}.xml`)!.async('string')
+    expect(await xml(1)).toContain('ЧАСТЬ 2')
+    expect(await xml(2)).toContain('05')                      // the fifth agenda number
+    expect(await xml(3)).toContain('42 %')
+    expect((await xml(3)).match(/typeface="Georgia"/g)!.length).toBeGreaterThan(0)   // figures in the display face
+    expect(await xml(4)).toContain('1,2 млрд')
+    expect(await xml(5)).toContain('«Мы увидели»')
+    expect(await xml(6)).toContain('дашборд')                 // the placeholder names the query
+    // split: two bullet boxes, three items each
+    const split = await xml(7)
+    expect(split.match(/<a:buChar char="&#x25CF;"\/>/g)!.length).toBe(6)
+    // title, rule, two columns, two footer boxes — one more shape than the plain layout
+    expect(split.match(/<p:sp>/g)!.length).toBe(6)
+    // backdrop=pattern → the hero layout
+    const rel = (i: number) => zip.file(`ppt/slides/_rels/slide${i}.xml.rels`)!.async('string').then((r) => r.match(/slideLayout\d+/)![0])
+    expect(await rel(7)).toBe(await rel(1))
+    expect(await rel(7)).not.toBe(await rel(2))
+  }, 30_000)
+
   // Design v3 (TODO L1): the background raster is embedded ONCE per role
   // through a slide layout — pptxgenjs writes a media part per slide for a
   // per-slide background, which on 40 slides is 40 copies. Hero slides

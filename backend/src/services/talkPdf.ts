@@ -8,6 +8,7 @@ import { getTheme, applyBrand, type AppliedTheme, type BrandKit } from './themes
 import type { Slide, Talk, TalkLanguage } from '../../../shared/types'
 import { G, pt as pctPt } from '../../../shared/slideGeometry'
 import { backgroundRole, type BackgroundRole } from '../../../shared/slideBackground'
+import { normaliseDesign } from '../../../shared/slideDesign'
 import { renderBackgroundPng } from './slideBackground'
 
 // A SLIDES PDF (CLAUDE.md §5.5): one landscape 16:9 page per slide, the same
@@ -250,10 +251,10 @@ class Renderer {
 
   slide(slide: Slide, index: number): void {
     const { doc, p, M } = this
-    this.page(backgroundRole(slide.type))
+    this.page(backgroundRole(slide, this.theme.background))
     const W = PAGE_W - M * 2
     const image = slide.type === 'diagram' ? slide.body.image : slide.image
-    const hasSide = Boolean(image) && slide.type !== 'diagram' && !['title', 'summary', 'cta'].includes(slide.type)
+    const hasSide = Boolean(image) && !['diagram', 'image-full', 'title', 'section', 'agenda', 'stats', 'quote', 'summary', 'cta'].includes(slide.type)
     const cw = hasSide ? W - 3.3 * PT_PER_IN : W
     const L = this.language === 'ru'
       ? { next: 'Что дальше', none: (q: string) => `Изображение не выбрано: «${q}»`, missing: 'Изображение недоступно' }
@@ -292,6 +293,68 @@ class Renderer {
       return
     }
 
+    // Design v3 (L2) — the rhythm types. Same compositions as talkExport.ts.
+    const emphasis = normaliseDesign(slide.type, slide.design).emphasis === 'accent' ? this.theme.labelColor : p.ink
+
+    if (slide.type === 'section') {
+      let bottom = PAGE_H - U(G.tsBottom)
+      const tw = W * (G.tsMaxW / 100)
+      if (slide.body.lead) {
+        const h = this.measure(slide.body.lead, 'body', U(G.tsWhoSize), tw, this.maxLines('body', U(G.tsWhoSize), 3))
+        this.text(slide.body.lead, 'body', U(G.tsWhoSize), p.ink2, M, bottom - h, tw, { maxH: h })
+        bottom -= h + U(G.tsTitleGap)
+      }
+      const tSize = U(G.tsTitleSize), tMax = this.maxLines('display', tSize, 3)
+      const th = this.measure(slide.title, 'display', tSize, tw, tMax, 0)
+      this.text(slide.title, 'display', tSize, p.ink, M, bottom - th, tw, { maxH: tMax, lineGap: 0 })
+      bottom -= th
+      if (slide.body.kicker) {
+        bottom -= U(G.tsKickGap)
+        const h = U(G.kickSize) * 1.6
+        this.kick(slide.body.kicker, M, bottom - h + U(G.kickSize) * 0.3, W, emphasis)
+        bottom -= h
+      }
+      bottom -= U(G.tsRuleGap)
+      doc.rect(M, bottom - U(G.tsRuleH), U(G.tsRuleW), U(G.tsRuleH)).fill(hex(p.accent))
+      this.footer(this.talkTitle, index)
+      return
+    }
+
+    if (slide.type === 'quote') {
+      const top = U(G.top) + 36
+      const kh = this.kick(slide.title, M, top, W)
+      const qy = top + kh + U(G.tsKickGap)
+      const qSize = U(G.qSize), qw = W * (G.qMaxW / 100)
+      const qh = this.text(`«${slide.body.quote}»`, 'displayItalic', qSize, p.ink, M, qy, qw, { maxH: this.maxLines('displayItalic', qSize, 4), lineGap: 0 })
+      if (slide.body.attribution) this.text(`— ${slide.body.attribution}`, 'bodyBold', subSize, emphasis, M, qy + qh + U(G.titleGap), W, { maxH: subSize * 3 })
+      this.footer(this.talkTitle, index)
+      return
+    }
+
+    if (slide.type === 'image-full') {
+      const pic = this.prepared.images.get(index)
+      if (pic) {
+        // Cover: scale to fill the page and crop what overflows, centred.
+        const scale = Math.max(PAGE_W / pic.w, PAGE_H / pic.h)
+        const w = pic.w * scale, h = pic.h * scale
+        doc.save().rect(0, 0, PAGE_W, PAGE_H).clip()
+        doc.image(pic.buffer, (PAGE_W - w) / 2, (PAGE_H - h) / 2, { width: w, height: h })
+        doc.restore()
+        const scrimH = 1.55 * PT_PER_IN
+        doc.save().fillOpacity(0.65).rect(0, PAGE_H - scrimH, PAGE_W, scrimH).fill('#000000').restore()
+        const ty = PAGE_H - scrimH + 11
+        const th = this.text(slide.title, 'display', U(G.titleSize), 'FFFFFF', M, ty, W, { maxH: this.maxLines('display', U(G.titleSize), 1), lineGap: 0 })
+        if (slide.body.caption) this.text(slide.body.caption, 'body', subSize, 'FFFFFF', M, ty + th + 4, W, { maxH: PAGE_H - ty - th - 12 })
+      } else {
+        const top = this.header(slide.title, index)
+        const extra = slide.body.caption ? 32 : 0
+        const box = { x: M, y: top, w: W, h: BOTTOM - top - extra }
+        this.picture(index, box, slide.image ? L.missing : L.none(slide.image_query ?? slide.title))
+        if (slide.body.caption) this.text(slide.body.caption, 'body', subSize, p.ink2, M, box.y + box.h + 8, W, { maxH: 24 })
+      }
+      return
+    }
+
     if (slide.type === 'discussion' || slide.type === 'cta') {
       // No header rule: the title is the kicker, the question / the ask is the slide.
       const top = U(G.top) + 36
@@ -317,8 +380,57 @@ class Renderer {
     if (hasSide) this.picture(index, { x: PAGE_W - M - 3 * PT_PER_IN, y: top, w: 3 * PT_PER_IN, h: BOTTOM - top }, L.missing)
 
     switch (slide.type) {
-      case 'bullets':
-        this.bullets(slide.body.items, M, top, cw, bodySize, p.ink, BOTTOM); break
+      case 'bullets': {
+        const items = slide.body.items
+        const split = normaliseDesign('bullets', slide.design).variant === 'split' && items.length >= 4 && !hasSide
+        if (split) {
+          const gap = U(G.sGap), colW = (cw - gap) / 2, half = Math.ceil(items.length / 2)
+          this.bullets(items.slice(0, half), M, top, colW, bodySize, p.ink, BOTTOM)
+          this.bullets(items.slice(half), M + colW + gap, top, colW, bodySize, p.ink, BOTTOM)
+        } else this.bullets(items, M, top, cw, bodySize, p.ink, BOTTOM)
+        break
+      }
+      case 'agenda': {
+        const items = slide.body.items
+        const cols = items.length >= 5 ? 2 : 1
+        const gap = U(G.sGap), colW = (W - gap * (cols - 1)) / cols, per = Math.ceil(items.length / cols)
+        const rowH = this.lineH('body', bodySize) + U(G.bodyGap)
+        const numW = U(G.bulletIndent) * 1.4
+        items.forEach((t, i) => {
+          const x = M + Math.floor(i / per) * (colW + gap), y = top + (i % per) * rowH
+          if (y + rowH > BOTTOM + 2) return
+          this.text(String(i + 1).padStart(2, '0'), 'mono', bodySize, emphasis, x, y, numW, { maxH: rowH })
+          this.text(t, 'body', bodySize, p.ink, x + numW, y, colW - numW, { maxH: rowH })
+        })
+        break
+      }
+      case 'stats': {
+        const stats = slide.body.stats
+        const hero = normaliseDesign('stats', slide.design).variant === 'hero-number' || stats.length === 1
+        if (hero) {
+          const [st] = stats
+          const vSize = U(9.5), vH = this.lineH('display', vSize)
+          const y = top + Math.max(0, (BOTTOM - top - vH - bodySize * 2.6) / 2)
+          this.text(st.value, 'display', vSize, emphasis, M, y, W, { maxH: vH })
+          const lh = this.text(st.label, 'body', bodySize, p.ink, M, y + vH + 4, W * 0.8, { maxH: this.maxLines('body', bodySize, 2, 2) })
+          if (st.note) this.text(st.note, 'body', subSize, p.ink2, M, y + vH + 4 + lh + 4, W * 0.8, { maxH: BOTTOM - y - vH - lh - 8 })
+        } else {
+          const gap = U(G.sGap), colW = (W - gap * (stats.length - 1)) / stats.length
+          const vSize = U(6.4), vH = this.lineH('display', vSize)
+          stats.forEach((st, i) => {
+            const x = M + i * (colW + gap)
+            doc.rect(x, top, colW, U(G.rule) * 1.6).fill(hex(p.ink))
+            const vy = top + U(G.rule) * 1.6 + 8
+            this.text(st.value, 'display', vSize, emphasis, x, vy, colW, { maxH: vH })
+            const ly = vy + vH + 4
+            // Two lines of label, measured with the default 2 pt lineGap —
+            // 2.7 × the size (and maxLines without the gap) was one line short.
+            const lh = this.text(st.label, 'body', bodySize, p.ink, x, ly, colW, { maxH: this.maxLines('body', bodySize, 2, 2) })
+            if (st.note) this.text(st.note, 'body', subSize, p.ink2, x, ly + lh + 4, colW, { maxH: BOTTOM - ly - lh - 4 })
+          })
+        }
+        break
+      }
       case 'concept': {
         // Panel first, then the text on it — measured, not drawn twice.
         const padX = U(G.fPadX) / 2, padY = 12

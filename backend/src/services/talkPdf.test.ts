@@ -29,6 +29,14 @@ const DECK: Slide[] = [
   { type: 'discussion', title: 'Вопрос', ...base, body: { question: '?', prompts: ['a'], expected_angles: [] } },
   { type: 'cta', title: 'Призыв', ...base, body: { action: 'Сделайте', reasons: ['потому'], contact: 'mail@x' } },
   { type: 'summary', title: 'Итоги', ...base, body: { takeaways: ['x'], next_steps: ['y'] } },
+  // Design v3 (L2) — the rhythm types, both variants, a pattern backdrop.
+  { type: 'section', title: 'Рынок', ...base, body: { kicker: 'Часть 2', lead: 'Где деньги' } },
+  { type: 'agenda', title: 'План', ...base, body: { items: ['Раз', 'Два', 'Три', 'Четыре', 'Пять'] } },
+  { type: 'stats', title: 'Цифры', ...base, body: { stats: [{ value: '42 %', label: 'доля', note: null }, { value: '×3', label: 'рост', note: 'за год' }] } },
+  { type: 'stats', title: 'Одна', ...base, design: { variant: 'hero-number', emphasis: 'plain', backdrop: 'none' }, body: { stats: [{ value: '1,2 млрд', label: 'выручка', note: null }] } },
+  { type: 'quote', title: 'Клиент', ...base, body: { quote: 'Мы увидели', attribution: 'Иван' } },
+  { type: 'image-full', title: 'Вид', ...base, image_query: 'дашборд', body: { caption: 'подпись' } },
+  { type: 'bullets', title: 'Шесть', ...base, design: { variant: 'split', emphasis: 'accent', backdrop: 'pattern' }, body: { items: ['a', 'b', 'c', 'd', 'e', 'f'] } },
 ]
 const talk = (slides: Slide[], theme_id = 'default') => ({ title: 'Тест', slides, language: 'ru' as const, theme_id })
 const pages = (pdf: Buffer) => (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) ?? []).length

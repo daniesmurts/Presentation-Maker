@@ -25,10 +25,12 @@ interface Props { slide: Slide; theme: ThemeSwatch; scale: number; index?: numbe
 export default function SlideStage({ slide, theme, scale, index = 0, total = 1, talkTitle = '' }: Props) {
   const c = { bg: `#${theme.bg}`, ink: `#${theme.ink}`, ink2: `#${theme.ink2}`, accent: `#${theme.accent}`, panel: `#${theme.panel}` }
   const recipe = theme.background ?? SOLID
-  const role = backgroundRole(slide.type)
+  const role = backgroundRole(slide, recipe)
   const bgImage = hasTreatment(recipe, role) ? backgroundCssUrl(backgroundSvg({ bg: theme.bg, accent: theme.accent, ink: theme.ink, panel: theme.panel }, recipe, role)) : undefined
   const image = slide.type === 'diagram' ? slide.body.image : slide.image
-  const hasSide = Boolean(image) && !['title', 'summary', 'cta', 'diagram'].includes(slide.type)
+  const hasSide = Boolean(image) && !['title', 'section', 'agenda', 'stats', 'quote', 'image-full', 'summary', 'cta', 'diagram'].includes(slide.type)
+  // Design v3 (L2): the colour of a slide's big element under its design.
+  const emphasis = slide.design?.emphasis === 'plain' ? c.ink : c.accent
   const m = U(G.marginX)
   const pad2 = (n: number) => String(n).padStart(2, '0')
   const kick = (text: string, color = c.accent) => (
@@ -43,15 +45,36 @@ export default function SlideStage({ slide, theme, scale, index = 0, total = 1, 
   return (
     <div style={{ width: STAGE_W * scale, height: STAGE_H * scale, overflow: 'hidden', flexShrink: 0 }}>
       <div style={{ width: STAGE_W, height: STAGE_H, transform: `scale(${scale})`, transformOrigin: 'top left', background: c.bg, backgroundImage: bgImage, backgroundSize: '100% 100%', color: c.ink, position: 'relative', fontFamily: BODY, lineHeight: G.bodyLine }}>
-        {slide.type === 'title' ? (
+        {slide.type === 'title' || slide.type === 'section' ? (
+          // A section break is the title slide's composition: kicker = the part, lead where the presenter goes.
           <>
             <div style={{ position: 'absolute', left: m, right: m, bottom: U(G.tsBottom), display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
               <div style={{ width: U(G.tsRuleW), height: U(G.tsRuleH), background: c.accent, marginBottom: U(G.tsRuleGap) }} />
-              {slide.body.subtitle && <div style={{ marginBottom: U(G.tsKickGap) }}>{kick(slide.body.subtitle, c.ink2)}</div>}
+              {slide.type === 'title' && slide.body.subtitle && <div style={{ marginBottom: U(G.tsKickGap) }}>{kick(slide.body.subtitle, c.ink2)}</div>}
+              {slide.type === 'section' && slide.body.kicker && <div style={{ marginBottom: U(G.tsKickGap) }}>{kick(slide.body.kicker, emphasis)}</div>}
               <h1 style={{ margin: 0, fontFamily: DISPLAY, fontWeight: 700, fontSize: U(G.tsTitleSize), lineHeight: G.titleLine, letterSpacing: '-0.01em', maxWidth: `${G.tsMaxW}%`, textWrap: 'balance' }}><InlineText text={slide.title} /></h1>
-              {slide.body.presenter && <div style={{ marginTop: U(G.tsTitleGap), fontSize: U(G.tsWhoSize), color: c.ink2 }}>{slide.body.presenter}</div>}
+              {slide.type === 'title' && slide.body.presenter && <div style={{ marginTop: U(G.tsTitleGap), fontSize: U(G.tsWhoSize), color: c.ink2 }}>{slide.body.presenter}</div>}
+              {slide.type === 'section' && slide.body.lead && <div style={{ marginTop: U(G.tsTitleGap), fontSize: U(G.tsWhoSize), color: c.ink2, maxWidth: `${G.tsMaxW}%` }}><InlineText text={slide.body.lead} /></div>}
             </div>
-            {footer('')}
+            {footer(slide.type === 'title' ? '' : talkTitle)}
+          </>
+        ) : slide.type === 'quote' ? (
+          <>
+            <div style={{ position: 'absolute', left: m, right: m, top: U(G.top) + 36, bottom: U(G.bottom) }}>
+              {kick(slide.title)}
+              <div style={{ marginTop: U(G.tsKickGap), fontFamily: DISPLAY, fontSize: U(G.qSize), lineHeight: G.titleLine, maxWidth: `${G.qMaxW}%`, fontStyle: 'italic' }}>«<InlineText text={slide.body.quote} />»</div>
+              {slide.body.attribution && <div style={{ marginTop: U(G.titleGap), fontSize: U(G.subSize), fontWeight: 700, color: emphasis }}>— {slide.body.attribution}</div>}
+            </div>
+            {footer(talkTitle)}
+          </>
+        ) : slide.type === 'image-full' && image ? (
+          // The picture covers the slide; the title and caption on a scrim. White on 65 % black: ≥ 7:1 against the scrim.
+          <>
+            <img src={image.url} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+            <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: U(15.5), background: 'rgba(0,0,0,0.65)', color: '#FFFFFF', padding: `${U(1.5)}px ${m}px` }}>
+              <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: U(G.titleSize), lineHeight: G.titleLine }}><InlineText text={slide.title} /></div>
+              {slide.body.caption && <div style={{ marginTop: 4, fontSize: U(G.subSize) }}><InlineText text={slide.body.caption} /></div>}
+            </div>
           </>
         ) : slide.type === 'discussion' || slide.type === 'cta' ? (
           <>
@@ -72,7 +95,7 @@ export default function SlideStage({ slide, theme, scale, index = 0, total = 1, 
             <div style={{ position: 'absolute', left: m, right: m, top: U(G.top), bottom: U(G.bottom), display: 'flex', flexDirection: 'column' }}>
               <h2 style={{ margin: 0, paddingBottom: U(G.titlePad), borderBottom: `${U(G.rule)}px solid ${c.accent}`, fontFamily: DISPLAY, fontWeight: 700, fontSize: U(G.titleSize), lineHeight: G.titleLine, letterSpacing: '-0.01em', textWrap: 'balance' }}><InlineText text={slide.title} /></h2>
               <div style={{ marginTop: U(G.titleGap), flex: 1, minHeight: 0, marginRight: hasSide ? 288 + 28 : 0 }}>
-                <Body slide={slide} c={c} />
+                <Body slide={slide} c={c} emphasis={emphasis} />
               </div>
             </div>
             {hasSide && image && (
@@ -105,10 +128,56 @@ function Panel({ children, c }: { children: React.ReactNode; c: { panel: string 
   return <div style={{ background: c.panel, borderRadius: U(G.fRadius), padding: `${U(G.fPadY)}px ${U(G.fPadX)}px` }}>{children}</div>
 }
 
-function Body({ slide, c }: { slide: Slide; c: { bg: string; ink: string; ink2: string; accent: string; panel: string } }) {
+function Body({ slide, c, emphasis }: { slide: Slide; c: { bg: string; ink: string; ink2: string; accent: string; panel: string }; emphasis: string }) {
   switch (slide.type) {
-    case 'bullets':
-      return <List items={slide.body.items} c={c} size={U(G.bodySize)} />
+    case 'bullets': {
+      const items = slide.body.items
+      if (slide.design?.variant === 'split' && items.length >= 4 && !slide.image) {
+        const half = Math.ceil(items.length / 2)
+        return <div style={{ display: 'grid', gap: U(G.sGap), gridTemplateColumns: '1fr 1fr' }}>
+          <List items={items.slice(0, half)} c={c} size={U(G.bodySize)} /><List items={items.slice(half)} c={c} size={U(G.bodySize)} />
+        </div>
+      }
+      return <List items={items} c={c} size={U(G.bodySize)} />
+    }
+    case 'agenda': {
+      const items = slide.body.items
+      const cols = items.length >= 5 ? 2 : 1
+      // Column-wise like the exporters: 01 02 03 down the left, 04 05 06 down the right.
+      const per = Math.ceil(items.length / cols)
+      return <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, columnGap: U(G.sGap), fontSize: U(G.bodySize) }}>
+        {Array.from({ length: cols }, (_, c) => <ol key={c} start={c * per + 1} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', rowGap: U(G.bodyGap), alignContent: 'start' }}>
+          {items.slice(c * per, (c + 1) * per).map((t, i) => <li key={i} style={{ display: 'flex', gap: U(1.2) }}><span style={{ fontFamily: MONO, color: emphasis, flexShrink: 0 }}>{String(c * per + i + 1).padStart(2, '0')}</span><InlineText text={t} /></li>)}
+        </ol>)}
+      </div>
+    }
+    case 'stats': {
+      const stats = slide.body.stats
+      const hero = slide.design?.variant === 'hero-number' || stats.length === 1
+      if (hero) {
+        const [st] = stats
+        return <div style={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: U(9.5), lineHeight: 1.1, color: emphasis }}>{st.value}</div>
+          <div style={{ marginTop: 6, fontSize: U(G.bodySize), maxWidth: '80%' }}><InlineText text={st.label} /></div>
+          {st.note && <div style={{ marginTop: 4, fontSize: U(G.subSize), color: c.ink2, maxWidth: '80%' }}><InlineText text={st.note} /></div>}
+        </div>
+      }
+      return <div style={{ display: 'grid', gap: U(G.sGap), gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))` }}>
+        {stats.map((st, i) => <div key={i} style={{ borderTop: `${U(G.rule) * 1.6}px solid ${c.ink}`, paddingTop: 8 }}>
+          <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: U(6.4), lineHeight: 1.1, color: emphasis }}>{st.value}</div>
+          <div style={{ marginTop: 6, fontSize: U(G.bodySize) }}><InlineText text={st.label} /></div>
+          {st.note && <div style={{ marginTop: 4, fontSize: U(G.subSize), color: c.ink2 }}><InlineText text={st.note} /></div>}
+        </div>)}
+      </div>
+    }
+    case 'image-full':
+      // No picture yet: the placeholder under the header, like a diagram.
+      return <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: U(G.fRadius), background: c.panel }}>
+          <span style={{ fontSize: U(G.subSize), color: c.ink2 }}>{slide.image_query ?? ''}</span>
+        </div>
+        {slide.body.caption && <p style={{ margin: '8px 0 0', fontSize: U(G.subSize), color: c.ink2 }}><InlineText text={slide.body.caption} /></p>}
+      </div>
     case 'concept':
       return <>
         <Panel c={c}><div style={{ fontFamily: DISPLAY, fontSize: U(G.bodySize), lineHeight: 1.3 }}><InlineText text={slide.body.definition} /></div></Panel>

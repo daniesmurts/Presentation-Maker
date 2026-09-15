@@ -34,6 +34,51 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 ## [Unreleased]
 
 ### Added
+- **Design v3, layer 2 — the model is an art director inside an enum;
+  five slide types for rhythm** (TODO L2). A slide (and an outline row)
+  may carry `design: { variant, emphasis, backdrop }` from a vocabulary
+  the renderers own (`shared/slideDesign.ts`): `variant` per type
+  (`bullets: plain | split`, `stats: three-up | hero-number`), `emphasis:
+  accent | plain` for the slide's big element, `backdrop: none | pattern`
+  to lift one content slide per part onto the hero background. Never a
+  colour or a coordinate. Unknown values coerce to the type's default,
+  and a default is not stored — rows written before L2 read the same.
+  New types: `section` (a break: kicker · title · lead, the title slide's
+  composition), `agenda` (numbered, two columns from five), `stats` (one
+  to three figures, set in the DISPLAY face — Courier New at 68 pt reads
+  as a typewriter), `quote` (the question slide's composition, the marks
+  drawn by the layout and stripped from the model's text), `image-full`
+  (the picture covers the slide, title and caption on a 65 % black scrim
+  in white — its picture is the slide's top-level `image`, so no second
+  `body.image` case spreads through the code). Drawn in all four places:
+  .pptx, PDF, the stage, the card; editable in `SlideEditor` (a «Вид»
+  row shows only the controls that change anything for the type).
+  - *Rhythm is a property of the sequence, so the OUTLINE pass decides
+    it.* The outline prompt gained the rules (`agenda` second from 8
+    slides, a `section` every 5–8 from 10, one `stats` per part, one
+    `quote` per talk, never two `image-full` in a row, a light slide
+    after a heavy one) and asks for `design` per row; the expansion
+    prompt asks the writer to copy it, and `applyOutlineDesign` makes the
+    outline win when a batch came back slide-for-slide. Single-slide
+    regenerate and the deck-level rewrite carry the design through the
+    same path. The eval harness scores the rhythm (`scoreRhythm`:
+    hero share, sections, named violations) so a prompt change that
+    makes every slide a hero is a number, not an impression. Outline
+    budget 90 → 120 tokens/slide (ru), 60 → 85 (en): the design object
+    is ~25 ASCII tokens; 60 slides now sit at 8000 of the 8192 ceiling —
+    the next field chunks the outline.
+  - *Seen, not assumed* (§3.10) — three things the renders caught:
+    pptxgenjs's `cover` reads the picture's proportions from `w`/`h` and
+    the frame from `sizing` — passing the frame in both gave an srcRect
+    of zeros, a stretch, so `w`/`h` now come from the bytes (§3.5); the
+    PDF cut a two-line stat label to one (`maxLines` without the 2 pt
+    lineGap the text is drawn with); and the bold `band` wedge met the
+    header layout on a content slide lifted by `backdrop: pattern` and on
+    a picture-less `image-full` — white on amber fails — so
+    `backgroundRole` now takes the recipe: under a band `pattern` changes
+    nothing, and an image-full with no picture is quiet. The agenda's
+    numbering ran row-wise on the stage and column-wise in the exporters;
+    the stage now chunks into columns like the others.
 - **Design v3, layer 1 — the slide background is data** (TODO L1). A theme
   now names a background recipe (`shared/slideBackground.ts`: `solid ·
   wash · grid · dots · band · blob`, one strength for hero slides — title,

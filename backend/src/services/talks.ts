@@ -8,7 +8,9 @@ import {
   type Slide, type SlideType, type SlideImage,
   type TitleSlide, type BulletsSlide, type ConceptSlide, type FormulaSlide,
   type ComparisonSlide, type DiagramSlide, type DiscussionSlide, type CtaSlide, type SummarySlide,
+  type SectionSlide, type AgendaSlide, type StatsSlide, type QuoteSlide, type ImageFullSlide,
 } from '../../../shared/types'
+import { normaliseDesign, isDefaultDesign, DESIGN_VARIANTS } from '../../../shared/slideDesign'
 
 // Ported from the parent's services/presentations.ts (CLAUDE.md §2) —
 // the two-pass shape, the batching numbers and every normaliser rule are
@@ -79,10 +81,13 @@ export const NOTES_WORD_TARGET: readonly [number, number] = [180, 220]
 // which silently truncated any deck past ~44 slides — the budget ran out
 // mid-array, normaliseOutline accepted the short result, and the user got
 // fewer slides than asked for with no error anywhere. It is one call for
-// the whole deck, so it is the real wall on deck size: ~82 slides at 90
+// the whole deck, so it is the real wall on deck size: ~60 slides at 120
 // tokens. Past that the outline has to be chunked, not the number raised.
+// Design v3 (L2) added a "design" object per item — `{"variant":"plain",
+// "emphasis":"accent","backdrop":"none"}` is ~25 tokens in either language
+// (all ASCII), hence 90 → 120 and 60 → 85.
 export const OUTPUT_TOKEN_CEILING = 8192
-const OUTLINE_TOKENS_PER_SLIDE: Record<TalkLanguage, number> = { ru: 90, en: 60 }
+const OUTLINE_TOKENS_PER_SLIDE: Record<TalkLanguage, number> = { ru: 120, en: 85 }
 export function outlineMaxTokens(slideTarget: number, language: TalkLanguage): number {
   return Math.min(OUTPUT_TOKEN_CEILING, 800 + slideTarget * OUTLINE_TOKENS_PER_SLIDE[language])
 }
@@ -182,10 +187,32 @@ export async function expandTalk(params: GenerateParams, plan: TalkPlan): Promis
       'slides',
       { context, maxTokens: expansionBatchMaxTokens(batch.length, params.language, params.notesEnabled) },
     )
-    return normaliseSlides(raw?.slides, validIdx, params.language, params.notesEnabled)
+    const slides = normaliseSlides(raw?.slides, validIdx, params.language, params.notesEnabled)
+    return applyOutlineDesign(slides, batch)
   })
 
   return { slides: expanded.flat(), sources }
+}
+
+// Design v3 (L2): the DESIGN is decided at the outline pass, where the
+// model sees the whole sequence (rhythm is a property of the sequence).
+// The expansion prompt asks the writer to copy it, but the outline is the
+// authority — when the batch came back slide-for-slide, the outline's
+// design wins over whatever the writer echoed. A batch that came back a
+// different length cannot be zipped; those slides keep what they said.
+export function applyOutlineDesign(slides: Slide[], batch: OutlineSlide[]): Slide[] {
+  if (slides.length !== batch.length) return slides
+  return slides.map((slide, i) => {
+    const o = batch[i]
+    if (o.type !== slide.type || !o.design) return slide
+    const design = normaliseDesign(slide.type, o.design)
+    return isDefaultDesign(slide.type, design) ? withoutDesign(slide) : { ...slide, design }
+  })
+}
+
+function withoutDesign(slide: Slide): Slide {
+  const { design: _omit, ...rest } = slide
+  return rest as Slide
 }
 
 async function loadExemplarPool(workspaceId: string, excludeTalkId: string | null, intent: Intent): Promise<ExemplarSlide[]> {
@@ -261,8 +288,10 @@ const COPY: Record<TalkLanguage, LanguageCopy> = {
       `сам текст слайдов напишет другой автор. ` +
       (isStrictToBrief(p) ? COPY.ru.strictClause : '') +
       `Вы выбираете тип слайда под содержание: определение → concept, формула → formula, ` +
-      `сравнение → comparison, схема/объект → diagram, вопрос залу → discussion, ` +
-      `призыв к действию → cta. Длинные перечни маркеров — последний выбор, не первый. ` +
+      `сравнение → comparison, схема/объект → diagram, цифра → stats, цитата → quote, ` +
+      `вопрос залу → discussion, призыв к действию → cta — и задаёте ритм: section между ` +
+      `частями, agenda после титула, image-full там, где картинка скажет больше текста. ` +
+      `Длинные перечни маркеров — последний выбор, не первый. ` +
       `Пишите на русском языке. Отвечайте строго в формате JSON.`,
     expansionSystem: (p) =>
       `Вы опытный спичрайтер, пишущий полный текст слайдов` +
@@ -300,8 +329,10 @@ const COPY: Record<TalkLanguage, LanguageCopy> = {
       `another writer will write the slides themselves. ` +
       (isStrictToBrief(p) ? COPY.en.strictClause : '') +
       `Pick the slide type from the content: a definition → concept, an equation → formula, ` +
-      `a contrast → comparison, a schematic/object → diagram, a question to the room → discussion, ` +
-      `a call to action → cta. Long bullet lists are the last choice, not the first. ` +
+      `a contrast → comparison, a schematic/object → diagram, a figure → stats, a quotation → quote, ` +
+      `a question to the room → discussion, a call to action → cta — and set the rhythm: a section ` +
+      `between parts, an agenda after the title, image-full where a picture says more than text. ` +
+      `Long bullet lists are the last choice, not the first. ` +
       `Write in English. Respond strictly in JSON.`,
     expansionSystem: (p) =>
       `You are an experienced speechwriter writing the full text of slides` +
@@ -336,7 +367,7 @@ Your job is to structure and present someone else's material, not to extend it.
 
 // ─── Outline prompt ──────────────────────────────────────────────────────────
 
-function buildOutlinePrompt(params: GenerateParams, slideTarget: number): string {
+export function buildOutlinePrompt(params: GenerateParams, slideTarget: number): string {
   const ru = params.language === 'ru'
   const L  = COPY[params.language]
   const lines: string[] = []
@@ -371,11 +402,16 @@ function buildOutlinePrompt(params: GenerateParams, slideTarget: number): string
 а «объём рынка 2025 и три драйвера роста, с цифрами».
 
 Верните JSON объект с одним ключом "outline" — массивом из ${slideTarget} элементов${fewer}.
-Каждый элемент: { "type", "title", "brief" }.
+Каждый элемент: { "type", "title", "brief", "design" }.
 
 - "type" — один из: ${SLIDE_TYPES.join(', ')}.
 - "title" — заголовок слайда.
 - "brief" — 1–2 предложения: какой именно контент, факт, пример или вопрос должен раскрыть этот слайд.
+- "design" — как слайд выглядит: { "variant", "emphasis", "backdrop" }.
+  "variant" — вариант раскладки типа: ${DESIGN_VARIANT_HINT.ru}; для остальных типов "default".
+  "emphasis" — "accent" (главный элемент слайда — цифра, цитата, рубрика — акцентным цветом) или "plain".
+  "backdrop" — "pattern" для ОДНОГО содержательного слайда в части, который должен выделяться, иначе "none".
+  Никаких цветов, шрифтов и координат — только эти слова.
 
 ПРАВИЛА ВЫБОРА ТИПА:
 - Первый слайд всегда type="title".
@@ -385,8 +421,17 @@ function buildOutlinePrompt(params: GenerateParams, slideTarget: number): string
 - "formula" для любого слайда с уравнением.
 - "comparison", когда содержание естественно делится на 2 (реже 3) колонки.
 - "diagram" там, где визуальное представление критично (объект, процесс, схема) — brief должен явно называть, что именно изображено.
+- "stats" — когда суть слайда одна–три цифры (доля, рост, сумма); brief называет сами цифры.
+- "quote" — только если в материале есть настоящая цитата с автором; не сочиняйте.
+- "image-full" — слайд-картинка с подписью; brief называет, что изображено. Никогда два подряд.
 - "cta" — один призыв к действию; уместен для питча и убеждения, не для отчёта.
 - "bullets" — резервный тип. В выступлении из ${slideTarget} слайдов их не больше трети.
+
+РИТМ (при ${slideTarget} слайдах):
+- ${slideTarget >= 8 ? '"agenda" вторым слайдом — план из 3–6 пунктов.' : 'Без "agenda": выступление короткое.'}
+- ${slideTarget >= 10 ? 'Делите выступление на части: "section" перед каждой частью, раз в 5–8 слайдов, не подряд.' : 'Без "section": выступление короткое.'}
+- Не больше одного "stats" на часть; "quote" — не больше одного на выступление.
+- Раскладка задаёт темп: после тяжёлого слайда (comparison, formula, diagram) — лёгкий (stats, quote, image-full, section или короткий bullets).
 
 Верните строго JSON без обрамляющего текста.` : `
 ## Task
@@ -397,11 +442,16 @@ from this plan, so each brief must be concrete: not "talk about the market"
 but "2025 market size and the three growth drivers, with numbers".
 
 Return a JSON object with one key "outline" — an array of ${slideTarget} items${fewer}.
-Each item: { "type", "title", "brief" }.
+Each item: { "type", "title", "brief", "design" }.
 
 - "type" — one of: ${SLIDE_TYPES.join(', ')}.
 - "title" — the slide title.
 - "brief" — 1–2 sentences: exactly which content, fact, example or question this slide must deliver.
+- "design" — how the slide looks: { "variant", "emphasis", "backdrop" }.
+  "variant" — a layout variant of the type: ${DESIGN_VARIANT_HINT.en}; "default" for every other type.
+  "emphasis" — "accent" (the slide's main element — a figure, a quote, a section title — in the accent colour) or "plain".
+  "backdrop" — "pattern" for ONE content slide per section that should stand out, otherwise "none".
+  No colours, fonts or coordinates — only these words.
 
 TYPE RULES:
 - The first slide is always type="title".
@@ -411,8 +461,17 @@ TYPE RULES:
 - "formula" for any slide with an equation.
 - "comparison" when the content naturally splits into 2 (rarely 3) columns.
 - "diagram" where a visual is essential (an object, a process, a schematic) — the brief must name what is shown.
+- "stats" — when the point of the slide is one to three figures (a share, a growth, a sum); the brief names the figures.
+- "quote" — only when the material contains a real quotation with its author; never invent one.
+- "image-full" — a picture slide with a caption; the brief names what is shown. Never two in a row.
 - "cta" — one call to action; fits a pitch or persuasion, not a report.
 - "bullets" is the fallback type. In a ${slideTarget}-slide talk, no more than a third.
+
+RHYTHM (for ${slideTarget} slides):
+- ${slideTarget >= 8 ? '"agenda" as the second slide — 3–6 items.' : 'No "agenda": the talk is short.'}
+- ${slideTarget >= 10 ? 'Divide the talk into parts: a "section" before each part, every 5–8 slides, never two in a row.' : 'No "section": the talk is short.'}
+- At most one "stats" per part; at most one "quote" per talk.
+- Layout sets the pace: after a heavy slide (comparison, formula, diagram), a light one (stats, quote, image-full, section, or a short bullets).
 
 Return strict JSON with no surrounding text.`)
 
@@ -433,7 +492,8 @@ export function normaliseOutline(raw: unknown, slideTarget: number, language: Ta
     const type  = isSlideType(o.type) ? o.type : 'bullets'
     const title = typeof o.title === 'string' && o.title.trim() ? o.title.trim() : L.fallbackTitle(i + 1)
     const brief = typeof o.brief === 'string' ? o.brief.trim() : ''
-    return { type, title, brief }
+    const design = normaliseDesign(type, o.design)
+    return { type, title, brief, ...(isDefaultDesign(type, design) ? {} : { design }) }
   })
 
   // Total outline failure — a minimal shell so expansion still produces a
@@ -472,10 +532,13 @@ export function normaliseEditedOutline(raw: unknown): OutlineSlide[] | null {
     const o = (entry && typeof entry === 'object' ? entry : {}) as Record<string, unknown>
     const title = typeof o.title === 'string' ? o.title.trim() : ''
     if (!title) continue   // a row the user blanked out is a row they meant to drop
+    const type = isSlideType(o.type) ? o.type : 'bullets'
+    const design = normaliseDesign(type, o.design)
     out.push({
-      type:  isSlideType(o.type) ? o.type : 'bullets',
+      type,
       title: title.slice(0, OUTLINE_TITLE_MAX_CHARS),
       brief: (typeof o.brief === 'string' ? o.brief.trim() : '').slice(0, OUTLINE_BRIEF_MAX_CHARS),
+      ...(isDefaultDesign(type, design) ? {} : { design }),
     })
   }
   return out.length > 0 ? out : null
@@ -539,6 +602,7 @@ export function buildExpansionPrompt(batch: OutlineSlide[], params: GeneratePara
   batch.forEach((s, i) => {
     lines.push(`${i + 1}. [${s.type}] ${s.title}`)
     if (s.brief) lines.push(`   ${ru ? 'Содержание' : 'Content'}: ${s.brief}`)
+    if (s.design) lines.push(`   design: ${JSON.stringify(s.design)}`)
   })
   lines.push('')
   lines.push(`${ru ? 'Тема выступления' : 'Talk topic'}: ${sanitiseForPrompt(params.title)}`)
@@ -587,7 +651,10 @@ Do not repeat the slide text — notes must read as speech, not as a copy of the
 
 ${BODY_SCHEMA.ru}
 
-ИЗОБРАЖЕНИЯ ДЛЯ ДРУГИХ ТИПОВ (кроме title/summary/cta/diagram — у diagram своё поле внутри body):
+Если у слайда в плане указан "design" — скопируйте его в ответ как поле верхнего уровня без изменений.
+
+ИЗОБРАЖЕНИЯ ДЛЯ ДРУГИХ ТИПОВ (кроме title/section/agenda/stats/quote/summary/cta/diagram — у diagram своё поле внутри body):
+- Для "image-full" поле верхнего уровня "image_query" ОБЯЗАТЕЛЬНО: картинка и есть слайд.
 - Добавляйте необязательное поле верхнего уровня "image_query" (рядом с "type", НЕ внутри body), когда изображение реально усилит слайд: объект, схема, график, продукт.
 - НЕ добавляйте его для чисто текстового содержания — большинство слайдов НЕ должны иметь картинку.
 - Если поле не нужно — не добавляйте его (не пишите null и не пишите пустую строку).
@@ -608,7 +675,10 @@ the plan's order. Each item: { "type", "title", "notes", "citations", "body" }.
 
 ${BODY_SCHEMA.en}
 
-IMAGES FOR OTHER TYPES (except title/summary/cta/diagram — diagram has its own field inside body):
+If a slide in the plan carries a "design" — copy it into the answer as a top-level field, unchanged.
+
+IMAGES FOR OTHER TYPES (except title/section/agenda/stats/quote/summary/cta/diagram — diagram has its own field inside body):
+- For "image-full" the top-level "image_query" is REQUIRED: the picture is the slide.
 - Add an optional top-level "image_query" (next to "type", NOT inside body) when a picture genuinely strengthens the slide: an object, a schematic, a chart, a product.
 - Do NOT add it for purely textual content — most slides should NOT have a picture.
 - If not needed, omit the field (no null, no empty string).
@@ -622,14 +692,38 @@ Return strict JSON with no surrounding text. Add no fields beyond those listed.`
   return lines.join('\n')
 }
 
+// The variants a model may name, derived from the one table the renderers
+// read — a variant added there appears in the prompt by itself.
+const DESIGN_VARIANT_HINT: Record<TalkLanguage, string> = {
+  ru: (['bullets', 'stats'] as const).map((t) => `${t}: ${DESIGN_VARIANTS[t].map((v) => `"${v}"`).join(' | ')}`).join('; ')
+      + ' (bullets "split" — две колонки при 5+ коротких пунктах; stats "hero-number" — одна цифра на весь слайд)',
+  en: (['bullets', 'stats'] as const).map((t) => `${t}: ${DESIGN_VARIANTS[t].map((v) => `"${v}"`).join(' | ')}`).join('; ')
+      + ' (bullets "split" — two columns for 5+ short items; stats "hero-number" — one figure fills the slide)',
+}
+
 const BODY_SCHEMA: Record<TalkLanguage, string> = {
   ru: `ДОСТУПНЫЕ ТИПЫ СЛАЙДОВ (body по схеме для указанного в плане type):
 
 • title
   body: { "subtitle": "<одна строка под заголовком>", "presenter": "[Имя, роль]" }
 
+• section (рубрика между частями — заголовок и есть слайд)
+  body: { "kicker": "Часть 2", "lead": "одно предложение о том, что покажет часть, или null" }
+
+• agenda (3–6 пунктов плана, по одной строке)
+  body: { "items": ["...", "...", "..."] }
+
 • bullets (3–5 кратких тезисов)
   body: { "items": ["...", "...", "..."] }
+
+• stats (1–3 цифры; value — само число с единицей, коротко)
+  body: { "stats": [{ "value": "42 %", "label": "что это за цифра", "note": "уточнение или null" }] }
+
+• quote (только настоящая цитата из материала)
+  body: { "quote": "текст цитаты без кавычек", "attribution": "автор, источник — или null" }
+
+• image-full (картинка на весь слайд; image_query — на верхнем уровне, обязательно)
+  body: { "caption": "одна строка под заголовком на картинке" }
 
 • concept
   body: { "definition": "1–2 предложения", "supporting": ["уточнение 1", "уточнение 2", "уточнение 3"] }
@@ -656,8 +750,23 @@ const BODY_SCHEMA: Record<TalkLanguage, string> = {
 • title
   body: { "subtitle": "<one line under the title>", "presenter": "[Name, role]" }
 
+• section (a break between parts — the title is the slide)
+  body: { "kicker": "Part 2", "lead": "one sentence on what the part will show, or null" }
+
+• agenda (3–6 plan items, one line each)
+  body: { "items": ["...", "...", "..."] }
+
 • bullets (3–5 short points)
   body: { "items": ["...", "...", "..."] }
+
+• stats (1–3 figures; value is the number with its unit, short)
+  body: { "stats": [{ "value": "42 %", "label": "what the figure is", "note": "a qualifier or null" }] }
+
+• quote (only a real quotation from the material)
+  body: { "quote": "the quotation without quote marks", "attribution": "who, and where — or null" }
+
+• image-full (a picture filling the slide; image_query at the top level, required)
+  body: { "caption": "one line under the title, on the picture" }
 
 • concept
   body: { "definition": "1–2 sentences", "supporting": ["point 1", "point 2", "point 3"] }
@@ -763,6 +872,46 @@ function coerceSlide(input: unknown, validIdx: Set<number>, slideNumber: number,
       const s: Omit<BulletsSlide, 'citations'> = { type, title, notes, body: { items: arr(body.items) } }
       result = s; break
     }
+    case 'section': {
+      const s: Omit<SectionSlide, 'citations'> = { type, title, notes, body: { kicker: strOrNull(body.kicker), lead: strOrNull(body.lead) } }
+      result = s; break
+    }
+    case 'agenda': {
+      const s: Omit<AgendaSlide, 'citations'> = { type, title, notes, body: { items: arr(body.items) } }
+      result = s; break
+    }
+    case 'stats': {
+      const stats = (Array.isArray(body.stats) ? body.stats : [])
+        .map((st) => {
+          if (!st || typeof st !== 'object') return null
+          const so = st as Record<string, unknown>
+          // A number the model returned as a number is still a figure.
+          const value = typeof so.value === 'number' ? String(so.value) : str(so.value)
+          return value ? { value, label: str(so.label), note: strOrNull(so.note) } : null
+        })
+        .filter((st): st is { value: string; label: string; note: string | null } => st !== null)
+        .slice(0, 3)
+      // No figure is not a stats slide — demote to bullets with what there is.
+      if (stats.length === 0) {
+        const s: Omit<BulletsSlide, 'citations'> = { type: 'bullets', title, notes, body: { items: arr(body.items) } }
+        result = s; break
+      }
+      const s: Omit<StatsSlide, 'citations'> = { type, title, notes, body: { stats } }
+      result = s; break
+    }
+    case 'quote': {
+      const quote = str(body.quote).replace(/^[«"“„']+|[»"”“']+$/g, '').trim()
+      if (!quote) {
+        const s: Omit<BulletsSlide, 'citations'> = { type: 'bullets', title, notes, body: { items: arr(body.items) } }
+        result = s; break
+      }
+      const s: Omit<QuoteSlide, 'citations'> = { type, title, notes, body: { quote, attribution: strOrNull(body.attribution) } }
+      result = s; break
+    }
+    case 'image-full': {
+      const s: Omit<ImageFullSlide, 'citations'> = { type, title, notes, body: { caption: str(body.caption) } }
+      result = s; break
+    }
     case 'concept': {
       const s: Omit<ConceptSlide, 'citations'> = { type, title, notes, body: { definition: str(body.definition), supporting: arr(body.supporting) } }
       result = s; break
@@ -830,12 +979,20 @@ function coerceSlide(input: unknown, validIdx: Set<number>, slideNumber: number,
   }
 
   // Top-level image_query for any type except diagram (which keeps its own).
-  // `image` itself is never trusted from raw JSON.
-  const topLevelImageQuery = result.type !== 'diagram' && typeof o.image_query === 'string' ? o.image_query.trim() : ''
+  // `image` itself is never trusted from raw JSON. An image-full slide
+  // without a query gets its title: the picture is the slide, and a slot
+  // with nothing to search for is a slot the user cannot fill.
+  let topLevelImageQuery = result.type !== 'diagram' && typeof o.image_query === 'string' ? o.image_query.trim() : ''
+  if (result.type === 'image-full' && !topLevelImageQuery) topLevelImageQuery = title
+
+  // Design v3 (L2): the look, coerced to the type's vocabulary; omitted
+  // when it is the default so the stored row stays what it always was.
+  const design = normaliseDesign(result.type, o.design)
 
   return {
     ...result,
     ...(topLevelImageQuery ? { image_query: topLevelImageQuery } : {}),
+    ...(isDefaultDesign(result.type, design) ? {} : { design }),
     citations: Array.from(citedAcc).sort((a, b) => a - b),
   } as Slide
 }
@@ -875,6 +1032,23 @@ function renderSlideAsText(s: Slide, n: number, language: TalkLanguage): string 
       break
     case 'bullets':
       s.body.items.forEach((b) => out.push(`• ${b}`))
+      break
+    case 'section':
+      if (s.body.kicker) out.push(s.body.kicker)
+      if (s.body.lead)   out.push(s.body.lead)
+      break
+    case 'agenda':
+      s.body.items.forEach((b, i) => out.push(`${i + 1}. ${b}`))
+      break
+    case 'stats':
+      s.body.stats.forEach((st) => out.push(`${st.value} — ${st.label}${st.note ? ` (${st.note})` : ''}`))
+      break
+    case 'quote':
+      out.push(`«${s.body.quote}»`)
+      if (s.body.attribution) out.push(`— ${s.body.attribution}`)
+      break
+    case 'image-full':
+      if (s.body.caption) out.push(s.body.caption)
       break
     case 'concept':
       out.push(s.body.definition)
@@ -981,7 +1155,10 @@ export async function regenerateSlide(args: { talk: Talk; slideIdx: number; inst
 
   const params = paramsFromTalk(talk)
   const L = COPY[params.language]
-  const spec: OutlineSlide = { type: current.type, title: current.title, brief: briefFromSlide(current, params.language, instruction) }
+  // The design travels with the slide: a rewrite of the text is not a
+  // request to change how it looks (the instruction can still say so —
+  // the writer copies `design` from the plan and the plan carries it).
+  const spec: OutlineSlide = { type: current.type, title: current.title, brief: briefFromSlide(current, params.language, instruction), ...(current.design ? { design: current.design } : {}) }
 
   const raw = await chatJSON<{ slides: unknown[] }>(
     [
@@ -992,7 +1169,7 @@ export async function regenerateSlide(args: { talk: Talk; slideIdx: number; inst
     { context: callContextFor(params, 'slide_edit'), maxTokens: expansionBatchMaxTokens(1, params.language, params.notesEnabled) },
   )
   const validIdx = new Set((talk.sources ?? []).map((s) => s.idx))
-  const [rewritten] = normaliseSlides(raw?.slides, validIdx, params.language, params.notesEnabled)
+  const [rewritten] = applyOutlineDesign(normaliseSlides(raw?.slides, validIdx, params.language, params.notesEnabled), [spec])
   if (!rewritten) return null
 
   // A rewrite of the text is not a request to lose the picture the user
@@ -1035,7 +1212,7 @@ export async function rewriteTalk(talk: Talk, instruction: string): Promise<Slid
   const batches = chunkArray(slides.map((s, i) => ({ s, i })), EXPANSION_BATCH_SIZE)
 
   const rewritten = await mapWithConcurrency(batches, EXPANSION_CONCURRENCY, async (batch) => {
-    const specs: OutlineSlide[] = batch.map(({ s }) => ({ type: s.type, title: s.title, brief: briefFromSlide(s, params.language, instruction) }))
+    const specs: OutlineSlide[] = batch.map(({ s }) => ({ type: s.type, title: s.title, brief: briefFromSlide(s, params.language, instruction), ...(s.design ? { design: s.design } : {}) }))
     const raw = await chatJSON<{ slides: unknown[] }>(
       [
         { role: 'system', content: L.expansionSystem(params) },
@@ -1044,7 +1221,7 @@ export async function rewriteTalk(talk: Talk, instruction: string): Promise<Slid
       'slides',
       { context, maxTokens: expansionBatchMaxTokens(batch.length, params.language, params.notesEnabled) },
     )
-    const out = normaliseSlides(raw?.slides, validIdx, params.language, params.notesEnabled)
+    const out = applyOutlineDesign(normaliseSlides(raw?.slides, validIdx, params.language, params.notesEnabled), specs)
     // Keep the batch aligned by position; a short answer keeps the originals.
     return batch.map(({ s }, k) => {
       const next = out[k]

@@ -20,6 +20,8 @@
 // lives inside the right margin / beyond the title's 80 % width, so text
 // never meets it and its ground is the plain bg (see the drawing).
 
+import { HERO_TYPES } from './slideDesign'
+
 export type BackgroundKind = 'solid' | 'wash' | 'grid' | 'dots' | 'band' | 'blob'
 export type BackgroundRole = 'hero' | 'quiet'
 
@@ -42,9 +44,20 @@ export const BG_H = 900
 
 export const SOLID: BackgroundRecipe = { kind: 'solid', hero: 0, quiet: 0 }
 
-/** Which role a slide type gets. Body-text slides are quiet by construction. */
-export function backgroundRole(slideType: string): BackgroundRole {
-  return slideType === 'title' || slideType === 'discussion' || slideType === 'cta' ? 'hero' : 'quiet'
+/** Which role a slide gets: hero for the types that ARE the treatment
+ *  (shared/slideDesign.ts HERO_TYPES), hero for a content slide whose
+ *  design asks for the pattern, quiet for everything with body text.
+ *
+ *  Two exceptions, both about the header layout meeting the `band` wedge
+ *  (first seen on the stage, bold theme): the wedge's guarantee is that
+ *  hero TYPES keep their text left of it, and a content title spans the
+ *  full width — so under a band, `pattern` changes nothing (a band has no
+ *  louder version for a content slide), and an image-full slide with no
+ *  picture yet, which is drawn as a header + placeholder, is quiet. */
+export function backgroundRole(slide: { type: string; image?: unknown; design?: { backdrop?: string } | null }, recipe?: BackgroundRecipe): BackgroundRole {
+  if (slide.type === 'image-full' && !slide.image) return 'quiet'
+  if (slide.design?.backdrop === 'pattern') return recipe?.kind === 'band' ? 'quiet' : 'hero'
+  return (HERO_TYPES as readonly string[]).includes(slide.type) ? 'hero' : 'quiet'
 }
 
 // ─── Colour arithmetic ──────────────────────────────────────────────────────

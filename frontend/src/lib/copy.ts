@@ -43,7 +43,12 @@ export const AUDIENCE_LABEL: Record<Audience, string> = {
 
 export const SLIDE_TYPE_LABEL: Record<SlideType, string> = {
   title:      'Титул',
+  section:    'Раздел',
+  agenda:     'План',
   bullets:    'Тезисы',
+  stats:      'Цифры',
+  quote:      'Цитата',
+  'image-full': 'Картинка',
   concept:    'Понятие',
   formula:    'Формула',
   comparison: 'Сравнение',
@@ -183,6 +188,20 @@ export const copy = {
         question: 'Вопрос залу', prompts: 'Подвопросы', angles: 'Ожидаемые ответы',
         action: 'Призыв к действию', reasons: 'Почему', contact: 'Как откликнуться',
         takeaways: 'Главное', nextSteps: 'Что дальше', perLine: 'По одному пункту на строку',
+        kicker: 'Надпись над заголовком', lead: 'Одна фраза о разделе', agendaItems: 'Пункты плана',
+        statValue: (n: number) => `Цифра ${n}`, statLabel: 'Что это', statNote: 'Уточнение', quote: 'Цитата', attribution: 'Автор, источник',
+        imageCaption: 'Подпись на картинке',
+      },
+      // Design v3 (L2): how the slide looks — an enum the model chose, the
+      // user may overrule. Words for what the deck does, not for the code.
+      design: {
+        heading:  'Вид',
+        variant:  'Раскладка',
+        variants: { default: 'Обычная', plain: 'В одну колонку', split: 'В две колонки', 'three-up': 'В ряд', 'hero-number': 'Одна большая цифра' } as Record<string, string>,
+        emphasis: 'Главный элемент',
+        emphases: { accent: 'Акцентным цветом', plain: 'Цветом текста' },
+        backdrop: 'Фон',
+        backdrops: { none: 'Как у типа слайда', pattern: 'Выделить фоном' },
       },
     },
   },

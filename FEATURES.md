@@ -3,7 +3,7 @@
 Legend: ✅ shipped · 🚧 in progress · 📋 planned. Grouped by the role that
 uses it. A 📋 item is marked, never implied. See `docs/WORKFLOW.md` §1.
 
-Last updated: design v3, layer 1 — the slide background is data; four themes
+Last updated: design v3, layer 2 — five rhythm types and a design vocabulary the model chooses from
 
 ---
 
@@ -74,6 +74,7 @@ on-prem install keeps `.pptx` open to everyone.
 - ✅ **Native editable `.pptx` download** — 16:9, a layout per slide type,
   formulas typeset as images, speaker notes in the notes pane; `?slides=`
   downloads a subset.
+- ✅ **Fourteen slide types with a rhythm** — title, agenda, section, bullets, concept, formula, comparison, diagram, stats (one to three big figures), quote, image-full (a picture with the title on it), discussion, call to action, summary. The plan decides the pace (an agenda, a section break every 5–8 slides, a figure or a quote after a heavy slide) and how each slide looks — one or two columns, one big number or three, the figure in the accent or the ink, one slide per part lifted onto the theme's background — and every one of those choices is editable on the slide.
 - ✅ **Four themes** (Тезариум, Тёмная, Тёплая, Яркая), chosen per talk — one composition (title low-left under an accent rule, hairline under content titles, «01 / 05» footer, formula and «Что дальше» panels, the question as a large italic), four palettes, each with a background treatment (graph-paper grid, soft blobs, a warm wash, an amber wedge) drawn at full strength behind the title, the question and the call to action and faintly behind content; the same drawing in the .pptx, the PDF, present mode and the public site, and every text colour measured against the treatment it sits on.
 - ✅ **Brand kit** per workspace — accent colour, logo, name — applied to
   every download, with a preview on light and dark and the measured

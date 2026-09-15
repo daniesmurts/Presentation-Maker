@@ -47,26 +47,38 @@ export interface TalkSource {
 
 export type SlideType =
   | 'title'
+  | 'section'
+  | 'agenda'
   | 'bullets'
   | 'concept'
   | 'formula'
   | 'comparison'
   | 'diagram'
+  | 'stats'
+  | 'quote'
+  | 'image-full'
   | 'discussion'
   | 'cta'
   | 'summary'
 
 export const SLIDE_TYPES: readonly SlideType[] =
-  ['title', 'bullets', 'concept', 'formula', 'comparison', 'diagram', 'discussion', 'cta', 'summary']
+  ['title', 'section', 'agenda', 'bullets', 'concept', 'formula', 'comparison', 'diagram', 'stats', 'quote', 'image-full', 'discussion', 'cta', 'summary']
+
+// Design v3 (TODO L2): how a slide looks, as an enum the renderers know —
+// see shared/slideDesign.ts. Optional on the wire: absent means the type's
+// default, so rows written before it exist read the same.
+export type { SlideDesign } from './slideDesign'
+import type { SlideDesign as _SlideDesign } from './slideDesign'
 
 // One slide's worth of plan — produced by the outline pass, edited by the
 // user at the approval gate, consumed by the expansion pass. `brief` is a
 // technical brief for expansion, not prose: «виды насосов: объёмные vs
 // динамические, критерий выбора», not «рассказать про насосы».
 export interface OutlineSlide {
-  type:  SlideType
-  title: string
-  brief: string
+  type:    SlideType
+  title:   string
+  brief:   string
+  design?: _SlideDesign
 }
 
 // An image on a slide. Never auto-selected in the parent — search returned
@@ -95,6 +107,7 @@ interface SlideBase {
   // type: 'diagram' these two are unused.
   image_query?: string | null
   image?:       SlideImage | null
+  design?:      _SlideDesign
 }
 
 export interface TitleSlide extends SlideBase {
@@ -108,6 +121,47 @@ export interface TitleSlide extends SlideBase {
 export interface BulletsSlide extends SlideBase {
   type: 'bullets'
   body: { items: string[] }
+}
+
+// A section break: «Часть 2 · Рынок» — the kicker is the part, the title
+// is the section, the lead is one sentence on what it will show. Rhythm,
+// not content: one every 5–8 slides.
+export interface SectionSlide extends SlideBase {
+  type: 'section'
+  body: {
+    kicker: string | null       // «Часть 2», «02», a short label
+    lead:   string | null       // one sentence
+  }
+}
+
+// The plan of the talk, numbered — 3–7 items, one line each.
+export interface AgendaSlide extends SlideBase {
+  type: 'agenda'
+  body: { items: string[] }
+}
+
+// One to three figures, each with a label — the number is the slide.
+export interface StatsSlide extends SlideBase {
+  type: 'stats'
+  body: {
+    stats: Array<{ value: string; label: string; note: string | null }>   // value: «42 %», «×3», «1,2 млрд ₽»
+  }
+}
+
+// A quotation set large, attributed. Only when the material has one.
+export interface QuoteSlide extends SlideBase {
+  type: 'quote'
+  body: {
+    quote:       string
+    attribution: string | null  // who, and where, if known
+  }
+}
+
+// Picture-led: the image (the slide's top-level `image`) fills the slide,
+// the title and a caption sit on a scrim at the bottom. Never two in a row.
+export interface ImageFullSlide extends SlideBase {
+  type: 'image-full'
+  body: { caption: string }
 }
 
 // One concept, defined and unpacked. Better than five bullets for a definition.
@@ -174,6 +228,11 @@ export interface SummarySlide extends SlideBase {
 
 export type Slide =
   | TitleSlide
+  | SectionSlide
+  | AgendaSlide
+  | StatsSlide
+  | QuoteSlide
+  | ImageFullSlide
   | BulletsSlide
   | ConceptSlide
   | FormulaSlide

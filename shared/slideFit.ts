@@ -31,6 +31,12 @@ export interface SlideFit {
 // the PowerPoint render of the same deck.
 const BUDGETS: Record<Slide['type'], { chars: number; lines: number }> = {
   title:      { chars: 160,  lines: 3 },
+  // Design v3 (L2) types. Budgets from their layouts in talkExport.ts:
+  section:    { chars: 200,  lines: 3 },   // kicker + lead; the title is the slide
+  agenda:     { chars: 420,  lines: 7 },   // numbered, one line each, two columns from 5
+  stats:      { chars: 240,  lines: 9 },   // up to 3 × (value, label, note) — short by construction
+  quote:      { chars: 320,  lines: 4 },   // set at 5.6 % width like a question, plus one attribution line
+  'image-full': { chars: 160, lines: 2 },  // the caption on the scrim: one or two lines
   bullets:    { chars: 440,  lines: 6 },
   concept:    { chars: 520,  lines: 7 },
   formula:    { chars: 360,  lines: 5 },
@@ -47,6 +53,11 @@ export function slideBodyText(slide: Slide): string[] {
   switch (slide.type) {
     case 'title':      return [slide.body.subtitle, slide.body.presenter].filter(Boolean) as string[]
     case 'bullets':    return slide.body.items
+    case 'section':    return [slide.body.kicker, slide.body.lead].filter(Boolean) as string[]
+    case 'agenda':     return slide.body.items
+    case 'stats':      return slide.body.stats.flatMap((s) => [s.value, s.label, s.note ?? ''])
+    case 'quote':      return [slide.body.quote, slide.body.attribution ?? '']
+    case 'image-full': return [slide.body.caption]
     case 'concept':    return [slide.body.definition, ...slide.body.supporting]
     case 'formula':    return [...slide.body.formulas.map((f) => `${f.latex} ${f.caption}`), slide.body.explanation ?? '']
     case 'comparison': return slide.body.columns.flatMap((c) => [c.header, ...c.items])

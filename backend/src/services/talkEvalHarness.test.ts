@@ -26,3 +26,33 @@ describe('scoreSlides', () => {
     expect(scoreSlides([bullets('')], false).notesBelowTargetShare).toBe(0)
   })
 })
+
+// Design v3 (L2): the rhythm the outline prompt asks for, as a score.
+import { scoreRhythm } from './talkEvalHarness'
+const t = (type: Slide['type'], extra: Record<string, unknown> = {}): Slide => ({ type, title: 't', notes: '', citations: [], body: {}, ...extra } as unknown as Slide)
+
+describe('scoreRhythm', () => {
+  it('a well-paced 12-slide talk has no violations', () => {
+    const deck = [t('title'), t('agenda'), t('section'), t('bullets'), t('stats'), t('concept'), t('section'), t('bullets'), t('quote'), t('image-full'), t('cta'), t('summary')]
+    const r = scoreRhythm(deck)
+    expect(r.violations).toEqual([])
+    expect(r.sections).toBe(2)
+    expect(r.heroShare).toBeCloseTo(6 / 12)   // title, 2 sections, quote, image-full, cta — exactly half; only above half is flagged
+  })
+  it('names each broken rule', () => {
+    const deck = [t('title'), t('bullets'), t('agenda'), ...Array(8).fill(0).map(() => t('bullets')), t('image-full'), t('image-full'), t('quote'), t('quote'), t('summary')]
+    const v = scoreRhythm(deck).violations
+    expect(v).toContain('no-section-in-long-talk')
+    expect(v).toContain('agenda-not-second')
+    expect(v).toContain('two-image-full-in-a-row')
+    expect(v).toContain('more-than-one-quote')
+  })
+  it('a short talk must not carry sections; two stats in one part is one too many', () => {
+    expect(scoreRhythm([t('title'), t('section'), t('bullets'), t('summary')]).violations).toContain('section-in-short-talk')
+    const deck = [t('title'), t('agenda'), t('section'), t('stats'), t('bullets'), t('stats'), t('bullets'), t('bullets'), t('bullets'), t('summary')]
+    expect(scoreRhythm(deck).violations).toContain('two-stats-in-a-part')
+  })
+  it('a content slide with backdrop=pattern counts as a hero', () => {
+    expect(scoreRhythm([t('bullets', { design: { variant: 'plain', emphasis: 'accent', backdrop: 'pattern' } })]).heroShare).toBe(1)
+  })
+})

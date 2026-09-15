@@ -37,7 +37,7 @@ async function main() {
   for (const s of report.scored) {
     console.log(`\n${s.label}: ${s.slideCount}/${s.slideTarget} slides in ${(s.durationMs / 1000).toFixed(0)}s`)
     console.log(`  notes avg ${s.avgNotesWordCount.toFixed(0)} min ${s.minNotesWordCount} below-target ${(s.notesBelowTargetShare * 100).toFixed(0)}%`)
-    console.log(`  bullets ${(s.bulletsShare * 100).toFixed(0)}%  image-queries ${(s.imageQueryShare * 100).toFixed(0)}%`)
+    console.log(`  bullets ${(s.bulletsShare * 100).toFixed(0)}%  image-queries ${(s.imageQueryShare * 100).toFixed(0)}%  hero ${(s.rhythm.heroShare * 100).toFixed(0)}%  sections ${s.rhythm.sections}${s.rhythm.violations.length ? `  rhythm: ${s.rhythm.violations.join(", ")}` : ""}`)
     console.log(`  types ${JSON.stringify(s.typeDistribution)}`)
   }
   for (const f of report.failed) console.log(`\nFAILED ${f.label}: ${f.error}`)

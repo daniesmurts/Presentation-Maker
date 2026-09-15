@@ -4,7 +4,9 @@ import { inputClass, proseInputClass } from '../ui/Field'
 import { copy } from '../../lib/copy'
 import type {
   Slide, TitleSlide, BulletsSlide, ConceptSlide, FormulaSlide, ComparisonSlide, DiagramSlide, DiscussionSlide, CtaSlide, SummarySlide,
+  SectionSlide, AgendaSlide, StatsSlide, QuoteSlide, ImageFullSlide, SlideDesign,
 } from '../../../../shared/types'
+import { DESIGN_VARIANTS, EMPHASES, BACKDROPS, HERO_TYPES, normaliseDesign, isDefaultDesign } from '../../../../shared/slideDesign'
 
 // In-place slide editing. One form per slide type rather than a shape-driven
 // generic editor: the bodies are a discriminated union, and a generic editor
@@ -48,12 +50,49 @@ export default function SlideEditor({ slide, notesEnabled, saving, onSave, onCan
     <div className="p-4 space-y-3 bg-surface-soft rounded-md">
       <Row label={F.title}><Text value={draft.title} onChange={(title) => setDraft((d) => ({ ...d, title }))} /></Row>
       {bodyFields(draft, patch)}
+      <DesignFields draft={draft} onChange={(design) => setDraft((d) => ({ ...d, design }))} />
       {notesEnabled && <Row label={F.notes}><Area prose rows={6} value={draft.notes} onChange={(notes) => setDraft((d) => ({ ...d, notes }))} /></Row>}
       <div className="flex items-center gap-2 pt-1">
         <Button size="sm" onClick={() => onSave(draft)} loading={saving}>{copy.talk.edit.save}</Button>
         <Button size="sm" variant="ghost" onClick={onCancel} disabled={saving}>{copy.talk.edit.cancel}</Button>
       </div>
     </div>
+  )
+}
+
+// The design row: only the controls that change anything for this type —
+// a variant select when the type has more than one, the emphasis for the
+// types with a big element, the backdrop for content slides (a hero type
+// already has it). Saved as undefined when it equals the default, so a
+// slide the user never touched stays a slide without a `design`.
+const EMPHASIS_TYPES = new Set<Slide['type']>(['section', 'agenda', 'stats', 'quote'])
+function DesignFields({ draft, onChange }: { draft: Slide; onChange: (d: SlideDesign | undefined) => void }) {
+  const D = copy.talk.edit.design
+  const type = draft.type
+  const design = normaliseDesign(type, draft.design)
+  const variants = DESIGN_VARIANTS[type]
+  const showVariant = variants.length > 1
+  const showEmphasis = EMPHASIS_TYPES.has(type)
+  const showBackdrop = !HERO_TYPES.includes(type)
+  if (!showVariant && !showEmphasis && !showBackdrop) return null
+  const set = (p: Partial<SlideDesign>) => { const next = { ...design, ...p }; onChange(isDefaultDesign(type, next) ? undefined : next) }
+  const sel = 'block w-full h-9 rounded-md border border-border bg-surface px-2 text-sm text-ink'
+  return (
+    <fieldset className="grid gap-3 sm:grid-cols-3">
+      <legend className="text-xs font-medium text-ink-secondary mb-1">{D.heading}</legend>
+      {showVariant && <Row label={D.variant}>
+        <select className={sel} value={design.variant} onChange={(e) => set({ variant: e.target.value })}>
+          {variants.map((v) => <option key={v} value={v}>{D.variants[v] ?? v}</option>)}
+        </select></Row>}
+      {showEmphasis && <Row label={D.emphasis}>
+        <select className={sel} value={design.emphasis} onChange={(e) => set({ emphasis: e.target.value as SlideDesign['emphasis'] })}>
+          {EMPHASES.map((v) => <option key={v} value={v}>{D.emphases[v]}</option>)}
+        </select></Row>}
+      {showBackdrop && <Row label={D.backdrop}>
+        <select className={sel} value={design.backdrop} onChange={(e) => set({ backdrop: e.target.value as SlideDesign['backdrop'] })}>
+          {BACKDROPS.map((v) => <option key={v} value={v}>{D.backdrops[v]}</option>)}
+        </select></Row>}
+    </fieldset>
   )
 }
 
@@ -112,6 +151,41 @@ function bodyFields(draft: Slide, patch: <T extends Slide>(p: Partial<T['body']>
         <Row label={F.points}><Lines rows={3} value={b.points} onChange={(points) => patch<DiagramSlide>({ points })} /></Row>
         <Row label={F.imageQuery}><Text value={b.image_query} onChange={(image_query) => patch<DiagramSlide>({ image_query })} /></Row>
       </>
+    }
+    case 'section': {
+      const b = (draft as SectionSlide).body
+      return <>
+        <Row label={F.kicker}><Text value={b.kicker ?? ''} onChange={(kicker) => patch<SectionSlide>({ kicker: kicker.trim() || null })} /></Row>
+        <Row label={F.lead}><Area rows={2} value={b.lead ?? ''} onChange={(lead) => patch<SectionSlide>({ lead: lead.trim() || null })} /></Row>
+      </>
+    }
+    case 'agenda': {
+      const b = (draft as AgendaSlide).body
+      return <Row label={F.agendaItems}><Lines value={b.items} onChange={(items) => patch<AgendaSlide>({ items })} /></Row>
+    }
+    case 'stats': {
+      const b = (draft as StatsSlide).body
+      const setStat = (i: number, p: Partial<StatsSlide['body']['stats'][number]>) => patch<StatsSlide>({ stats: b.stats.map((st, j) => (j === i ? { ...st, ...p } : st)) })
+      return <>
+        {b.stats.map((st, i) => (
+          <div key={i} className="grid gap-2 sm:grid-cols-3">
+            <Row label={F.statValue(i + 1)}><Text value={st.value} onChange={(value) => setStat(i, { value })} /></Row>
+            <Row label={F.statLabel}><Text value={st.label} onChange={(label) => setStat(i, { label })} /></Row>
+            <Row label={F.statNote}><Text value={st.note ?? ''} onChange={(note) => setStat(i, { note: note.trim() || null })} /></Row>
+          </div>
+        ))}
+      </>
+    }
+    case 'quote': {
+      const b = (draft as QuoteSlide).body
+      return <>
+        <Row label={F.quote}><Area rows={3} value={b.quote} onChange={(quote) => patch<QuoteSlide>({ quote })} /></Row>
+        <Row label={F.attribution}><Text value={b.attribution ?? ''} onChange={(attribution) => patch<QuoteSlide>({ attribution: attribution.trim() || null })} /></Row>
+      </>
+    }
+    case 'image-full': {
+      const b = (draft as ImageFullSlide).body
+      return <Row label={F.imageCaption}><Text value={b.caption} onChange={(caption) => patch<ImageFullSlide>({ caption })} /></Row>
     }
     case 'discussion': {
       const b = (draft as DiscussionSlide).body

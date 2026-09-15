@@ -243,7 +243,7 @@ option is still open.
      carries the message until there is.
   5. Landing: a pricing block (2 500 ₽ / месяц) once item I has a place for it.
 
-### L. Design v3 — backgrounds, rhythm, a theme library · Effort: L · 🚧 L1 SHIPPED (2026-09-15, code) · L2–L3 planned
+### L. Design v3 — backgrounds, rhythm, a theme library · Effort: L · 🚧 L1–L2 SHIPPED (2026-09-15, code) · L3 planned
 - **Why**: decks are clean but samey. A theme today is `palette + fonts +
   margin` over one composition (J); there are no backgrounds, no decorative
   treatment, no image-led or big-number slides, and the model has no say in
@@ -308,7 +308,17 @@ option is still open.
   v2 header/footer (the open follow-up from J) — L2 will expose them, so
   do it here, not after.
 
-**L2 — the model chooses design from an enum; slide types for rhythm.** Effort M.
+**L2 — the model chooses design from an enum; slide types for rhythm.** Effort M. 🟢 code 2026-09-15
+- Shipped: `shared/slideDesign.ts`, the five types in `shared/types.ts`
+  and every renderer / editor / normaliser / prompt, `applyOutlineDesign`
+  on expand · regenerate · rewrite, `scoreRhythm` in the harness, budgets
+  in `slideFit`. See CHANGELOG. Not yet: the outline editor shows the
+  type but not the design (edit it on the slide after generation); the
+  concept / comparison / diagram bodies were not redesigned here after
+  all — they still read fine next to the new types, so that stays a
+  follow-up; Cyrillic budgets for the new types are the layouts'
+  arithmetic, not yet a measured overflow — watch the first real decks.
+- Original plan, for the record:
 - `OutlineSlide` and `SlideBase` gain
   `design?: { variant, emphasis, backdrop, image_brief? }` where
   `variant` is per-type (`stats: 'hero-number' | 'three-up' · bullets:

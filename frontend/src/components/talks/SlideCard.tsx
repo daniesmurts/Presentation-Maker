@@ -74,7 +74,7 @@ export default function SlideCard({ slide, number, total, language, notesEnabled
   // Only the types the exporter lays an image out for (talkExport.ts's
   // addSideImage / diagram box). Offering a slot on a title or summary slide
   // would store a picture the deck never shows.
-  const canHaveImage = !['title', 'summary', 'cta'].includes(slide.type)
+  const canHaveImage = !['title', 'section', 'agenda', 'stats', 'quote', 'summary', 'cta'].includes(slide.type)
   const imageSlot = !canHaveImage ? null : edit
     ? <ImageSlot query={imageQuery ?? ''} image={image ?? null} busy={edit.busy} onUpload={(f) => edit.onUpload(idx, f)} onRemove={() => edit.onRemoveImage(idx)} />
     : image ? <ImageSlot query={imageQuery ?? ''} image={image} /> : null
@@ -132,7 +132,7 @@ export default function SlideCard({ slide, number, total, language, notesEnabled
           ) : (
             <>
               <Body slide={slide} imageSlot={imageSlot} />
-              {slide.type !== 'diagram' && imageSlot && <div className="mt-4">{imageSlot}</div>}
+              {slide.type !== 'diagram' && slide.type !== 'image-full' && imageSlot && <div className="mt-4">{imageSlot}</div>}
             </>
           )}
 
@@ -243,7 +243,58 @@ function Body({ slide, imageSlot }: { slide: Slide; imageSlot: React.ReactNode }
         </div>
       )
     case 'bullets':
-      return <div><H><InlineText text={slide.title} /></H><ul className="space-y-1.5">{slide.body.items.map((b, i) => <Bullet key={i}><InlineText text={b} /></Bullet>)}</ul></div>
+      return <div><H><InlineText text={slide.title} /></H><ul className={slide.design?.variant === 'split' && slide.body.items.length >= 4 ? 'grid sm:grid-cols-2 gap-x-6 gap-y-1.5' : 'space-y-1.5'}>{slide.body.items.map((b, i) => <Bullet key={i}><InlineText text={b} /></Bullet>)}</ul></div>
+    case 'section':
+      return (
+        <div className="py-2">
+          {slide.body.kicker && <div className="eyebrow text-accent mb-2">{slide.body.kicker}</div>}
+          <h3 className="display font-semibold text-[30px] leading-tight text-ink"><InlineText text={slide.title} /></h3>
+          {slide.body.lead && <p className="text-[15px] text-ink-secondary mt-2 max-w-[60ch]"><InlineText text={slide.body.lead} /></p>}
+        </div>
+      )
+    case 'agenda':
+      return (
+        <div>
+          <H><InlineText text={slide.title} /></H>
+          <ol className="space-y-1.5">
+            {slide.body.items.map((b, i) => <li key={i} className="flex gap-3 text-[15px] text-ink leading-relaxed"><span className="font-mono text-accent">{String(i + 1).padStart(2, '0')}</span><InlineText text={b} /></li>)}
+          </ol>
+        </div>
+      )
+    case 'stats': {
+      const hero = slide.design?.variant === 'hero-number' || slide.body.stats.length === 1
+      const color = slide.design?.emphasis === 'plain' ? 'text-ink' : 'text-accent'
+      return (
+        <div>
+          <H><InlineText text={slide.title} /></H>
+          <div className={hero ? '' : 'grid gap-4'} style={hero ? undefined : { gridTemplateColumns: `repeat(${slide.body.stats.length}, minmax(0, 1fr))` }}>
+            {slide.body.stats.map((st, i) => (
+              <div key={i} className={hero ? '' : 'min-w-0 border-t-2 border-ink pt-2'}>
+                <div className={`display font-semibold leading-none ${color} ${hero ? 'text-[56px]' : 'text-[34px]'}`}>{st.value}</div>
+                <div className="text-[15px] text-ink mt-2"><InlineText text={st.label} /></div>
+                {st.note && <div className="text-[13px] text-ink-secondary mt-1"><InlineText text={st.note} /></div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+    case 'quote':
+      return (
+        <div>
+          <H><InlineText text={slide.title} /></H>
+          <p className="font-display italic text-[21px] text-ink leading-snug max-w-[50ch]">«<InlineText text={slide.body.quote} />»</p>
+          {slide.body.attribution && <p className="text-sm text-accent font-medium mt-3">— {slide.body.attribution}</p>}
+        </div>
+      )
+    case 'image-full':
+      return (
+        <div>
+          <H><InlineText text={slide.title} /></H>
+          {imageSlot}
+          {slide.body.caption && <p className="text-[15px] text-ink-secondary mt-2"><InlineText text={slide.body.caption} /></p>}
+        </div>
+      )
     case 'concept':
       return (
         <div>

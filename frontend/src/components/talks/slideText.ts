@@ -12,6 +12,11 @@ export function slideToText(s: Slide, n: number, language: TalkLanguage): string
       if (s.body.presenter) out.push(s.body.presenter)
       break
     case 'bullets':    s.body.items.forEach((b) => out.push(`• ${b}`)); break
+    case 'section':    if (s.body.kicker) out.push(s.body.kicker); if (s.body.lead) out.push(s.body.lead); break
+    case 'agenda':     s.body.items.forEach((b, i) => out.push(`${i + 1}. ${b}`)); break
+    case 'stats':      s.body.stats.forEach((st) => out.push(`${st.value} — ${st.label}${st.note ? ` (${st.note})` : ''}`)); break
+    case 'quote':      out.push(`«${s.body.quote}»`); if (s.body.attribution) out.push(`— ${s.body.attribution}`); break
+    case 'image-full': if (s.body.caption) out.push(s.body.caption); break
     case 'concept':    out.push(s.body.definition); s.body.supporting.forEach((b) => out.push(`• ${b}`)); break
     case 'formula':
       s.body.formulas.forEach((f) => { out.push(`  $$${f.latex}$$`); if (f.caption) out.push(`  — ${f.caption}`) })
