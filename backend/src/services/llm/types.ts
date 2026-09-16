@@ -11,7 +11,9 @@ export interface ChatMessage {
 // What the call is for — the first dimension of usage_log. Talk generation
 // is two features, not one, because the outline and the expansion have very
 // different token profiles and the spend question is asked per pass.
-export type Feature = 'talk_outline' | 'talk_expand' | 'slide_edit' | 'theme_generate' | 'image_generate'
+// `draft_chat` is one turn with the editor (services/drafts.ts) — also the
+// row the per-day message quota counts (lib/planTier.ts).
+export type Feature = 'talk_outline' | 'talk_expand' | 'slide_edit' | 'theme_generate' | 'image_generate' | 'draft_chat'
 
 export interface CallContext {
   // Both optional: an offline eval run has no user, and usage_log's columns

@@ -33,3 +33,15 @@ export async function createUsageLog(p: CreateUsageLogParams): Promise<void> {
     ],
   )
 }
+
+/** Calls of one feature by this workspace since local midnight UTC —
+ *  the per-day quota on editor turns. Counts failures too: a failed call
+ *  still cost a request, and a client retrying into a wall must hit it. */
+export async function countFeatureCallsToday(workspaceId: string, feature: Feature): Promise<number> {
+  const { rows } = await pool.query<{ n: string }>(
+    `SELECT COUNT(*)::text AS n FROM usage_log
+      WHERE workspace_id = $1 AND feature = $2 AND created_at >= date_trunc('day', NOW())`,
+    [workspaceId, feature],
+  )
+  return Number(rows[0]?.n ?? 0)
+}

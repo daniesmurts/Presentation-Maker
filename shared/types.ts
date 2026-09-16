@@ -321,3 +321,69 @@ export const LENGTH_PRESETS = [
   { id: 'long',      minutes: 60 },
 ] as const
 export type LengthPresetId = typeof LENGTH_PRESETS[number]['id']
+
+// ─── Draft («Набросок») ───────────────────────────────────────────────────────
+// A talk that does not exist yet: a conversation with the editor on one
+// side and, on the other, the card it fills in — the same fields the
+// new-talk form asks for, plus the theses. The card is the memory of the
+// conversation (older turns are folded into it, so the prompt never has to
+// carry a long history — Cyrillic costs ~2× per character, CLAUDE.md §3.3)
+// and the hand-off: «Собрать выступление» posts the card as the talk
+// request and lands the user at the outline gate.
+
+export interface DraftCard {
+  title:            string
+  intent:           Intent | null
+  audience:         Audience | null
+  language:         TalkLanguage
+  duration_minutes: number | null
+  slide_count:      number | null
+  // null = «follow the intent» (notesDefaultFor) until someone decides.
+  notes_enabled:    boolean | null
+  // Ordered talking points — what becomes the brief. One string per thesis.
+  theses:           string[]
+  // How it should sound («сухо и по делу», «тепло, без канцелярита»).
+  tone:             string
+  // What the editor still wants to know before the card is complete.
+  open_questions:   string[]
+}
+
+export interface DraftMessage {
+  role: 'user' | 'assistant'
+  text: string
+  at:   string
+}
+
+export interface Draft {
+  id:           string
+  workspace_id: string
+  owner_id:     string
+  title:        string
+  messages:     DraftMessage[]
+  card:         DraftCard
+  // Set once the draft has been collected («Собрать выступление»); the
+  // draft stays. The job is what exists at that moment — the talk comes
+  // when expansion completes, and the job row carries its id.
+  job_id:       string | null
+  created_at:   string
+  updated_at:   string
+}
+
+export const EMPTY_DRAFT_CARD: DraftCard = {
+  title: '', intent: null, audience: null, language: 'ru', duration_minutes: null, slide_count: null,
+  notes_enabled: null, theses: [], tone: '', open_questions: [],
+}
+
+/** What the card still lacks before it can become a talk — the readiness
+ *  line under the button, and the server's check on hand-off. Both sides
+ *  run the same function so the button is never enabled for a card the
+ *  server would refuse. */
+export type DraftMissing = 'title' | 'intent' | 'audience' | 'theses'
+export function draftMissing(card: DraftCard): DraftMissing[] {
+  const out: DraftMissing[] = []
+  if (!card.title.trim()) out.push('title')
+  if (!card.intent)       out.push('intent')
+  if (!card.audience)     out.push('audience')
+  if (card.theses.filter((t) => t.trim()).length === 0) out.push('theses')
+  return out
+}

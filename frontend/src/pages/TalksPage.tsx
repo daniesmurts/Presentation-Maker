@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Upload, Loader2, Presentation } from 'lucide-react'
+import { Upload, Loader2, Presentation, PenLine } from 'lucide-react'
 import { listTalks, importPptx, type TalkListItem } from '../api/talks'
 import { errorMessage } from '../api/client'
 import Spinner from '../components/ui/Spinner'
@@ -75,7 +75,15 @@ export default function TalksPage() {
           <h1 className="display font-semibold text-[30px] leading-tight text-ink">{copy.list.heading}</h1>
           <p className="text-sm text-ink-secondary mt-1">{copy.list.lead(n)}</p>
         </div>
-        <ImportChip />
+        {/* Two ways in, two weights: the editor is the second emphasis on
+            this screen (tinted — the rail's «Новое выступление» is the one
+            solid CTA); the import is a utility and stays a bordered chip.
+            Same size, different ground, so they read as different kinds
+            of action rather than as a pair. */}
+        <div className="flex gap-2 flex-shrink-0">
+          <Link to="/drafts" className={buttonClass('secondary')} title={copy.draft.lead(0)}><PenLine className="w-4 h-4" aria-hidden /> {copy.draft.fromTalks}</Link>
+          <ImportChip />
+        </div>
       </div>
 
       <div className="flex gap-2 overflow-x-auto -mx-4 px-4 lg:mx-0 lg:px-0">

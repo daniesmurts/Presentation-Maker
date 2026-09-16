@@ -601,6 +601,39 @@ option is still open.
   from the panel (the T-Bank cabinet does it; the webhook records it),
   e-mail of any kind (there is still no sender — K.4).
 
+### N. Drafts — the editor before the form · Effort: M · 🟢 step 1 SHIPPED (2026-09-16, code)
+
+**Why.** The form is fine for someone who knows what they want to say.
+Most people who have to present do not, and a blank «Тезисы» field is
+where they leave. A conversation that ends in a filled card — and one
+click past the form — is the entry point for them.
+
+**Step 1 (shipped)**: `drafts` table, the editor's turn (`services/drafts.ts`),
+the card, hand-off into the outline gate, the page, the rail item.
+
+**Step 2 — material into a draft.** Paste is a message; a PDF/DOCX/PPTX
+upload should go through the existing upload path and land on the talk as
+`sources` with `[N]` markers intact. Touches: `routes/drafts.ts`, the
+upload pipeline, `cardToTalkBody` (sources travel with the card).
+
+**Step 3 — the outline in the chat.** The editor proposes the plan
+(`normaliseOutline` on its answer); the user argues with it in words
+(«объедини 3 и 4, перед призывом — цифры»); hand-off creates the job
+directly in `outline_ready`, skipping `planTalk`. This is where talking
+beats dragging. Touches: `services/drafts.ts`, `db/queries/talkJobs.ts`
+(create in `outline_ready`), the card gains an `outline` field.
+
+**Step 4 — streaming in the registry.** The first surface where latency is
+felt per message. `chat` gains a streaming variant; `draftTurn` streams
+the reply and parses the card from the tail.
+
+**Step 5 — the same editor for posts and ads** once those material kinds
+exist on the rail.
+
+Not planned: a general assistant, cross-draft memory, web search, editing
+finished slides from the chat (the talk page owns that), conversations
+kept forever (the history is capped; the card is what is kept).
+
 ### The plan is built. What is next is not more building.
 Every item in CLAUDE.md §8 is shipped and deployed. The next TODO entries
 should come from users, usage_log and talk_events — not from this file.

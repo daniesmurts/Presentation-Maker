@@ -14,6 +14,10 @@ export interface PlanLimits {
   talksPerMonth:      number    // talks CREATED (expansion completed) this calendar month
   downloadsPerMonth:  Record<DownloadFormat, number>   // exports this calendar month, from talk_events
   monthlySpendCapUsd: number    // model spend this calendar month, from usage_log
+  // Turns with the editor («Набросок») per calendar day, from usage_log.
+  // A per-day gate, not per-month: a conversation is many small calls and
+  // a month's worth burned in one evening is what a runaway client does.
+  draftMessagesPerDay: number
 }
 
 /** Pro, per month, in roubles — the one price the product has. Kopecks go to T-Bank. */
@@ -30,8 +34,8 @@ export const PRO_PRICE_RUB = 2500
 // 2026-09-14) never meets it in normal use.
 const NO_LIMIT = Infinity
 export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
-  free: { talksPerMonth: 2, downloadsPerMonth: config.billing.enabled ? { pptx: 1, pdf: 2 } : { pptx: NO_LIMIT, pdf: NO_LIMIT }, monthlySpendCapUsd: 3 },
-  pro:  { talksPerMonth: NO_LIMIT, downloadsPerMonth: { pptx: NO_LIMIT, pdf: NO_LIMIT }, monthlySpendCapUsd: 30 },
+  free: { talksPerMonth: 2, downloadsPerMonth: config.billing.enabled ? { pptx: 1, pdf: 2 } : { pptx: NO_LIMIT, pdf: NO_LIMIT }, monthlySpendCapUsd: 3, draftMessagesPerDay: 40 },
+  pro:  { talksPerMonth: NO_LIMIT, downloadsPerMonth: { pptx: NO_LIMIT, pdf: NO_LIMIT }, monthlySpendCapUsd: 30, draftMessagesPerDay: 400 },
 }
 
 export function tierOf(raw: string | null | undefined): PlanTier {
@@ -66,6 +70,18 @@ export function assertTalkQuota(planTier: string, talksThisMonth: number): void 
     throw new PlanLimitError(
       `Лимит на этот месяц исчерпан: ${limit} ${limit === 1 ? 'выступление' : limit < 5 ? 'выступления' : 'выступлений'}. ` +
       'Лимит обновится в начале следующего месяца.',
+      'PLAN_LIMIT_REACHED',
+    )
+  }
+}
+
+/** Throws when today's turns with the editor are used up. */
+export function assertDraftMessageQuota(planTier: string, usedToday: number): void {
+  const limit = PLAN_LIMITS[tierOf(planTier)].draftMessagesPerDay
+  if (usedToday >= limit) {
+    throw new PlanLimitError(
+      `На сегодня сообщения редактору закончились (${limit}). Завтра можно продолжить` +
+      (tierOf(planTier) === 'pro' ? '.' : ', на тарифе Pro — в десять раз больше.'),
       'PLAN_LIMIT_REACHED',
     )
   }

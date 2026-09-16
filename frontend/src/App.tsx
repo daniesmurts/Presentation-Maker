@@ -6,6 +6,8 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import TalksPage from './pages/TalksPage'
 import NewTalkPage from './pages/NewTalkPage'
+import DraftsPage from './pages/DraftsPage'
+import DraftPage from './pages/DraftPage'
 import JobPage from './pages/JobPage'
 import TalkPage from './pages/TalkPage'
 import BrandPage from './pages/BrandPage'
@@ -71,6 +73,8 @@ export default function App() {
         <Route path="/talks/new"  element={<NewTalkPage />} />
         <Route path="/talks/:id"  element={<TalkPage />} />
         <Route path="/jobs/:id"   element={<JobPage />} />
+        <Route path="/drafts"     element={<DraftsPage />} />
+        <Route path="/drafts/:id" element={<DraftPage />} />
         <Route path="/brand"      element={<BrandPage />} />
         <Route path="/billing"    element={<BillingPage />} />
         <Route path="/admin" element={<RequireAdmin><AdminLayout /></RequireAdmin>}>

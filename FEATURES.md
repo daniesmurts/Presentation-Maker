@@ -3,7 +3,7 @@
 Legend: ✅ shipped · 🚧 in progress · 📋 planned. Grouped by the role that
 uses it. A 📋 item is marked, never implied. See `docs/WORKFLOW.md` §1.
 
-Last updated: email confirmation, password reset, "remember me"
+Last updated: drafts — talk it through with the editor before building the plan
 
 ---
 
@@ -31,6 +31,17 @@ on-prem install keeps `.pptx` open to everyone.
   classroom · investors), set length in minutes or an explicit slide count
   (3–60); speaker notes on/off per talk, defaulting per intent. Russian or
   English. Generation is an async job the client polls.
+- ✅ **Talk it through first («Наброски»).** A conversation with the
+  editor — a speechwriter and copywriter who works only on what you will
+  say or show, and declines everything else in character — that fills in
+  a card beside it: topic, intent, audience, length, the theses in order,
+  the tone, what it still wants to know. Every field on the card is
+  editable and the next turn sees the edit. «Собрать выступление» posts
+  the card as the talk request and lands on the outline gate — nothing a
+  draft can build that the form could not. Three starter chips for a cold
+  start; 40 turns a day free, 400 on Pro. Pasting material as a message
+  works; uploading a file into a draft does not yet. *(step 1 of the
+  draft plan; steps 2–4 in TODO N)*
 - ✅ **Approve the outline before writing.** The plan (type +
   title + brief per slide) comes back first; reorder, retype, add, delete,
   then confirm to expand. A plan left unconfirmed for 24 h expires.

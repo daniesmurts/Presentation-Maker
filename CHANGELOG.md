@@ -6,6 +6,45 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
 ## [Unreleased]
 
 ### Added
+- **Drafts («Наброски») — talk it through with the editor before the
+  form.** The new-talk form assumes the user already knows what they want
+  to say; the people the product is for often do not. A draft is a
+  conversation on one side and a *card* on the other — the same fields
+  the form asks for plus the theses in order — that the editor fills in
+  with every reply. Decisions worth recording:
+  - **The card is the deliverable and the memory.** One `chatJSON` call
+    per turn returns `{reply, card}`; only the last 12 messages travel in
+    the prompt, the rest is present through what it changed on the card
+    (a 40-message Cyrillic history would cost more per turn than the
+    outline call, §3.3). The stored history is capped at 80 messages.
+  - **Hand-off is one click past the form**: `POST /drafts/:id/talk`
+    turns the card into the body `readGenerateParams` reads — the same
+    validation, quota and spend-cap checks as the form — and lands on
+    `/jobs/:id` at the outline gate. `draftMissing()` is shared, so the
+    button is never enabled for a card the server would refuse.
+  - **Scope is one system prompt, no classifier.** The editor works only
+    on what will be said or shown, declines everything else in character
+    and turns the conversation back. A classifier in front would double
+    the cost of every turn to catch what the prompt already catches. User
+    text is sanitised on every turn (§3.4).
+  - **Normaliser keeps `prev` on anything malformed** — a model that
+    forgets a field, or returns `theses: "…"` instead of a list, must not
+    wipe what the user said three turns ago; an explicit `null` on a
+    nullable field does clear it (unpicking the audience is a real edit).
+  - **The card's save echo does not overwrite the card being typed** — the
+    server drops empty thesis lines, which is exactly the line the cursor
+    is on after Enter; found in the first browser check.
+  - **Gate: turns per day** (`draftMessagesPerDay`, from `usage_log`
+    feature `draft_chat`: 40 free / 400 Pro), because a conversation is
+    many small calls and a month's quota burned in one evening is what a
+    runaway client does. The spend cap stays the money guard.
+  - The noun is «набросок», not «черновик»: the talks list already calls
+    an unapproved talk a черновик. The assistant is «редактор» — what it
+    does, not what powers it (§1).
+  - Migration 024 (`drafts`: messages and card as JSONB, `job_id` set on
+    hand-off — the talk exists only after expansion, the job row carries
+    its id). Rail item «Наброски», a chip on the talks list, a line under
+    the form.
 - **Consent to recurring charges, refund contacts, subscription terms —
   T-Bank's conditions for enabling Recurrent/Charge** (their letter,
   2026-09-16: «покупателю нужно указать сумму и периодичность списания
@@ -208,6 +247,45 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 ## [Unreleased]
 
 ### Added
+- **Drafts («Наброски») — talk it through with the editor before the
+  form.** The new-talk form assumes the user already knows what they want
+  to say; the people the product is for often do not. A draft is a
+  conversation on one side and a *card* on the other — the same fields
+  the form asks for plus the theses in order — that the editor fills in
+  with every reply. Decisions worth recording:
+  - **The card is the deliverable and the memory.** One `chatJSON` call
+    per turn returns `{reply, card}`; only the last 12 messages travel in
+    the prompt, the rest is present through what it changed on the card
+    (a 40-message Cyrillic history would cost more per turn than the
+    outline call, §3.3). The stored history is capped at 80 messages.
+  - **Hand-off is one click past the form**: `POST /drafts/:id/talk`
+    turns the card into the body `readGenerateParams` reads — the same
+    validation, quota and spend-cap checks as the form — and lands on
+    `/jobs/:id` at the outline gate. `draftMissing()` is shared, so the
+    button is never enabled for a card the server would refuse.
+  - **Scope is one system prompt, no classifier.** The editor works only
+    on what will be said or shown, declines everything else in character
+    and turns the conversation back. A classifier in front would double
+    the cost of every turn to catch what the prompt already catches. User
+    text is sanitised on every turn (§3.4).
+  - **Normaliser keeps `prev` on anything malformed** — a model that
+    forgets a field, or returns `theses: "…"` instead of a list, must not
+    wipe what the user said three turns ago; an explicit `null` on a
+    nullable field does clear it (unpicking the audience is a real edit).
+  - **The card's save echo does not overwrite the card being typed** — the
+    server drops empty thesis lines, which is exactly the line the cursor
+    is on after Enter; found in the first browser check.
+  - **Gate: turns per day** (`draftMessagesPerDay`, from `usage_log`
+    feature `draft_chat`: 40 free / 400 Pro), because a conversation is
+    many small calls and a month's quota burned in one evening is what a
+    runaway client does. The spend cap stays the money guard.
+  - The noun is «набросок», not «черновик»: the talks list already calls
+    an unapproved talk a черновик. The assistant is «редактор» — what it
+    does, not what powers it (§1).
+  - Migration 024 (`drafts`: messages and card as JSONB, `job_id` set on
+    hand-off — the talk exists only after expansion, the job row carries
+    its id). Rail item «Наброски», a chip on the talks list, a line under
+    the form.
 - **Consent to recurring charges, refund contacts, subscription terms —
   T-Bank's conditions for enabling Recurrent/Charge** (their letter,
   2026-09-16: «покупателю нужно указать сумму и периодичность списания

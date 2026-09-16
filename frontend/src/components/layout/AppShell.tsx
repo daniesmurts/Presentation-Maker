@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Plus, LogOut, Presentation, FileText, Megaphone, Palette, CreditCard, Gauge } from 'lucide-react'
+import { Plus, LogOut, Presentation, PenLine, FileText, Megaphone, Palette, CreditCard, Gauge } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useAuth } from '../../lib/auth'
 import { copy } from '../../lib/copy'
@@ -44,6 +44,7 @@ export default function AppShell() {
         </NavLink>
         <div className="eyebrow text-ink-tertiary px-2.5 pt-3 pb-1.5">{copy.nav.works}</div>
         <NavLink to="/talks" className={railClass}><Presentation className={ic} aria-hidden /> {copy.nav.talks}</NavLink>
+        <NavLink to="/drafts" className={railClass}><PenLine className={ic} aria-hidden /> {copy.nav.drafts}</NavLink>
         <Soon icon={<FileText className={ic} aria-hidden />} label={copy.nav.posts} />
         <Soon icon={<Megaphone className={ic} aria-hidden />} label={copy.nav.ads} />
         <div className="eyebrow text-ink-tertiary px-2.5 pt-3 pb-1.5">{copy.nav.workspace}</div>

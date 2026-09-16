@@ -75,6 +75,7 @@ export const copy = {
   // that is unavailable is explained, not silently missing).
   nav: {
     talks: 'Выступления', newTalk: 'Новое выступление', newShort: 'Создать', brand: 'Бренд', plan: 'Тариф', logout: 'Выйти', admin: 'Админ',
+    drafts: 'Наброски',
     works: 'Работы', workspace: 'Пространство', posts: 'Посты', ads: 'Реклама', soon: 'скоро',
     soonHint: (what: string) => `${what} — скоро. Тот же стол: тезисы → план → материал → экспорт.`,
     // The rail's last line: the tier and this month's talks against the limit.
@@ -170,6 +171,61 @@ export const copy = {
     reviewHint:   'Порядок и состав слайдов дешевле поправить сейчас, чем после.',
     submit:       'Построить план',
     submitNoGate: 'Создать выступление',
+  },
+  // The draft («Набросок»): a conversation with the editor on one side, the
+  // card it fills in on the other. The noun is «набросок», not «черновик» —
+  // the list already calls an unapproved talk a черновик, and a sketch is
+  // what comes before a manuscript on this desk. The assistant is «редактор»
+  // — what it does, never what powers it (CLAUDE.md §1).
+  draft: {
+    kind:        'Набросок',
+    heading:     'Наброски',
+    lead:        (n: number) => n === 0 ? 'Обсудите выступление с редактором, прежде чем строить план' : plural(n, 'набросок', 'наброска', 'набросков'),
+    empty:       'Пока ни одного наброска. Редактор поможет решить, кому, зачем и что именно вы будете говорить — и соберёт из этого тезисы.',
+    emptyCta:    'Начать разговор',
+    newDraft:    'Новый набросок',
+    untitled:    'Без темы',
+    messages:    (n: number) => plural(n, 'сообщение', 'сообщения', 'сообщений'),
+    collected:   'собрано в выступление',
+    delete:      'Удалить набросок',
+    deleteConfirm: 'Удалить этот набросок? Разговор и карточка пропадут; собранное из него выступление останется.',
+    // Entry points elsewhere: a chip on the talks list, a line under the form.
+    fromTalks:   'Обсудить с редактором',
+    fromForm:    'Не знаете, с чего начать?',
+    fromFormCta: 'Обсудите тему с редактором',
+    editor:      'Редактор',
+    you:         'Вы',
+    // Cold start is the whole feature: an empty chat is a blank form with
+    // extra steps. Three ways in, each a first message.
+    starters: [
+      { label: 'Есть тема, нет структуры', text: 'У меня есть тема, но я не понимаю, как выстроить выступление. Помогите разобраться, с чего начать.' },
+      { label: 'Превратить текст в тезисы',  text: 'У меня есть текст, из которого нужно сделать тезисы для выступления. Сейчас вставлю его.' },
+      { label: 'Что важно сказать этой аудитории', text: 'Помогите понять, что именно важно сказать моей аудитории и что можно опустить.' },
+    ],
+    placeholder: 'Напишите редактору — тему, материал, вопрос…',
+    send:        'Отправить',
+    sendHint:    'Enter — отправить, Shift+Enter — новая строка',
+    thinking:    'Редактор пишет…',
+    card:        'Карточка выступления',
+    cardHint:    'Заполняется по ходу разговора. Можно править прямо здесь — редактор увидит.',
+    theses:      'Тезисы',
+    thesesHint:  'По одному на строку',
+    tone:        'Как это должно звучать',
+    openQuestions: 'Редактор ещё хочет узнать',
+    length:      'Длительность',
+    lengthAny:   'не решено',
+    notesAny:    'как обычно для этой цели',
+    notesOn:     'нужен',
+    notesOff:    'не нужен',
+    missing:     (parts: string[]) => `Чтобы собрать выступление, не хватает: ${parts.join(', ')}.`,
+    missingLabel: { title: 'темы', intent: 'цели', audience: 'аудитории', theses: 'тезисов' } as Record<string, string>,
+    ready:       'Всё на месте — можно собирать.',
+    collect:     'Собрать выступление',
+    collectHint: 'Карточка станет заявкой, и вы увидите план слайдов перед тем, как они будут написаны.',
+    collectAgain:'Собрать ещё раз',
+    collectedLink: 'Открыть выступление',
+    collectedJob:  'Выступление собирается',
+    saved:       'Карточка сохранена',
   },
   outline: {
     heading:   'План выступления',
