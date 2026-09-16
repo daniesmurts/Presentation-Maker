@@ -30,6 +30,18 @@
         "--workspace=landing"
       ],
       "port": 4321
+    },
+    {
+      "name": "site-built",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "astro",
+        "preview",
+        "--port",
+        "4330"
+      ],
+      "port": 4330,
+      "cwd": "landing"
     }
   ]
 }

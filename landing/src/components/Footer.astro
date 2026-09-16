@@ -1,30 +1,45 @@
+---
+// The footer as a small sitemap: the wordmark and the one-line pitch on
+// the left, then three labelled columns — what to do, where to read, what
+// the rules are. Nine links in one unlabelled column beside an empty half
+// of the page read as an afterthought (2026-09-16); grouped, each link is
+// understood before it is read. The eyebrow style is the site's own.
+const groups = [
+  { label: 'Продукт',   links: [['/register', 'Попробовать бесплатно'], ['/login', 'Войти'], ['/#pricing', 'Цена']] },
+  { label: 'Помощь',    links: [['/help', 'Как пользоваться'], ['/#faq', 'Вопросы'], ['/contact', 'Связаться с нами']] },
+  { label: 'Документы', links: [['/legal/terms', 'Условия использования'], ['/legal/subscription', 'Условия подписки'], ['/legal/privacy', 'Политика конфиденциальности']] },
+]
+---
 <footer class="ftr">
-  <div class="wrap row">
-    <div>
+  <div class="wrap grid">
+    <div class="about">
       <div class="mark">Тезариум · Tezarium</div>
-      <p class="muted small">От тезисов — к выступлению.</p>
+      <p class="muted">От тезисов — к выступлению.</p>
+      <a class="mail" href="mailto:hello@tezarium.ru">hello@tezarium.ru</a>
     </div>
-    <nav class="cols" aria-label="Подвал">
-      <a href="/register">Попробовать бесплатно</a>
-      <a href="/login">Войти</a>
-      <a href="/#faq">Вопросы</a>
-      <a href="/help">Как пользоваться</a>
-      <a href="/contact">Связаться с нами</a>
-      <a href="/legal/terms">Условия использования</a>
-      <a href="/legal/subscription">Условия подписки</a>
-      <a href="/legal/privacy">Политика конфиденциальности</a>
-      <a href="mailto:hello@tezarium.ru">hello@tezarium.ru</a>
-    </nav>
+    {groups.map((g) => (
+      <nav aria-label={g.label}>
+        <div class="eyebrow">{g.label}</div>
+        <ul>{g.links.map(([href, label]) => <li><a href={href}>{label}</a></li>)}</ul>
+      </nav>
+    ))}
   </div>
-  <div class="wrap legal muted small">© {new Date().getFullYear()} Тезариум. Слайды, которые знают, что сказать.</div>
+  <div class="wrap legal">
+    <span>© {new Date().getFullYear()} Тезариум</span>
+    <span class="muted">Слайды, которые знают, что сказать.</span>
+  </div>
 </footer>
 <style>
-  .ftr { border-top: 1px solid var(--c-border-strong); padding: 40px 0 32px; }
-  .row { display: flex; justify-content: space-between; gap: 32px; flex-wrap: wrap; }
+  .ftr { border-top: 1px solid var(--c-border-strong); padding: 48px 0 28px; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr)); gap: 32px; }
   .mark { font-family: var(--display); font-weight: 600; font-size: 18px; }
-  .cols { display: grid; gap: 8px; }
-  .cols a { color: rgb(var(--c-ink-secondary)); text-decoration: none; font-size: 15px; }
-  .cols a:hover { color: rgb(var(--c-ink)); }
-  .small { font-size: 14px; }
-  .legal { margin-top: 32px; }
+  .about p { margin: 6px 0 14px; font-size: 15px; }
+  .mail { color: rgb(var(--c-ink)); text-decoration: none; font-size: 15px; border-bottom: 1px solid var(--c-border-strong); }
+  .mail:hover { border-color: rgb(var(--c-ink)); }
+  nav ul { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 10px; }
+  nav a { color: rgb(var(--c-ink-secondary)); text-decoration: none; font-size: 15px; }
+  nav a:hover { color: rgb(var(--c-ink)); }
+  .legal { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--c-border); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 13.5px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr 1fr; } .about { grid-column: 1 / -1; } }
+  @media (max-width: 480px) { .grid { grid-template-columns: 1fr; } }
 </style>
