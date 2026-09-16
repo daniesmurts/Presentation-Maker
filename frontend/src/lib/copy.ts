@@ -430,6 +430,21 @@ export const copy = {
     status: { draft: 'Черновик', approved: 'Готово', shared: 'по ссылке', noNotes: 'без текста докладчика', withNotes: 'с текстом докладчика' },
     slidesShort: (n: number) => `${n} сл.`,
   },
+  // The referral pitch surfaced on the talks list (the page everyone
+  // actually opens, unlike the tariff page it also lives on — billing.referral
+  // is the full card; this is the same numbers, one line, dismissible).
+  // Every reward is immediate per converted friend — there's no "N invites
+  // for one month" threshold to count toward, so the copy states what
+  // happened (or what one conversion gets you), never a fake progress bar.
+  referralBanner: {
+    pitch: (days: number) => `Пригласите коллегу — получите ${days} дней Pro бесплатно, когда он оформит подписку`,
+    // Matches the tariff-page card's own shorthand (ReferralCard.tsx:
+    // "{n} приглашено") — count-first is already the established style here.
+    pending: (invited: number, days: number) => `${invited} приглашено · как только кто-то оформит Pro — ${days} дней бесплатно`,
+    rewarded: (rewarded: number, days: number) => `Вы уже получили ${plural(rewarded * days, 'день', 'дня', 'дней')} Pro бесплатно — пригласите ещё`,
+    copy: 'Скопировать ссылку', copied: 'Скопировано',
+    dismiss: 'Скрыть',
+  },
   // The admin panel (TODO M). Operator's words — numbers, tables, no
   // product copy rules beyond the three nouns.
   admin: {

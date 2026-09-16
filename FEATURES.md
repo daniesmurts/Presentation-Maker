@@ -75,6 +75,11 @@ on-prem install keeps `.pptx` open to everyone.
   «короче») — you see old and new side by side per slide and accept only
   what you want; one-step undo after applying.
 - ✅ **Mark a talk «Готово».**
+- ✅ **Invite a friend, earn free Pro time** — a personal link (20% off
+  their first month for them, 30 days of Pro for you once they pay);
+  full card with the counts on the tariff page, plus a compact, dismissible
+  pitch on the talks list itself (the page people actually keep opening) so
+  it isn't buried somewhere most accounts visit once.
 
 ## Paid tier
 

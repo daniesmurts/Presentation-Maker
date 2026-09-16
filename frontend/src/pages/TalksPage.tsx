@@ -6,6 +6,7 @@ import { listTalks, importPptx, type TalkListItem } from '../api/talks'
 import { errorMessage } from '../api/client'
 import Spinner from '../components/ui/Spinner'
 import { buttonClass } from '../components/ui/Button'
+import ReferralBanner from '../components/ReferralBanner'
 import { useToast } from '../lib/toast'
 import { copy, INTENT_LABEL, AUDIENCE_LABEL } from '../lib/copy'
 
@@ -68,6 +69,7 @@ export default function TalksPage() {
 
   return (
     <div className="space-y-5">
+      <ReferralBanner />
       <div className="flex items-end justify-between gap-4">
         <div>
           <h1 className="display font-semibold text-[30px] leading-tight text-ink">{copy.list.heading}</h1>

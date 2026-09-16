@@ -152,6 +152,30 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
   slide count, and the right fallback image; 8 new unit tests cover the
   image-resolution branches (top-level image, diagram body.image,
   no-image fallback) and HTML escaping.
+- **Referral pitch on the talks list, not just the tariff page** (2026-09-16).
+  The full card (link, copy button, invited/paid/rewarded counts —
+  `ReferralCard.tsx`) has lived on `/billing` since TODO M phase 4, but
+  that's a page most accounts open once. `ReferralBanner.tsx` puts the
+  same numbers, one line, on `/talks` instead — the page people actually
+  keep coming back to. Every reward is immediate per converted friend
+  (no "invite N people" threshold to count toward), so the line states
+  what's true rather than faking a progress bar: nothing invited yet →
+  the pitch; someone invited but not yet paid → the count and what
+  happens next; at least one reward → how many free days already
+  earned. Dismissible and persisted (`localStorage`), same as the
+  onboarding cards (CLAUDE.md §6) — the point is surfacing it where
+  people actually look, not nagging once they've seen it. Off entirely
+  when billing is off in this installation (`user.features.billing`),
+  same gate the rest of the app already uses.
+  Considered and rejected: a permanent sidebar section with levels/badges.
+  A persistent panel competes with the page's actual job — open or start
+  a talk — every single time; levels imply an ongoing meta-game (names,
+  thresholds, badges) that clashes with the calm, editorial tone the rest
+  of the product works to keep.
+  Verified in the browser against real referral rows in all three states
+  (0 invited, 1 invited pending, 1 rewarded) — each renders the right
+  copy; dismissal persists across a reload; tsc clean, 27 frontend tests
+  pass.
 
 ## [0.1.0] — 2026-09-14
 
