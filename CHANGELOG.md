@@ -50,6 +50,20 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
     where the audio goes (the browser's recogniser, not us), what the
     numbers mean, how to rehearse so the review has something to compare.
     Linked from the intro card and the review card.
+  - **Admin overview tile** «Этот месяц: репетиций» — runs, reviews,
+    distinct workspaces, notes replaced. The workspaces number is the one
+    to watch: the feature is a bet on a habit, and a habit shows up as
+    the same workspaces coming back, not as a run count.
+  - **Privacy policy amended** (§1 a new row, §6.1 the transcript named
+    among what reaches the model provider, §8 retention) and
+    `LEGAL_VERSION` / `TERMS_VERSION` bumped to 2026-09-16. The policy's
+    own §11 promises re-consent «при следующем входе» when purposes or
+    recipients expand; recipients did not (same provider), the data did.
+    There is no re-consent prompt in the app yet — the feature is opt-in
+    per use behind the browser's own microphone prompt and an intro that
+    says where the words go, which is the honest reading; a re-consent
+    banner keyed on `terms_version` is the mechanism to build if a
+    lawyer says otherwise.
   - Vitest quirk worth recording: `beforeEach(() => mock.mockReset())`
     returns the mock, which vitest calls as a cleanup — one phantom call
     with no arguments after every test. Braces.

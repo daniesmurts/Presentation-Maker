@@ -4,6 +4,7 @@ export interface AdminOverview {
   users:      { total: number; new_7d: number; new_30d: number }
   workspaces: { active_7d: number; pro: number }
   month:      { talks: number; exports_pptx: number; exports_pdf: number; spend_usd: number; revenue_kopecks: number }
+  rehearsals: { runs: number; reviews: number; workspaces: number; notes_applied: number }
   support:    { open: number; last_7d: number }
   jobs:       { failed_24h: number; stuck: number }
 }

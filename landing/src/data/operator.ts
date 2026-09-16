@@ -9,5 +9,5 @@ export const OPERATOR = {
   email:   'hello@tezarium.ru',
   site:    'https://tezarium.ru',
 }
-export const LEGAL_VERSION = '2026-09-14'   // = TERMS_VERSION in backend/src/db/queries/consent.ts
+export const LEGAL_VERSION = '2026-09-16'   // = TERMS_VERSION in backend/src/db/queries/consent.ts
 export const isPlaceholder = (v: string) => v.startsWith('[')

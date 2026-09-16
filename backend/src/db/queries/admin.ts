@@ -10,13 +10,16 @@ export interface AdminOverview {
   users:            { total: number; new_7d: number; new_30d: number }
   workspaces:       { active_7d: number; pro: number }
   month:            { talks: number; exports_pptx: number; exports_pdf: number; spend_usd: number; revenue_kopecks: number }
+  // Rehearsals this month: runs, model reviews, and how many workspaces
+  // did one — the habit metric the feature was built for.
+  rehearsals:       { runs: number; reviews: number; workspaces: number; notes_applied: number }
   support:          { open: number; last_7d: number }
   jobs:             { failed_24h: number; stuck: number }
 }
 
 export async function adminOverview(): Promise<AdminOverview> {
   const one = async <T extends QueryResultRow>(sql: string): Promise<T> => (await pool.query<T>(sql)).rows[0]
-  const [users, ws, month, support, jobs] = await Promise.all([
+  const [users, ws, month, rehearsals, support, jobs] = await Promise.all([
     one<{ total: string; new_7d: string; new_30d: string }>(`
       SELECT COUNT(*)::text AS total,
              COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days')::text  AS new_7d,
@@ -31,6 +34,11 @@ export async function adminOverview(): Promise<AdminOverview> {
              (SELECT COUNT(*) FROM talk_events WHERE event = 'exported' AND format = 'pdf'  AND created_at >= date_trunc('month', NOW()))::text AS exports_pdf,
              COALESCE((SELECT SUM(cost_usd) FROM usage_log WHERE created_at >= date_trunc('month', NOW())), 0)::text AS spend_usd,
              COALESCE((SELECT SUM(amount_kopecks) FROM payments WHERE status = 'CONFIRMED' AND created_at >= date_trunc('month', NOW())), 0)::text AS revenue_kopecks`),
+    one<{ runs: string; reviews: string; workspaces: string; notes_applied: string }>(`
+      SELECT (SELECT COUNT(*) FROM rehearsals WHERE created_at >= date_trunc('month', NOW()))::text AS runs,
+             (SELECT COUNT(*) FROM rehearsals WHERE review_status = 'ready' AND created_at >= date_trunc('month', NOW()))::text AS reviews,
+             (SELECT COUNT(DISTINCT workspace_id) FROM rehearsals WHERE created_at >= date_trunc('month', NOW()))::text AS workspaces,
+             (SELECT COUNT(*) FROM talk_events WHERE event = 'rehearsal_notes_applied' AND created_at >= date_trunc('month', NOW()))::text AS notes_applied`),
     one<{ open: string; last_7d: string }>(`
       SELECT COUNT(*) FILTER (WHERE answered_at IS NULL)::text AS open, COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days')::text AS last_7d FROM support_messages`),
     // «stuck»: still processing after 15 min — the worker's own timeout is shorter.
@@ -43,6 +51,7 @@ export async function adminOverview(): Promise<AdminOverview> {
     users:      { total: +users.total, new_7d: +users.new_7d, new_30d: +users.new_30d },
     workspaces: { active_7d: +ws.active_7d, pro: +ws.pro },
     month:      { talks: +month.talks, exports_pptx: +month.exports_pptx, exports_pdf: +month.exports_pdf, spend_usd: +month.spend_usd, revenue_kopecks: +month.revenue_kopecks },
+    rehearsals: { runs: +rehearsals.runs, reviews: +rehearsals.reviews, workspaces: +rehearsals.workspaces, notes_applied: +rehearsals.notes_applied },
     support:    { open: +support.open, last_7d: +support.last_7d },
     jobs:       { failed_24h: +jobs.failed_24h, stuck: +jobs.stuck },
   }

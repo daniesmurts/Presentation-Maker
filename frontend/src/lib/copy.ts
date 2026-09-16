@@ -549,6 +549,7 @@ export const copy = {
       users: 'Пользователи', new7: 'за 7 дней', new30: 'за 30 дней',
       active7: 'Активных пространств за 7 дней', pro: 'Pro',
       month: 'Этот месяц', talks: 'выступлений', exports: 'скачиваний', spend: 'расход на модели', revenue: 'оплат',
+      rehearsals: 'репетиций', reviews: 'разборов', rehearsingWs: 'пространств', notesApplied: 'замен текста',
       support: 'Открытых обращений', support7: 'за 7 дней',
       jobs: 'Задачи', failed24: 'ошибок за 24 ч', stuck: 'зависших',
     },
