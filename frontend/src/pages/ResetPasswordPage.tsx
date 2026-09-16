@@ -37,7 +37,7 @@ export default function ResetPasswordPage() {
       <div className="flex items-center justify-center px-4 py-10 lg:py-0">
         <div className="w-full max-w-sm">
           <div className="mb-8 lg:hidden">
-            <div className="display text-[30px] leading-none text-ink tracking-tight">{copy.brand}</div>
+            <a href="/" className="display text-[30px] leading-none text-ink tracking-tight hover:text-ink-hover transition-colors">{copy.brand}</a>
           </div>
           <div className="appear space-y-5 bg-surface border border-border-strong rounded-xl shadow-sm p-6 sm:p-7">
             <h1 className="eyebrow text-accent">{copy.auth.reset.title}</h1>

@@ -67,7 +67,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         <div className="w-full max-w-sm">
           {/* Compact brand header — visible only where the showcase isn't (below lg). */}
           <div className="mb-8 lg:hidden">
-            <div className="display text-[30px] leading-none text-ink tracking-tight">{copy.brand}</div>
+            <a href="/" className="display text-[30px] leading-none text-ink tracking-tight hover:text-ink-hover transition-colors">{copy.brand}</a>
             <div className="font-display text-[17px] text-ink mt-2">{copy.taglineParts[0]}<span className="marker-under">{copy.taglineParts[1]}</span></div>
           </div>
 

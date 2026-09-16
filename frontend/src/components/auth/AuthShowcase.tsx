@@ -19,7 +19,11 @@ export default function AuthShowcase() {
       />
 
       <div className="relative max-w-md">
-        <div className="display text-[40px] xl:text-[46px] leading-[1.05] text-ink tracking-tight">{copy.brand}</div>
+        {/* Plain <a>, not a router Link — this crosses out of the SPA to
+            the marketing site's home page (Caddy serves "/" from the site
+            root, not the app; see deploy/Caddyfile's @app matcher, which
+            never lists "/" itself). */}
+        <a href="/" className="display text-[40px] xl:text-[46px] leading-[1.05] text-ink tracking-tight hover:text-ink-hover transition-colors">{copy.brand}</a>
         <div className="font-display text-[22px] xl:text-[24px] text-ink mt-3 leading-snug">
           {copy.taglineParts[0]}<span className="marker-under">{copy.taglineParts[1]}</span>
         </div>
