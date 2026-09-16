@@ -18,6 +18,15 @@ COPY shared/ shared/
 COPY frontend/ frontend/
 COPY landing/ landing/
 ARG BUILD_VERSION=dev
+# Yandex Metrika counter id, baked in at build time (Vite/Astro env vars
+# are compile-time, not runtime) — same ARG-with-a-default shape as
+# BUILD_VERSION above. Empty string disables tracking entirely (an
+# on-prem build that overrides this to "" ships with none); both env var
+# names carry the same value since Vite requires VITE_ and Astro requires
+# PUBLIC_ for a var to reach client code.
+ARG METRIKA_ID=112710005
+ENV VITE_YANDEX_METRIKA_ID=$METRIKA_ID
+ENV PUBLIC_YANDEX_METRIKA_ID=$METRIKA_ID
 RUN echo "$BUILD_VERSION" > VERSION \
  && npm run build --workspace=frontend \
  && echo "$BUILD_VERSION" > frontend/dist/version.txt \

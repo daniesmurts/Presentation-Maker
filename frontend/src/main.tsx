@@ -7,6 +7,9 @@ import './index.css'
 import App from './App'
 import { AuthProvider } from './lib/auth'
 import { ToastProvider } from './lib/toast'
+import { initMetrika } from './lib/metrika'
+
+initMetrika()
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } })
 

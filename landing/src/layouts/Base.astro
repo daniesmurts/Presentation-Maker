@@ -9,6 +9,12 @@ interface Props { title: string; description: string; canonical?: string; ogImag
 const { title, description, canonical = Astro.url.pathname, ogImage = '/og.png' } = Astro.props
 const site = Astro.site?.toString().replace(/\/$/, '') ?? 'https://tezarium.ru'
 const url = `${site}${canonical === '/' ? '' : canonical}`
+// Real multi-page navigation here (no client router) — the plain snippet's
+// auto pageview-per-load is correct as-is, unlike the app (see
+// frontend/src/lib/metrika.ts for why that one needs the SPA variant).
+// webvisor is fine on these public pages: nothing here is content a
+// visitor typed.
+const metrikaId = import.meta.env.PUBLIC_YANDEX_METRIKA_ID
 ---
 <!doctype html>
 <html lang="ru">
@@ -32,6 +38,20 @@ const url = `${site}${canonical === '/' ? '' : canonical}`
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;1,7..72,400&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
     <script is:inline>try{var t=localStorage.getItem('tezarium-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+    {metrikaId && (
+      <Fragment>
+        <script is:inline define:vars={{ metrikaId }} type="text/javascript">
+          (function(m,e,t,r,i,k,a){
+              m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+              m[i].l=1*new Date();
+              for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+              k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+          })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id='+metrikaId, 'ym');
+          ym(metrikaId, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+        </script>
+        <noscript><div><img src={`https://mc.yandex.ru/watch/${metrikaId}`} style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+      </Fragment>
+    )}
     <slot name="head" />
   </head>
   <body>

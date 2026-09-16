@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import AppShell from './components/layout/AppShell'
 import AuthPage from './pages/AuthPage'
@@ -21,6 +22,19 @@ import AdminReferralsPage from './pages/admin/AdminReferralsPage'
 import AdminHealthPage from './pages/admin/AdminHealthPage'
 import Spinner from './components/ui/Spinner'
 import { useAuth } from './lib/auth'
+import { trackPageview } from './lib/metrika'
+
+// initMetrika() (main.tsx) already sends the first hit as part of its own
+// 'init' call — skip this effect's first run so the landing pageview isn't
+// double-counted, then send one per route change after that.
+function useMetrikaPageviews() {
+  const location = useLocation()
+  const first = useRef(true)
+  useEffect(() => {
+    if (first.current) { first.current = false; return }
+    trackPageview(location.pathname + location.search)
+  }, [location.pathname, location.search])
+}
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -39,6 +53,7 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const { user, loading } = useAuth()
+  useMetrikaPageviews()
   return (
     <Routes>
       <Route path="/login"    element={!loading && user ? <Navigate to="/talks" replace /> : <AuthPage mode="login" />} />
