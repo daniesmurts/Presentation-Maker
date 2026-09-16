@@ -32,7 +32,8 @@ docker login <REGISTRY>
 Then on your machine, with `gh` authenticated:
 
 ```bash
-VM_HOST=deploy@1.2.3.4 DOMAIN=talks.example.com IMAGE_REPO=cr.yandex/xxx/tezarium ./deploy/deploy.sh
+cp deploy/.env.deploy.example deploy/.env.deploy   # once: fill in VM_HOST, DOMAIN, IMAGE_REPO
+./deploy/deploy.sh
 ```
 
 ## What a deploy does

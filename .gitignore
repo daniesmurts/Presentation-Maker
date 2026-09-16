@@ -10,3 +10,5 @@ coverage/
 uploads/
 /VERSION
 deploy/.env
+deploy/.env.deploy
+!deploy/.env.deploy.example

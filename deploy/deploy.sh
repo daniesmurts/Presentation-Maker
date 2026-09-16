@@ -26,12 +26,20 @@ retry() {
 }
 SSH="ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3"
 
-VM_HOST="${VM_HOST:?set VM_HOST=user@host}"
-DOMAIN="${DOMAIN:?set DOMAIN=talks.example.com}"
-IMAGE_REPO="${IMAGE_REPO:?set IMAGE_REPO=registry/namespace/tezarium}"
-APP_DIR="${APP_DIR:-/opt/tezarium}"
-
 cd "$(dirname "$0")/.."
+
+# The three per-installation values live in deploy/.env.deploy (gitignored,
+# see .env.deploy.example) so `./deploy/deploy.sh` works from any shell —
+# they used to be exported by hand in one terminal and were lost with it.
+# Variables already in the environment win, so a one-off override still works.
+if [ -f deploy/.env.deploy ]; then
+  set -a; # shellcheck disable=SC1091
+  . deploy/.env.deploy; set +a
+fi
+VM_HOST="${VM_HOST:?set VM_HOST=user@host (deploy/.env.deploy)}"
+DOMAIN="${DOMAIN:?set DOMAIN=talks.example.com (deploy/.env.deploy)}"
+IMAGE_REPO="${IMAGE_REPO:?set IMAGE_REPO=registry/namespace/tezarium (deploy/.env.deploy)}"
+APP_DIR="${APP_DIR:-/opt/tezarium}"
 
 if [ -n "$(git status --porcelain)" ]; then
   echo "❌ Working tree is dirty — deploy commits only. Commit or stash first."; exit 1
