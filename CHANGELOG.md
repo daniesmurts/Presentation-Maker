@@ -34,6 +34,36 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 ## [Unreleased]
 
 ### Added
+- **Referrals, phase 4** (TODO M). Migration 019: `workspaces.referral_code`
+  (generated lazily, on first `GET /api/referrals/me`) and
+  `referred_by_workspace_id` (set once, at registration); `referrals`
+  (referrer, referee — `UNIQUE`, so one referral per referee ever —
+  status `signed_up → paid → rewarded | capped | clawed_back`). A
+  referral link **is** a `promo_codes` row (`owner_workspace_id` set,
+  percent, unlimited uses, no expiry): the invitee's 20% discount runs
+  through the exact same `validatePromoCode` → `startCheckout` →
+  `promo_redemptions` path a marketing code does — auto-applied at
+  checkout with no code to type (`owner_workspace_id IS NULL` keeps
+  referral codes out of the campaign-codes admin list). The referrer's
+  30-day reward is `planGrant` — the identical rule an admin's gift uses —
+  fired on the referee's first **CONFIRMED** `initial` payment,
+  independent of whether the discount was used (a referee who paid full
+  price still earns it). Capped at 12 rewards per referrer per rolling
+  year (`referrals.status='capped'` past the cap, not silently dropped);
+  a full refund of the rewarding payment claws the grant back only while
+  it's still standing (`plan_source='granted'`) — a referrer who has
+  since paid for real is untouched. `?ref=CODE` on `/register`, kept in
+  `localStorage` so a code from an earlier visit survives to a later
+  signup; a bad or missing code never fails registration. A card on the
+  tariff page (link, copy button, invited/paid/rewarded counts) and an
+  admin referrals tab (funnel + row list). Verified end-to-end locally
+  with two throwaway accounts and a hand-signed T-Bank notification (the
+  real terminal is unreachable from this dev environment): case-
+  insensitive attach on signup, an auto-applied 20% at checkout with zero
+  code entry (2000 ₽ of 2500 ₽, `promo_code_id` set), the simulated
+  webhook rewarding the referrer and finalising the promo redemption in
+  one pass, and the admin tabs showing exactly that — the referral in
+  `referrals`, absent from `promo-codes`.
 - **Promo codes, phase 3** (TODO M). Migration 018: `promo_codes`
   (kind `percent | fixed | free_months`, value, max_uses, valid_until,
   active) and `promo_redemptions`, one redemption per (code, workspace) —

@@ -11,6 +11,7 @@ export interface PromoCodeRow {
   valid_until: string | null
   active:      boolean
   created_by:  string | null
+  owner_workspace_id: string | null
   created_at:  string
 }
 
@@ -39,23 +40,26 @@ export async function recordRedemption(r: { promoCodeId: string; workspaceId: st
   return (rowCount ?? 0) > 0
 }
 
-export interface CreatePromoInput { code: string; kind: PromoKind; value: number; maxUses: number | null; validUntil: string | null; createdBy: string }
+export interface CreatePromoInput { code: string; kind: PromoKind; value: number; maxUses: number | null; validUntil: string | null; createdBy: string | null; ownerWorkspaceId?: string | null }
 
 export async function createPromoCode(p: CreatePromoInput): Promise<PromoCodeRow> {
   const { rows } = await pool.query<PromoCodeRow>(
-    `INSERT INTO promo_codes (code, kind, value, max_uses, valid_until, created_by) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-    [p.code.toUpperCase(), p.kind, p.value, p.maxUses, p.validUntil, p.createdBy],
+    `INSERT INTO promo_codes (code, kind, value, max_uses, valid_until, created_by, owner_workspace_id) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+    [p.code.toUpperCase(), p.kind, p.value, p.maxUses, p.validUntil, p.createdBy, p.ownerWorkspaceId ?? null],
   )
   return rows[0]
 }
 
 export interface AdminPromoRow extends PromoCodeRow { redemptions: number; created_by_email: string | null }
 
+// Referral codes (owner_workspace_id set) are system-managed and excluded
+// here — the referrals admin view (services/referrals.ts) is where they belong.
 export async function listPromoCodes(): Promise<AdminPromoRow[]> {
   const { rows } = await pool.query<AdminPromoRow & { redemptions: string }>(`
     SELECT p.*, u.email AS created_by_email,
            (SELECT COUNT(*) FROM promo_redemptions r WHERE r.promo_code_id = p.id)::text AS redemptions
       FROM promo_codes p LEFT JOIN users u ON u.id = p.created_by
+     WHERE p.owner_workspace_id IS NULL
      ORDER BY p.created_at DESC`)
   return rows.map((r) => ({ ...r, redemptions: +r.redemptions }))
 }

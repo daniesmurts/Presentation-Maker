@@ -54,3 +54,12 @@ export const listPromoCodes = () => client.get<{ rows: AdminPromoRow[] }>('/api/
 export const createPromoCode = (input: { code: string; kind: string; value: number; max_uses: number | null; valid_until: string | null }) =>
   client.post<{ promo: AdminPromoRow }>('/api/admin/promo-codes', input).then((r) => r.data.promo)
 export const setPromoCodeActive = (id: string, active: boolean) => client.post<{ promo: AdminPromoRow }>(`/api/admin/promo-codes/${id}/active`, { active }).then((r) => r.data.promo)
+
+export interface AdminReferralRow {
+  id: string; referrer_workspace_id: string; referee_workspace_id: string
+  status: 'signed_up' | 'paid' | 'rewarded' | 'capped' | 'clawed_back'
+  reward_days: number | null; flagged: boolean; created_at: string; paid_at: string | null; rewarded_at: string | null
+  referrer_email: string | null; referee_email: string | null
+}
+export interface ReferralFunnel { invited: number; paid: number; rewarded: number; reward_days_total: number }
+export const listReferrals = (page = 1) => client.get<Paged<AdminReferralRow> & { funnel: ReferralFunnel }>('/api/admin/referrals', { params: { page } }).then((r) => r.data)

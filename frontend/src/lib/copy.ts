@@ -265,6 +265,12 @@ export const copy = {
     quotaUsed:    (fmt: string, limit: number) => `${fmt} — лимит на месяц исчерпан (${limit})`,
     quotaLeft:    (fmt: string, left: number, limit: number) => `${fmt}: осталось ${left} из ${limit} в этом месяце`,
     upgradeLink:  'Перейти на Pro',
+    referral: {
+      heading:  'Пригласить',
+      lead:     (discount: number, days: number) => `Ваша ссылка — друг получит ${discount}% на первый месяц Pro, а вам ${days} дней Pro бесплатно, когда он оплатит.`,
+      copy:     'Скопировать', copied: 'Ссылка скопирована',
+      invited:  'приглашено', paid: 'оплатили', rewarded: 'принесли Pro',
+    },
     promo: {
       toggle:   'У меня есть промокод',
       label:    'Промокод',
@@ -358,7 +364,7 @@ export const copy = {
     nav:        'Админ',
     heading:    'Панель',
     lead:       'Что происходит: люди, выступления, деньги.',
-    sections:   { overview: 'Обзор', workspaces: 'Пространства', support: 'Обращения', promo: 'Промокоды' },
+    sections:   { overview: 'Обзор', workspaces: 'Пространства', support: 'Обращения', promo: 'Промокоды', referrals: 'Рефералы' },
     overview: {
       users: 'Пользователи', new7: 'за 7 дней', new30: 'за 30 дней',
       active7: 'Активных пространств за 7 дней', pro: 'Pro',
@@ -420,6 +426,13 @@ export const copy = {
       cols:     { code: 'Код', kind: 'Тип', uses: 'Исп.', validUntil: 'До', status: 'Статус', created: 'Кем создан' },
       empty:    'Промокодов ещё нет',
       done:     'Готово',
+    },
+    referrals: {
+      heading:  'Рефералы',
+      funnel:   { invited: 'Приглашено', paid: 'Оплатили', rewarded: 'Награждено', cost: 'Дней Pro подарено' },
+      status:   { signed_up: 'зарегистрировался', paid: 'оплатил', rewarded: 'награждён', capped: 'лимит года', clawed_back: 'возврат отменён' } as Record<string, string>,
+      cols:     { referrer: 'Пригласил', referee: 'Пришёл', status: 'Статус', days: 'Дней', created: 'Когда' },
+      empty:    'Рефералов ещё нет',
     },
   },
   errors: {

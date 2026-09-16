@@ -15,6 +15,7 @@ import AdminWorkspacesPage from './pages/admin/AdminWorkspacesPage'
 import AdminWorkspacePage from './pages/admin/AdminWorkspacePage'
 import AdminSupportPage from './pages/admin/AdminSupportPage'
 import AdminPromoPage from './pages/admin/AdminPromoPage'
+import AdminReferralsPage from './pages/admin/AdminReferralsPage'
 import Spinner from './components/ui/Spinner'
 import { useAuth } from './lib/auth'
 
@@ -54,6 +55,7 @@ export default function App() {
           <Route path="workspaces/:id" element={<AdminWorkspacePage />} />
           <Route path="support"        element={<AdminSupportPage />} />
           <Route path="promo-codes"    element={<AdminPromoPage />} />
+          <Route path="referrals"      element={<AdminReferralsPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/talks" replace />} />

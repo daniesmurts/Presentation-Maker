@@ -11,6 +11,7 @@ import Spinner from '../components/ui/Spinner'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../lib/toast'
 import { copy } from '../lib/copy'
+import ReferralCard from '../components/ReferralCard'
 
 // The tariff page: what the workspace is on, until when, from which card —
 // and one solid CTA (subscribe) or one tinted one (stop auto-renew). The
@@ -183,6 +184,8 @@ export default function BillingPage() {
           </div>
         </section>
       )}
+
+      {data.enabled && <ReferralCard />}
 
       {data.enabled && (
         <section>

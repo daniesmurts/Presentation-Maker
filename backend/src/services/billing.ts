@@ -12,6 +12,7 @@ import {
 } from '../db/queries/billing'
 import * as tbank from './tbank/client'
 import { applyPromoToCharge, finalisePromoOnPayment } from './promoCodes'
+import { referrerDiscountCode, rewardReferralOnPayment, clawBackReferralOnRefund } from './referrals'
 import { verifyNotification } from './tbank/token'
 import { scheduleWithLease } from './schedulerLease'
 
@@ -132,8 +133,15 @@ export async function startCheckout(workspaceId: string, email: string, opts: { 
     throw new ValidationError('Предыдущая оплата ещё не завершена. Закончите её или подождите несколько минут.')
   }
   // The discount is re-derived here from the code, never taken from the
-  // client — this is the number T-Bank charges and the receipt prints.
-  const promo = opts.promoCode ? await applyPromoToCharge(opts.promoCode, workspaceId, PRO_AMOUNT_KOPECKS) : null
+  // client — this is the number T-Bank charges and the receipt prints. An
+  // explicit code the user typed is authoritative (a bad one is an error);
+  // a referral discount the workspace is silently eligible for degrades to
+  // full price rather than failing the checkout.
+  const explicitPromo = opts.promoCode
+    ? await applyPromoToCharge(opts.promoCode, workspaceId, PRO_AMOUNT_KOPECKS)
+    : null
+  const referralCode = explicitPromo ? null : await referrerDiscountCode(workspaceId)
+  const promo = explicitPromo ?? (referralCode ? await applyPromoToCharge(referralCode, workspaceId, PRO_AMOUNT_KOPECKS).catch(() => null) : null)
   const amountKopecks = promo?.amountKopecks ?? PRO_AMOUNT_KOPECKS
   const row = await createPayment({ workspaceId, orderId: newOrderId(workspaceId, 'initial'), kind: 'initial', amountKopecks, promoCodeId: promo?.promo.id })
   const { successUrl, failUrl, notificationUrl } = urls(t)
@@ -218,6 +226,9 @@ async function applyOutcome(
       if (payment.promo_code_id) {
         await finalisePromoOnPayment(payment.promo_code_id, payment.workspace_id, payment.id, PRO_AMOUNT_KOPECKS - payment.amount_kopecks)
       }
+      // The referral reward is on the payment, not the discount — a
+      // referee who paid full price still earns it. First payment only.
+      if (payment.kind === 'initial') await rewardReferralOnPayment(payment.workspace_id, payment.id)
     }
     return applied
   }
@@ -244,6 +255,7 @@ async function applyOutcome(
       const revoked = await revokePro(payment.workspace_id)
       logger.warn({ message: 'Payment refunded — Pro revoked', orderId: payment.order_id, workspaceId: payment.workspace_id, revoked })
       recordTalkEvent({ talkId: null, workspaceId: payment.workspace_id, userId: null, event: 'refunded', metadata: { amount_kopecks: payment.amount_kopecks, kind: payment.kind, order_id: payment.order_id, revoked } })
+      if (payment.kind === 'initial') await clawBackReferralOnRefund(payment.id)
     } else {
       logger.warn({ message: 'Payment refunded', orderId: payment.order_id, status, current, applied })
     }

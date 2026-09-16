@@ -17,5 +17,5 @@ export interface User {
 
 export const me       = () => client.get<{ user: User }>('/api/auth/me').then((r) => r.data.user)
 export const login    = (email: string, password: string) => client.post<{ user: User }>('/api/auth/login', { email, password }).then((r) => r.data.user)
-export const register = (email: string, password: string, display_name: string, accept_terms: boolean) => client.post<{ user: User }>('/api/auth/register', { email, password, display_name, accept_terms }).then((r) => r.data.user)
+export const register = (email: string, password: string, display_name: string, accept_terms: boolean, ref?: string | null) => client.post<{ user: User }>('/api/auth/register', { email, password, display_name, accept_terms, ref }).then((r) => r.data.user)
 export const logout   = () => client.post('/api/auth/logout').then(() => undefined)

@@ -106,13 +106,18 @@ on-prem install keeps `.pptx` open to everyone.
   the card and never counts against a live subscription), set a
   workspace's spend cap, deactivate or reactivate a user, mark a support
   message answered. A promo-codes tab: create/deactivate percent, fixed,
-  or free-months codes and see how many times each was redeemed.
-  📋 Referrals, usage/health pages (TODO M).
+  or free-months codes and see how many times each was redeemed. A
+  referrals tab: who invited whom, paid, was rewarded, or hit the cap.
+  📋 Usage/health pages (TODO M).
 - ✅ **Promo codes**: a code on the tariff page discounts the first month's
   T-Bank charge (percent or a flat amount, never below ₽1) or, for a
   free-months code, grants Pro immediately with no payment at all — works
   even when card billing isn't configured. One redemption per workspace
   per code.
+- ✅ **Referrals**: every account has a personal invite link on the tariff
+  page. Whoever signs up through it gets 20% off their first month, no
+  code to type; once they pay, the referrer gets a month of Pro free.
+  Capped at 12 rewards a year per referrer.
 - ✅ **Public contact / tech-support form** at `/contact` on the landing
   site, no account needed. Submissions (name, email, category, message)
   land in `support_messages` and show in the admin's support inbox; no

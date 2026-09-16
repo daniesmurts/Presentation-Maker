@@ -22,6 +22,7 @@ export default function AdminLayout() {
         <NavLink to="/admin/workspaces" className={tabClass}>{S.workspaces}</NavLink>
         <NavLink to="/admin/support" className={tabClass}>{S.support}</NavLink>
         <NavLink to="/admin/promo-codes" className={tabClass}>{S.promo}</NavLink>
+        <NavLink to="/admin/referrals" className={tabClass}>{S.referrals}</NavLink>
       </nav>
       <Outlet />
     </div>

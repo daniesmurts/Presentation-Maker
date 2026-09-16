@@ -6,6 +6,7 @@ import { NotFoundError } from '../errors/AppError'
 import { adminOverview, listAdminWorkspaces, getAdminWorkspace, listAdminSupport, type WorkspaceSort } from '../db/queries/admin'
 import { grantPro, revokeGrant, setSpendCap, deactivateUser, reactivateUser, setSupportAnswered, listActions, requireReason } from '../services/adminActions'
 import { readCreateInput, createPromoCode, listPromoCodes, setPromoCodeActive, findPromoCodeById } from '../services/promoCodes'
+import { listAdminReferrals, referralFunnel } from '../services/referrals'
 
 // The admin panel's API (TODO M). Every write goes through
 // services/adminActions.ts and lands in admin_actions; reads are not logged.
@@ -105,4 +106,12 @@ adminRouter.post('/promo-codes/:id/active', asyncHandler(async (req, res) => {
   if (!(await findPromoCodeById(id(req.params.id)))) throw new NotFoundError()
   const promo = await setPromoCodeActive(req.params.id, body(req).active !== false)
   res.json({ promo })
+}))
+
+// ── Referrals ────────────────────────────────────────────────────────────────
+
+adminRouter.get('/referrals', asyncHandler(async (req, res) => {
+  const page = Math.max(1, Number(req.query.page) || 1)
+  const [{ rows, total }, funnel] = await Promise.all([listAdminReferrals(page, PAGE_SIZE), referralFunnel()])
+  res.json({ rows, total, page, page_size: PAGE_SIZE, funnel })
 }))

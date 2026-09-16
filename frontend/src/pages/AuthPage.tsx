@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Button from '../components/ui/Button'
 import { Field, inputClass } from '../components/ui/Field'
 import PasswordField from '../components/ui/PasswordField'
@@ -9,9 +9,15 @@ import { errorMessage } from '../api/client'
 import { useAuth } from '../lib/auth'
 import { copy } from '../lib/copy'
 
+// A referral link (CLAUDE.md TODO M phase 4) arrives as ?ref=CODE on
+// /register; kept in localStorage so a code from an earlier visit still
+// applies if the user leaves and comes back to finish signing up.
+const REF_KEY = 'tezarium-ref'
+
 export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const { setUser } = useAuth()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
@@ -19,11 +25,17 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
 
+  useEffect(() => {
+    const ref = params.get('ref')
+    if (ref) { try { localStorage.setItem(REF_KEY, ref) } catch { /* private mode — the code still works this visit */ } }
+  }, [params])
+
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setBusy(true); setError(undefined)
     try {
-      const user = mode === 'login' ? await login(email, password) : await register(email, password, name, consent)
+      const ref = params.get('ref') ?? (() => { try { return localStorage.getItem(REF_KEY) } catch { return null } })()
+      const user = mode === 'login' ? await login(email, password) : await register(email, password, name, consent, ref)
       setUser(user)
       navigate('/talks', { replace: true })
     } catch (err) {

@@ -11,6 +11,7 @@ import { countDownloadsThisMonth } from '../db/queries/talkEvents'
 import { recordTermsAcceptance } from '../db/queries/consent'
 import { passwordIsStrong, PASSWORD_RULES } from '../../../shared/password'
 import { config } from '../lib/config'
+import { attachReferralOnSignup } from '../services/referrals'
 
 // The UI reads the gate from here, never from the tier name: what is locked
 // depends on the tier AND on billing being on in THIS installation, and
@@ -59,6 +60,8 @@ authRouter.post('/register', authLimiter, asyncHandler(async (req, res) => {
   if (await findUserByEmail(email)) throw new ValidationError('Этот e-mail уже зарегистрирован — войдите')
   const user = await createUserWithWorkspace(email, await bcrypt.hash(password, 12), displayName, config.adminEmails.includes(email))
   await recordTermsAcceptance(user.id)
+  const ref = (req.body as Record<string, unknown> | null)?.ref
+  if (typeof ref === 'string' && ref) await attachReferralOnSignup(user.workspace_id, ref)
   setSessionCookie(res, signToken({ id: user.id, ws: user.workspace_id }))
   res.status(201).json({ user: await withFeatures(await findPublicUserById(user.id)) })
 }))

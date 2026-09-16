@@ -389,7 +389,7 @@ option is still open.
   stage — the four renderers still agree (J's guarantee is the thing L
   must not spend).
 
-### M. Admin panel · plan grants · promo codes · referrals · Effort: L · 🟢 phases 1–3 SHIPPED (2026-09-16, code) · phases 4–5 next
+### M. Admin panel · plan grants · promo codes · referrals · Effort: L · 🟢 phases 1–4 SHIPPED (2026-09-16, code) · phase 5 next
 - **Why**: there are paying users and a support form, and the only way to
   see who they are, what they do, what they cost and whether a payment went
   through is `psql` on the VM — which the agent is not permitted to touch
@@ -433,6 +433,10 @@ option is still open.
     the period. Fraud gates: same card (`card_last4` + rebill), same signup
     IP within an hour, invitee created within minutes of the referrer, same
     normalised e-mail. No cash payouts (tax and accounting at this size).
+    **Shipped in phase 4**: the referrer/referee-are-the-same-workspace
+    check and the yearly cap. **Not yet built**: the card/IP/timing/e-mail
+    gates above — there is no live traffic to have abused this yet; add
+    them before or as soon as referrals see real volume, not before.
     The alternative on record — 500 ₽ credit per paid referral, stackable,
     applied to the next renewal — is cheaper (20% of a month, not 100%) and
     gives free users a balance to spend on upgrading; switch to it if
@@ -497,13 +501,41 @@ option is still open.
      no payment row), a second redemption attempt refused, admin list
      showed the activation count, deactivating a code took it out of
      circulation immediately.
-  4. **Referrals**: `users.referral_code` (short, unique, at signup),
-     `users.referred_by`, `referrals` (referrer, referee, status `signed_up
-     → paid → rewarded | clawed_back`, fraud flags); `/register?ref=CODE`
-     carried in a cookie from the landing; the hook in `applyOutcome` on
-     the first CONFIRMED payment; a card on the tariff page (link, copy,
-     invited · paid · reward status); admin: referral list with flags, the
-     funnel (links → signups → paid → rewarded) and total reward cost.
+  4. ✅ 2026-09-16 **Referrals**: migration 019 — `workspaces.referral_code`
+     (unique, generated lazily on first `GET /api/referrals/me`) and
+     `referred_by_workspace_id` (set once, at registration, never
+     changes); `referrals` (referrer, referee — `UNIQUE`, one row ever —
+     status `signed_up → paid → rewarded | capped | clawed_back`, flags).
+     A referral code **is** a `promo_codes` row (`owner_workspace_id` set,
+     percent, unlimited, no expiry) — the invitee's 20% discount runs
+     through the identical `validatePromoCode` / `startCheckout` /
+     `promo_redemptions` path a marketing code does (`owner_workspace_id
+     IS NULL` keeps referral codes out of the admin campaign list); the
+     referrer's 30-day reward is a direct `planGrant` call, the same rule
+     an admin's gift uses — on the referee's first **CONFIRMED** `initial`
+     payment, decoupled from whether the discount was actually used (a
+     referee who paid full price still earns it). Capped at 12 rewards
+     per referrer per rolling year (`capped`, not `rewarded`, past the
+     cap); a full refund of the rewarding payment claws the grant back
+     only if it is still standing (`plan_source='granted'`) — a referrer
+     who has since paid for real keeps their subscription untouched.
+     `?ref=CODE` on `/register`, kept in `localStorage` so a code from an
+     earlier visit survives to a later signup; attaching it never fails
+     registration (bad code → silently ignored, logged). Card on the
+     tariff page: link, copy, invited · paid · rewarded — reused the
+     promo-preview affordance for nothing extra to build. Admin: a
+     referrals tab (funnel — invited/paid/rewarded/reward-days-total —
+     and the row list with referrer/referee e-mails and status).
+     Verified end-to-end locally with two throwaway accounts and a
+     hand-signed T-Bank notification (the real terminal is unreachable
+     from this environment): signup via `?ref=` attached correctly
+     case-insensitively; checkout auto-applied the referrer's 20% code
+     with no code typed (`payments.amount_kopecks` = 2000 ₽ of 2500 ₽,
+     `promo_code_id` set); the simulated CONFIRMED notification rewarded
+     the referrer (`plan_source='granted'`, `referrals.status='rewarded'`,
+     `reward_days=30`) and finalised the promo redemption; the admin
+     referrals tab showed the funnel and the row; the promo-codes tab
+     did not show the referral code.
   5. **Usage and health**: `talk_events` aggregated per event per day/week
      (exports with `{slides, of}`, images, shares, present); queue depth
      and failed jobs; provider error rate and spend vs the global cap from
