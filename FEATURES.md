@@ -96,10 +96,17 @@ on-prem install keeps `.pptx` open to everyone.
 
 ## Operator
 
+- ✅ **Admin panel** at `/admin` for the e-mails in `ADMIN_EMAILS` (the only
+  way to become one). Read only so far: an overview (people, activity, Pro
+  count, this month's talks, exports, model spend and payments, support,
+  failed jobs), a searchable workspace list, a workspace page (users and
+  consent, talks, payments, spend by month, jobs, event timeline) and the
+  support inbox. 📋 Writes with an audit trail — grant or extend Pro, spend
+  cap, deactivate — then promo codes, referrals, usage and health (TODO M).
 - ✅ **Public contact / tech-support form** at `/contact` on the landing
   site, no account needed. Submissions (name, email, category, message)
-  land in `support_messages`; no notification or queue yet — an operator
-  reads the table directly.
+  land in `support_messages` and show in the admin's support inbox; no
+  notification yet.
 - ✅ **Immutable images built in CI** for the API and the web bundle, each
   carrying its build version (`/health`, `/version.txt`); a pull-based
   `deploy.sh` with a CI gate, image guard, one-shot migration, rolling

@@ -74,7 +74,7 @@ export const copy = {
   // that do not exist yet are shown and marked, not hidden (a destination
   // that is unavailable is explained, not silently missing).
   nav: {
-    talks: 'Выступления', newTalk: 'Новое выступление', newShort: 'Создать', brand: 'Бренд', plan: 'Тариф', logout: 'Выйти',
+    talks: 'Выступления', newTalk: 'Новое выступление', newShort: 'Создать', brand: 'Бренд', plan: 'Тариф', logout: 'Выйти', admin: 'Админ',
     works: 'Работы', workspace: 'Пространство', posts: 'Посты', ads: 'Реклама', soon: 'скоро',
     soonHint: (what: string) => `${what} — скоро. Тот же стол: тезисы → план → материал → экспорт.`,
     // The rail's last line: the tier and this month's talks against the limit.
@@ -341,6 +341,50 @@ export const copy = {
     filterAll: 'Все',
     status: { draft: 'Черновик', approved: 'Готово', shared: 'по ссылке', noNotes: 'без текста докладчика', withNotes: 'с текстом докладчика' },
     slidesShort: (n: number) => `${n} сл.`,
+  },
+  // The admin panel (TODO M). Operator's words — numbers, tables, no
+  // product copy rules beyond the three nouns.
+  admin: {
+    nav:        'Админ',
+    heading:    'Панель',
+    lead:       'Что происходит: люди, выступления, деньги.',
+    sections:   { overview: 'Обзор', workspaces: 'Пространства', support: 'Обращения' },
+    overview: {
+      users: 'Пользователи', new7: 'за 7 дней', new30: 'за 30 дней',
+      active7: 'Активных пространств за 7 дней', pro: 'Pro',
+      month: 'Этот месяц', talks: 'выступлений', exports: 'скачиваний', spend: 'расход на модели', revenue: 'оплат',
+      support: 'Обращений', support7: 'за 7 дней',
+      jobs: 'Задачи', failed24: 'ошибок за 24 ч', stuck: 'зависших',
+    },
+    workspaces: {
+      heading: 'Пространства',
+      search:  'Поиск по названию или e-mail',
+      tierAll: 'Все', tierFree: 'Free', tierPro: 'Pro',
+      sort: { created: 'по дате', active: 'по активности', spend: 'по расходу', talks: 'по выступлениям' } as Record<'created' | 'active' | 'spend' | 'talks', string>,
+      cols:  { name: 'Пространство', tier: 'Тариф', talks: 'Выступл.', spend: 'Расход, мес.', active: 'Активность', created: 'Создано' },
+      total: (n: number) => plural(n, 'пространство', 'пространства', 'пространств'),
+      empty: 'Ничего не найдено',
+      prev: 'Назад', next: 'Дальше',
+      never: 'никогда', noRenew: 'без продления',
+    },
+    detail: {
+      back:     'К списку',
+      plan:     'Тариф', until: 'до', autoRenew: 'автопродление', card: 'карта', renewalFailures: 'неудачных продлений', cap: 'лимит расхода',
+      styleLearning: 'учится на одобренных',
+      users:    'Пользователи', admin: 'админ', terms: 'условия приняты', termsNo: 'условия не приняты',
+      talks:    'Выступления', payments: 'Платежи', spend: 'Расход по месяцам', events: 'События', jobs: 'Задачи',
+      none:     'пусто',
+      calls:    (n: number) => plural(n, 'вызов', 'вызова', 'вызовов'),
+      failed:   (n: number) => `${n} с ошибкой`,
+    },
+    support: {
+      heading:  'Обращения',
+      category: { general: 'Вопрос', support: 'Техподдержка', billing: 'Оплата' } as Record<string, string>,
+      reply:    'Ответить',
+      workspace:'пространство',
+      empty:    'Обращений нет',
+      total:    (n: number) => plural(n, 'обращение', 'обращения', 'обращений'),
+    },
   },
   errors: {
     generic:  'Что-то пошло не так. Попробуйте ещё раз.',

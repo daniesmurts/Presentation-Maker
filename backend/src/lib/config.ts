@@ -62,6 +62,9 @@ export const config = {
   frontendUrl:    required('FRONTEND_URL'),
   logLevel:       process.env.LOG_LEVEL ?? 'info',
 
+  // Who may open /admin: the only source of the admin role (TODO M).
+  adminEmails:    (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean),
+
   db:       { url: required('DATABASE_URL') },
   auth:     { jwtSecret: required('JWT_SECRET') },
   deepseek: { apiKey: required('DEEPSEEK_API_KEY') },

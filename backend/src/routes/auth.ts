@@ -57,7 +57,7 @@ authRouter.post('/register', authLimiter, asyncHandler(async (req, res) => {
   const acceptTerms = (req.body as Record<string, unknown> | null)?.accept_terms === true
   if (!acceptTerms) throw new ValidationError('Чтобы создать аккаунт, примите условия использования и политику конфиденциальности')
   if (await findUserByEmail(email)) throw new ValidationError('Этот e-mail уже зарегистрирован — войдите')
-  const user = await createUserWithWorkspace(email, await bcrypt.hash(password, 12), displayName)
+  const user = await createUserWithWorkspace(email, await bcrypt.hash(password, 12), displayName, config.adminEmails.includes(email))
   await recordTermsAcceptance(user.id)
   setSessionCookie(res, signToken({ id: user.id, ws: user.workspace_id }))
   res.status(201).json({ user: await withFeatures(await findPublicUserById(user.id)) })

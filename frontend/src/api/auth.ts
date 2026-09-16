@@ -6,6 +6,7 @@ export interface User {
   email:        string
   display_name: string | null
   locale:       string
+  is_admin:     boolean
   plan_tier:    string
   plan_expires_at: string | null
   /** The gate as it stands in this installation (billing off → everything open). */

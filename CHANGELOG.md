@@ -34,6 +34,29 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 ## [Unreleased]
 
 ### Added
+- **Admin panel, phase 1 — read only** (TODO M). Migration 016 adds
+  `users.is_admin`; the role is owned by `ADMIN_EMAILS` (env): synced on
+  every boot (granted to those, revoked from everyone else) and applied at
+  registration, never set from a UI — so an admin cannot be locked out or
+  created by another admin's mistake. `/api/admin/*` sits behind
+  `authenticate` + `requireAdmin`, which answers **404, not 403**, to a
+  signed-in non-admin: the panel's existence is not something a user should
+  learn from an error code. Four reads over tables the product already
+  writes (`db/queries/admin.ts`): an overview (users and new 7/30 d, active
+  workspaces 7 d, Pro count, this month's talks / exports / model spend /
+  confirmed payments, support messages, failed and stuck jobs), a
+  workspace list (search by name or e-mail, tier filter, sort by created /
+  last active / spend / talks, 50 a page), a workspace detail (users with
+  their 152-ФЗ acceptance, talks, payments, spend by month, jobs, the
+  last 100 events) and the support inbox with a `mailto:` reply. Pages
+  `/admin`, `/admin/workspaces`, `/admin/workspaces/:id`, `/admin/support`
+  in the same SPA behind a `RequireAdmin` route; a rail item that exists
+  only for admins (desktop rail only — the bottom bar keeps its five); one
+  more line in Caddy's `@app`. Nothing is tracked for the panel's sake and
+  reads are not logged; `admin_actions` arrives with the first write in
+  phase 2. Verified locally: boot sync granted the role, registration with
+  a listed e-mail granted it, all four pages rendered real rows, a
+  non-admin session got 404 and an anonymous one 401.
 - **Public contact / tech-support form.** `landing/src/pages/contact.astro`
   (linked from the footer) posts to a new unauthenticated
   `POST /api/support/contact` (`routes/support.ts`, `supportRouter`), same

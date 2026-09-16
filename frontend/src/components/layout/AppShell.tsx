@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Plus, LogOut, Presentation, FileText, Megaphone, Palette, CreditCard } from 'lucide-react'
+import { Plus, LogOut, Presentation, FileText, Megaphone, Palette, CreditCard, Gauge } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useAuth } from '../../lib/auth'
 import { copy } from '../../lib/copy'
@@ -51,6 +51,9 @@ export default function AppShell() {
           <CreditCard className={ic} aria-hidden /> {copy.nav.plan}
           {user?.plan_tier === 'pro' && <span className="ml-auto text-[10px] uppercase tracking-[0.08em] bg-accent-light text-accent rounded-full px-1.5 leading-4">Pro</span>}
         </NavLink>
+        {user?.is_admin && (
+          <NavLink to="/admin" className={railClass}><Gauge className={ic} aria-hidden /> {copy.nav.admin}</NavLink>
+        )}
         <div className="mt-auto pt-3 border-t border-border flex items-center gap-1 px-1">
           <div className="min-w-0 flex-1">
             <div className="text-xs text-ink-secondary truncate">{user?.display_name || user?.email}</div>

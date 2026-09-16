@@ -28,7 +28,7 @@
 		reverse_proxy api:3000 api2:3000
 	}
 
-	@app path /talks /talks/* /jobs/* /brand /billing /login /register /s/* /assets/* /version.txt
+	@app path /talks /talks/* /jobs/* /brand /billing /admin /admin/* /login /register /s/* /assets/* /version.txt
 	handle @app {
 		root * /srv/app
 		try_files {path} /index.html

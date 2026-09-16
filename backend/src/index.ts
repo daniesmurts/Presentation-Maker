@@ -19,6 +19,8 @@ import { registerTalkJobWorker, startTalkOutlineSweeper } from './services/talkJ
 import { registerBeforeCall } from './services/llm/registry'
 import { checkSpendCap } from './services/spendCap'
 import { checkGlobalSpendCap } from './services/globalSpendCap'
+import { adminRouter } from './routes/admin'
+import { syncAdminRole } from './db/queries/users'
 
 // Spend caps run before every model call, whichever route or job made it
 // (CLAUDE.md §2: the cap and the fallback are what keep a bad hour from
@@ -53,6 +55,7 @@ app.use('/api/talks', talksRouter)
 app.use('/api/brand', brandRouter)
 app.use('/api/shared', sharedRouter)
 app.use('/api/support', supportRouter)
+app.use('/api/admin',   adminRouter)
 // The webhook router first: it must not sit behind the session middleware.
 app.use('/api/billing', billingWebhookRouter)
 app.use('/api/billing', billingRouter)
@@ -73,6 +76,10 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
 })
 
 async function main(): Promise<void> {
+  // The admin role is env-owned (TODO M): every boot makes the table match.
+  const roles = await syncAdminRole(config.adminEmails)
+  if (roles.granted || roles.revoked) logger.info({ message: 'Admin role synced', ...roles })
+
   // The worker runs in the API process for now — one deployable. Split it
   // out when generation load and request load need to scale separately.
   const boss = await startJobQueue()

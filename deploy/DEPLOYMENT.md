@@ -21,6 +21,7 @@ sudo mkdir -p /opt/tezarium && sudo chown $USER /opt/tezarium
 # /opt/tezarium/.env — the app's env (copy .env.example) PLUS:
 #   IMAGE_REPO=<same as the GitHub secret>
 #   DOMAIN=talks.example.com
+#   ADMIN_EMAILS=<your e-mail> — who sees /admin; nobody until this is set.
 #   Billing (optional): BILLING_ENABLED=1, TBANK_TERMINAL_KEY, TBANK_PASSWORD,
 #   PUBLIC_API_URL=https://<DOMAIN> — T-Bank posts to /api/billing/tbank/notify,
 #   which Caddy already proxies with the rest of /api/*. Switch it on with the

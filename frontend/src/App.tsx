@@ -9,6 +9,11 @@ import BrandPage from './pages/BrandPage'
 import BillingPage from './pages/BillingPage'
 import SharedPage from './pages/SharedPage'
 import PresentPage from './pages/PresentPage'
+import AdminLayout from './pages/admin/AdminLayout'
+import AdminOverviewPage from './pages/admin/AdminOverviewPage'
+import AdminWorkspacesPage from './pages/admin/AdminWorkspacesPage'
+import AdminWorkspacePage from './pages/admin/AdminWorkspacePage'
+import AdminSupportPage from './pages/admin/AdminSupportPage'
 import Spinner from './components/ui/Spinner'
 import { useAuth } from './lib/auth'
 
@@ -17,6 +22,13 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   const location = useLocation()
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Spinner /></div>
   if (!user) return <Navigate to="/login" state={{ from: location }} replace />
+  return <>{children}</>
+}
+
+// The panel is not a place a non-admin should learn exists: no 403 page, the library.
+function RequireAdmin({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth()
+  if (!user?.is_admin) return <Navigate to="/talks" replace />
   return <>{children}</>
 }
 
@@ -35,6 +47,12 @@ export default function App() {
         <Route path="/jobs/:id"   element={<JobPage />} />
         <Route path="/brand"      element={<BrandPage />} />
         <Route path="/billing"    element={<BillingPage />} />
+        <Route path="/admin" element={<RequireAdmin><AdminLayout /></RequireAdmin>}>
+          <Route index element={<AdminOverviewPage />} />
+          <Route path="workspaces"     element={<AdminWorkspacesPage />} />
+          <Route path="workspaces/:id" element={<AdminWorkspacePage />} />
+          <Route path="support"        element={<AdminSupportPage />} />
+        </Route>
       </Route>
       <Route path="*" element={<Navigate to="/talks" replace />} />
     </Routes>

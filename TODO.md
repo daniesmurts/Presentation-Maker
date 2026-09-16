@@ -389,6 +389,91 @@ option is still open.
   stage — the four renderers still agree (J's guarantee is the thing L
   must not spend).
 
+### M. Admin panel · plan grants · promo codes · referrals · Effort: L · 🟢 phase 1 SHIPPED (2026-09-16, code) · phases 2–5 next
+- **Why**: there are paying users and a support form, and the only way to
+  see who they are, what they do, what they cost and whether a payment went
+  through is `psql` on the VM — which the agent is not permitted to touch
+  and the founder should not need to. Every question of the kind «is it
+  working, is it growing, who is stuck» has its answer in tables that
+  already exist (`talk_events`, `usage_log`, `payments`, `workspaces`,
+  `support_messages`); what is missing is a role that may read them and a
+  page that does. The writes — a free month for a friend, a promo code for
+  a partner, a deactivated abuser — all touch billing/auth invariants (the
+  renew and expire jobs, the spend cap, the 54-ФЗ receipt), so they belong
+  in the app next to those services, not in a SQL console or an
+  off-the-shelf admin tool writing raw rows. In-app is also the only shape
+  that survives on-prem (CLAUDE.md §10).
+- **Decisions**:
+  - `users.is_admin`, bootstrapped from `ADMIN_EMAILS` (env, comma-separated)
+    at boot and at registration — no UI to make an admin, so an admin can
+    never be locked out or created by another admin's mistake.
+  - `/api/admin/*` behind `authenticate` + `requireAdmin`; `/admin/*` pages
+    in the same SPA, same rail (a link that exists only for admins), one
+    more line in Caddy's `@app`.
+  - Every admin **write** goes through `admin_actions` (admin, action,
+    target, before/after JSON, reason) — the audit is what makes «I gave X
+    free Pro» defensible. Reads are not logged.
+  - Lists and one detail page; no charts until the numbers on the tables
+    have been looked at for a month and we know which ones matter.
+  - A grant is `plan_tier='pro'` + `plan_expires_at` + `plan_source =
+    'granted'` — the expire job drops it like a paid month, the renew job
+    skips it (no rebill on a grant), and a later payment turns it back into
+    `'paid'`. Not a parallel «overrides» table: two sources of truth for
+    the tier is how a user gets charged for a month they were given.
+  - Referral reward = a grant with `reason='referral'`; a referral link = a
+    promo code generated per user. Both reuse the machinery above, so they
+    are phases, not systems.
+  - **Referral economics** (decided 2026-09-16, revisit with data): reward on
+    the invitee's *first confirmed payment*, never on signup. Double-sided
+    and asymmetric — the invitee gets 20% off the first month (the reason
+    to use *this* link), the referrer gets one month of Pro (an extension
+    for a Pro user, a trial for a free one — the same reward converts
+    both). Capped at 12 rewarded referrals per referrer per year; granted
+    only after the T-Bank webhook confirms, clawed back on a refund inside
+    the period. Fraud gates: same card (`card_last4` + rebill), same signup
+    IP within an hour, invitee created within minutes of the referrer, same
+    normalised e-mail. No cash payouts (tax and accounting at this size).
+    The alternative on record — 500 ₽ credit per paid referral, stackable,
+    applied to the next renewal — is cheaper (20% of a month, not 100%) and
+    gives free users a balance to spend on upgrading; switch to it if
+    referrals turn into a real channel and the month-per-referral cost
+    shows in the admin's «reward cost» number.
+- **Phases**:
+  1. ✅ 2026-09-16 **Role, overview, workspace list + detail, support inbox**
+     (read only). Migration 016 (`is_admin`), `requireAdmin`, `/api/admin`
+     overview (users, new 7/30 d, active 7 d, Pro count, spend this month,
+     talks and exports this month, new support messages, failed jobs),
+     workspaces list (search, tier filter, sort by created/last active/
+     spend), workspace detail (users, talks, payments, spend by month, the
+     event timeline), support list. Pages `/admin`, `/admin/workspaces`,
+     `/admin/workspaces/:id`, `/admin/support`.
+  2. **Writes**: `admin_actions`; grant / extend / revoke Pro, set the spend
+     cap, deactivate / reactivate a user (`users.deactivated_at`;
+     `authenticate` refuses the session; data kept — 152-ФЗ deletion is its
+     own explicit flow), mark a support message answered. `plan_source`
+     on workspaces; the renew job skips `granted`.
+  3. **Promo codes**: `promo_codes` (code, kind `percent | fixed |
+     free_months`, max_uses, once per workspace, valid_until, active),
+     `promo_redemptions`; a code field on the tariff page; the discount
+     applied in `startCheckout` so T-Bank charges and the receipt shows the
+     real sum; admin CRUD + redemptions list.
+  4. **Referrals**: `users.referral_code` (short, unique, at signup),
+     `users.referred_by`, `referrals` (referrer, referee, status `signed_up
+     → paid → rewarded | clawed_back`, fraud flags); `/register?ref=CODE`
+     carried in a cookie from the landing; the hook in `applyOutcome` on
+     the first CONFIRMED payment; a card on the tariff page (link, copy,
+     invited · paid · reward status); admin: referral list with flags, the
+     funnel (links → signups → paid → rewarded) and total reward cost.
+  5. **Usage and health**: `talk_events` aggregated per event per day/week
+     (exports with `{slides, of}`, images, shares, present); queue depth
+     and failed jobs; provider error rate and spend vs the global cap from
+     `usage_log`. The page to open when someone says «сломалось».
+  6. Later, only if asked: read-only «view as user» (audited), a bulk
+     announcement, model cost per workspace for pricing decisions.
+- **Not in M**: roles beyond admin/user, a second workspace member, refunds
+  from the panel (the T-Bank cabinet does it; the webhook records it),
+  e-mail of any kind (there is still no sender — K.4).
+
 ### The plan is built. What is next is not more building.
 Every item in CLAUDE.md §8 is shipped and deployed. The next TODO entries
 should come from users, usage_log and talk_events — not from this file.
