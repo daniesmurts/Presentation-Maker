@@ -2,10 +2,10 @@
 // goes live — every field is printed verbatim. The highlighted placeholders
 // on the page come from the `[…]` values here.
 export const OPERATOR = {
-  name:    '[полное наименование: ООО «…» или ИП Фамилия Имя Отчество]',
-  ogrn:    '[ОГРН / ОГРНИП]',
-  inn:     '[ИНН]',
-  address: '[юридический адрес]',
+  name:    'ИП БУГЕМБЕ ДАНИЕЛ',
+  ogrn:    '322169000192683',
+  inn:     '165510859142',
+  address: 'г.Казань, ул.Светлая, д.28, кв. 78',
   email:   'hello@tezarium.ru',
   site:    'https://tezarium.ru',
 }
