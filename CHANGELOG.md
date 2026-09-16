@@ -34,6 +34,22 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 ## [Unreleased]
 
 ### Added
+- **Usage and health, phase 5 — TODO M complete** (2026-09-16). A fifth
+  admin tab, «Здоровье», the page for «сломалось»: `talk_jobs` by status
+  with stuck jobs (untouched 15+ min — the worker's own timeout is
+  shorter) and the last 20 failures with their message; `usage_log`
+  grouped by model + account over 24 h (calls, error rate, last
+  `error_code`, cost) and by day over 14 via a `generate_series` join, so
+  a quiet day is a zero row rather than a gap; today's spend against
+  `GLOBAL_DAILY_SPEND_CAP_USD` (`parseDailyCapUsd` reused from
+  `globalSpendCap.ts`, not reimplemented); `talk_events`
+  (`exported`/pptx,pdf, `image_generated`) plus `talks` (creation is not
+  itself an event) pivoted per day over 14. No share/present row — neither
+  is recorded as a `talk_event` yet, so the page shows what actually
+  happens rather than a column that reads zero forever. Refreshes every
+  60 s. Verified against the real local DB: job counts, provider stats and
+  both 14-day tables matched `psql` by hand and the browser rendering
+  matched the raw `GET /api/admin/health` response.
 - **Referrals, phase 4** (TODO M). Migration 019: `workspaces.referral_code`
   (generated lazily, on first `GET /api/referrals/me`) and
   `referred_by_workspace_id` (set once, at registration); `referrals`

@@ -108,7 +108,9 @@ on-prem install keeps `.pptx` open to everyone.
   message answered. A promo-codes tab: create/deactivate percent, fixed,
   or free-months codes and see how many times each was redeemed. A
   referrals tab: who invited whom, paid, was rewarded, or hit the cap.
-  📋 Usage/health pages (TODO M).
+  A health tab: stuck and failed jobs, model-provider error rate and cost
+  over 24 h, spend and product usage by day over two weeks — the page for
+  «сломалось». TODO M is complete.
 - ✅ **Promo codes**: a code on the tariff page discounts the first month's
   T-Bank charge (percent or a flat amount, never below ₽1) or, for a
   free-months code, grants Pro immediately with no payment at all — works

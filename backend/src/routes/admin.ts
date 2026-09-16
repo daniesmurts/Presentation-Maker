@@ -7,6 +7,8 @@ import { adminOverview, listAdminWorkspaces, getAdminWorkspace, listAdminSupport
 import { grantPro, revokeGrant, setSpendCap, deactivateUser, reactivateUser, setSupportAnswered, listActions, requireReason } from '../services/adminActions'
 import { readCreateInput, createPromoCode, listPromoCodes, setPromoCodeActive, findPromoCodeById } from '../services/promoCodes'
 import { listAdminReferrals, referralFunnel } from '../services/referrals'
+import { jobStatusCounts, stuckJobs, recentFailedJobs, dailySpend, todaySpendUsd, providerStats, dailyUsage } from '../db/queries/health'
+import { parseDailyCapUsd } from '../services/globalSpendCap'
 
 // The admin panel's API (TODO M). Every write goes through
 // services/adminActions.ts and lands in admin_actions; reads are not logged.
@@ -114,4 +116,19 @@ adminRouter.get('/referrals', asyncHandler(async (req, res) => {
   const page = Math.max(1, Number(req.query.page) || 1)
   const [{ rows, total }, funnel] = await Promise.all([listAdminReferrals(page, PAGE_SIZE), referralFunnel()])
   res.json({ rows, total, page, page_size: PAGE_SIZE, funnel })
+}))
+
+// ── Health ───────────────────────────────────────────────────────────────────
+
+adminRouter.get('/health', asyncHandler(async (_req, res) => {
+  const cap = parseDailyCapUsd(process.env.GLOBAL_DAILY_SPEND_CAP_USD)
+  const [jobs, stuck, failedJobs, spendByDay, todaySpend, providers, usageByDay] = await Promise.all([
+    jobStatusCounts(), stuckJobs(), recentFailedJobs(), dailySpend(14), todaySpendUsd(), providerStats(24), dailyUsage(14),
+  ])
+  res.json({
+    jobs: { by_status: jobs, stuck, recent_failed: failedJobs },
+    spend: { today_usd: todaySpend, cap_usd: Number.isFinite(cap) ? cap : null, by_day: spendByDay },
+    providers,
+    usage_by_day: usageByDay,
+  })
 }))

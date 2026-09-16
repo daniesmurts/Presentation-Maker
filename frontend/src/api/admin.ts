@@ -63,3 +63,17 @@ export interface AdminReferralRow {
 }
 export interface ReferralFunnel { invited: number; paid: number; rewarded: number; reward_days_total: number }
 export const listReferrals = (page = 1) => client.get<Paged<AdminReferralRow> & { funnel: ReferralFunnel }>('/api/admin/referrals', { params: { page } }).then((r) => r.data)
+
+export interface JobStatusCounts { pending: number; processing: number; outline_ready: number; ready: number; failed: number }
+export interface StuckJob { id: string; workspace_id: string; owner_email: string | null; status: string; attempts: number; created_at: string; updated_at: string }
+export interface FailedJob { id: string; workspace_id: string; owner_email: string | null; error_message: string | null; attempts: number; updated_at: string }
+export interface DailySpend { date: string; cost_usd: number; calls: number; failed: number }
+export interface ProviderStat { model: string; account: string | null; calls: number; failed: number; cost_usd: number; last_error_code: string | null }
+export interface DailyUsage { date: string; talks: number; exports_pptx: number; exports_pdf: number; images: number }
+export interface AdminHealth {
+  jobs: { by_status: JobStatusCounts; stuck: StuckJob[]; recent_failed: FailedJob[] }
+  spend: { today_usd: number; cap_usd: number | null; by_day: DailySpend[] }
+  providers: ProviderStat[]
+  usage_by_day: DailyUsage[]
+}
+export const getHealth = () => client.get<AdminHealth>('/api/admin/health').then((r) => r.data)

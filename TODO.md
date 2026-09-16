@@ -389,7 +389,7 @@ option is still open.
   stage — the four renderers still agree (J's guarantee is the thing L
   must not spend).
 
-### M. Admin panel · plan grants · promo codes · referrals · Effort: L · 🟢 phases 1–4 SHIPPED (2026-09-16, code) · phase 5 next
+### M. Admin panel · plan grants · promo codes · referrals · Effort: L · 🟢 SHIPPED (2026-09-16, code, all five phases)
 - **Why**: there are paying users and a support form, and the only way to
   see who they are, what they do, what they cost and whether a payment went
   through is `psql` on the VM — which the agent is not permitted to touch
@@ -536,10 +536,23 @@ option is still open.
      `reward_days=30`) and finalised the promo redemption; the admin
      referrals tab showed the funnel and the row; the promo-codes tab
      did not show the referral code.
-  5. **Usage and health**: `talk_events` aggregated per event per day/week
-     (exports with `{slides, of}`, images, shares, present); queue depth
-     and failed jobs; provider error rate and spend vs the global cap from
-     `usage_log`. The page to open when someone says «сломалось».
+  5. ✅ 2026-09-16 **Usage and health** — `db/queries/health.ts`, a new
+     admin tab «Здоровье»: `talk_jobs` by status, stuck jobs (pending/
+     processing untouched 15+ minutes — the worker's own timeout is
+     shorter, so this means stuck, not slow) and the last 20 failed with
+     their `error_message`; `usage_log` grouped by model + account over
+     24 h (calls, error rate, last `error_code`, cost) and by day over 14
+     (a `generate_series` join so a quiet day is a zero row, not a gap);
+     today's global spend against `GLOBAL_DAILY_SPEND_CAP_USD`
+     (`parseDailyCapUsd`, reused from `globalSpendCap.ts` — one rule, not
+     two); `talk_events` (`exported` split pptx/pdf, `image_generated`)
+     plus `talks` (creation isn't itself an event) pivoted per day over
+     14. No `shares`/`present` row — neither is ever recorded as a
+     `talk_event` today, so the page reports what actually happens
+     instead of a column that would read zero forever; add it when share/
+     present events are wired up. Refreshes every 60 s. Verified against
+     the real local DB via `curl` and the browser: job-status counts,
+     provider stats and the 14-day tables all matched `psql` by hand.
   6. Later, only if asked: read-only «view as user» (audited), a bulk
      announcement, model cost per workspace for pricing decisions.
 - **Not in M**: roles beyond admin/user, a second workspace member, refunds

@@ -364,7 +364,7 @@ export const copy = {
     nav:        'Админ',
     heading:    'Панель',
     lead:       'Что происходит: люди, выступления, деньги.',
-    sections:   { overview: 'Обзор', workspaces: 'Пространства', support: 'Обращения', promo: 'Промокоды', referrals: 'Рефералы' },
+    sections:   { overview: 'Обзор', workspaces: 'Пространства', support: 'Обращения', promo: 'Промокоды', referrals: 'Рефералы', health: 'Здоровье' },
     overview: {
       users: 'Пользователи', new7: 'за 7 дней', new30: 'за 30 дней',
       active7: 'Активных пространств за 7 дней', pro: 'Pro',
@@ -433,6 +433,20 @@ export const copy = {
       status:   { signed_up: 'зарегистрировался', paid: 'оплатил', rewarded: 'награждён', capped: 'лимит года', clawed_back: 'возврат отменён' } as Record<string, string>,
       cols:     { referrer: 'Пригласил', referee: 'Пришёл', status: 'Статус', days: 'Дней', created: 'Когда' },
       empty:    'Рефералов ещё нет',
+    },
+    health: {
+      jobs:      'Задачи', jobsByStatus: { pending: 'в очереди', processing: 'в работе', outline_ready: 'план готов', ready: 'готово', failed: 'ошибка' } as Record<string, string>,
+      stuck:     'Зависшие', stuckEmpty: 'Зависших задач нет',
+      failed:    'Последние ошибки', failedEmpty: 'Ошибок не было',
+      spend:     'Расход на модели', spendByDay: 'Расход по дням', spendToday: 'сегодня', spendCap: (cap: number) => `лимит ${cap} $/день`, spendNoCap: 'лимит не задан',
+      providers: 'Провайдеры за 24 ч', providersEmpty: 'Вызовов не было',
+      usage:     'Активность',
+      cols: {
+        date: 'День', cost: 'USD, $', calls: 'Вызовов', failedCol: 'Ошибок',
+        model: 'Модель', account: 'Аккаунт', errorRate: 'Ошибок, %', lastError: 'Последняя ошибка',
+        talks: 'Выступл.', exportsPptx: '.pptx', exportsPdf: 'PDF', images: 'Картинки',
+        owner: 'Пространство', attempts: 'Попыток', since: 'С какого времени', error: 'Ошибка',
+      },
     },
   },
   errors: {
