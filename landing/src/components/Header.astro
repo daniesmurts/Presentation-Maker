@@ -1,15 +1,18 @@
 ---
-// Wordmark, the two links that exist, one solid CTA. Sections that do not
+// Wordmark, the links that exist, one solid CTA. Sections that do not
 // exist yet (examples, blog) are not linked — a nav item that 404s is
-// worse than no nav item.
+// worse than no nav item. «Как это работает» goes to the explainers, not
+// the #how section: the section is one scroll away on the page itself,
+// and a header link should take the visitor somewhere they cannot reach
+// by scrolling.
 ---
 <header class="hdr">
   <div class="wrap row">
     <a href="/" class="mark" aria-label="Тезариум — на главную">Тезариум</a>
     <nav class="links" aria-label="Разделы">
-      <a href="#how">Как это работает</a>
-      <a href="#pricing">Цена</a>
-      <a href="#faq">Вопросы</a>
+      <a href="/help">Как это работает</a>
+      <a href="/#pricing">Цена</a>
+      <a href="/#faq">Вопросы</a>
     </nav>
     <div class="cta">
       <a href="/login" class="login">Войти</a>
