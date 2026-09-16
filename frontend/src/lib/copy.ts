@@ -83,6 +83,24 @@ export const copy = {
   auth: {
     loginTitle:    'Вход',
     registerTitle: 'Регистрация',
+    // The warm headline above the form — the eyebrow above keeps the
+    // formal name (login/register) for orientation; this is the one line
+    // that makes the page feel like a person wrote it.
+    welcomeBack:   'С возвращением',
+    welcomeNew:    'Начнём',
+    loginHint:     'Войдите — и выступление, над которым вы работали, будет ждать вас.',
+    registerHint:  'Полминуты — и у вас будет план выступления, готовый к правке.',
+    // The showcase panel (desktop only, left of the form): three real
+    // capabilities, not marketing fluff — each maps to a shipped feature
+    // (outline gate, speaker notes, native export) so nothing here is a
+    // promise the product doesn't already keep.
+    showcase: {
+      steps: [
+        { title: 'Тезисы → план', hint: 'Утверждаете план до того, как модель напишет хоть один слайд' },
+        { title: 'Слайды и текст докладчика', hint: 'Что показать и что сказать — сразу вместе, по каждому слайду' },
+        { title: 'Готовый .pptx', hint: 'Открывается в PowerPoint и Keynote как обычная презентация' },
+      ],
+    },
     email:         'E-mail',
     password:      'Пароль',
     passwordPh:    '8+ символов, заглавная буква и цифра',
