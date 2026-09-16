@@ -10,6 +10,7 @@ import {
   setEmailVerified, updateUserPassword, type PublicUser, type UserRow,
 } from '../db/queries/users'
 import { quotaOf } from '../lib/planTier'
+import { countReviewsThisMonth } from '../db/queries/rehearsals'
 import { countTalksThisMonth } from '../db/queries/talks'
 import { countDownloadsThisMonth } from '../db/queries/talkEvents'
 import { recordTermsAcceptance } from '../db/queries/consent'
@@ -32,10 +33,11 @@ import { alertSignup } from '../services/founderAlerts'
 // click, because a plain <a download> saves a 403 JSON as a file.
 async function withFeatures(user: PublicUser | null): Promise<PublicUser | null> {
   if (!user) return null
-  const [talks, pptx, pdf] = await Promise.all([
+  const [talks, pptx, pdf, reviews] = await Promise.all([
     countTalksThisMonth(user.workspace_id), countDownloadsThisMonth(user.workspace_id, 'pptx'), countDownloadsThisMonth(user.workspace_id, 'pdf'),
+    countReviewsThisMonth(user.workspace_id),
   ])
-  return { ...user, features: { billing: config.billing.enabled }, quota: quotaOf(user.plan_tier, { talks, pptx, pdf }) }
+  return { ...user, features: { billing: config.billing.enabled }, quota: quotaOf(user.plan_tier, { talks, pptx, pdf, reviews }) }
 }
 import { authenticate } from '../middleware/authenticate'
 import { DeactivatedError, UnauthorizedError, ValidationError } from '../errors/AppError'

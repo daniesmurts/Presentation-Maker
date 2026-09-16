@@ -18,6 +18,10 @@ export interface PlanLimits {
   // A per-day gate, not per-month: a conversation is many small calls and
   // a month's worth burned in one evening is what a runaway client does.
   draftMessagesPerDay: number
+  // Rehearsal reviews (the model pass over a rehearsal) per calendar month.
+  // Recording and timings are free everywhere — the review is the expensive
+  // half and the one worth paying for.
+  rehearsalReviewsPerMonth: number
 }
 
 /** Pro, per month, in roubles — the one price the product has. Kopecks go to T-Bank. */
@@ -34,8 +38,8 @@ export const PRO_PRICE_RUB = 2500
 // 2026-09-14) never meets it in normal use.
 const NO_LIMIT = Infinity
 export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
-  free: { talksPerMonth: 2, downloadsPerMonth: config.billing.enabled ? { pptx: 1, pdf: 2 } : { pptx: NO_LIMIT, pdf: NO_LIMIT }, monthlySpendCapUsd: 3, draftMessagesPerDay: 40 },
-  pro:  { talksPerMonth: NO_LIMIT, downloadsPerMonth: { pptx: NO_LIMIT, pdf: NO_LIMIT }, monthlySpendCapUsd: 30, draftMessagesPerDay: 400 },
+  free: { talksPerMonth: 2, downloadsPerMonth: config.billing.enabled ? { pptx: 1, pdf: 2 } : { pptx: NO_LIMIT, pdf: NO_LIMIT }, monthlySpendCapUsd: 3, draftMessagesPerDay: 40, rehearsalReviewsPerMonth: 1 },
+  pro:  { talksPerMonth: NO_LIMIT, downloadsPerMonth: { pptx: NO_LIMIT, pdf: NO_LIMIT }, monthlySpendCapUsd: 30, draftMessagesPerDay: 400, rehearsalReviewsPerMonth: NO_LIMIT },
 }
 
 export function tierOf(raw: string | null | undefined): PlanTier {
@@ -57,10 +61,21 @@ export function assertDownloadQuota(planTier: string, format: DownloadFormat, us
 
 /** What the UI shows and gates on: used / limit per month, `null` = no limit. */
 export interface PlanQuota { used: number; limit: number | null }
-export function quotaOf(planTier: string, used: { talks: number; pptx: number; pdf: number }): Record<'talks' | 'pptx' | 'pdf', PlanQuota> {
+export function quotaOf(planTier: string, used: { talks: number; pptx: number; pdf: number; reviews: number }): Record<'talks' | 'pptx' | 'pdf' | 'reviews', PlanQuota> {
   const L = PLAN_LIMITS[tierOf(planTier)]
   const q = (u: number, limit: number): PlanQuota => ({ used: u, limit: Number.isFinite(limit) ? limit : null })
-  return { talks: q(used.talks, L.talksPerMonth), pptx: q(used.pptx, L.downloadsPerMonth.pptx), pdf: q(used.pdf, L.downloadsPerMonth.pdf) }
+  return { talks: q(used.talks, L.talksPerMonth), pptx: q(used.pptx, L.downloadsPerMonth.pptx), pdf: q(used.pdf, L.downloadsPerMonth.pdf), reviews: q(used.reviews, L.rehearsalReviewsPerMonth) }
+}
+
+/** Throws when this month's rehearsal reviews are used up. */
+export function assertReviewQuota(planTier: string, usedThisMonth: number): void {
+  const limit = PLAN_LIMITS[tierOf(planTier)].rehearsalReviewsPerMonth
+  if (usedThisMonth >= limit) {
+    throw new PlanLimitError(
+      `Разбор репетиции на этом тарифе — ${limit === 1 ? 'один раз' : `${limit} раза`} в месяц, и он уже использован. На тарифе Pro — без ограничения; время по слайдам и расшифровка доступны всегда.`,
+      'PLAN_LIMIT_REACHED',
+    )
+  }
 }
 
 /** Throws when the workspace has already created its month's worth of talks. */

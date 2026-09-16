@@ -640,3 +640,24 @@ should come from users, usage_log and talk_events — not from this file.
 L is the exception on record: it came from comparing our decks with
 design-led tools, and its first layer is small enough to ship before the
 first user data arrives.
+
+### O. Rehearsal mode («Репетиция») · Effort: M · 🟢 SHIPPED (2026-09-16, code)
+The speaker view with a microphone; browser-side recognition, server-side
+metrics and a batched review; «как вы это сказали» applied to notes with
+undo. Picked over «living decks» (templates refilled with new inputs) as
+the first of the two 10× bets because it is the positioning made tangible
+and a habit (the night before every talk), not a one-off. See CHANGELOG.
+Left, in order:
+- **Recognition quality is the browser's.** Chrome's Russian model drops
+  most «э-э»; filler counts are a floor. If it matters, a server-side
+  pass (Yandex SpeechKit) over uploaded audio is the next step — that is
+  a consent question and a storage question, not a code one.
+- **Per-slide targets assume notes ≈ speaking time.** For decks without
+  notes the split is even; a weight on body text length would be fairer.
+- **Compare two rehearsals** («стало лучше?»): the rows exist, the diff
+  view does not.
+- **Mobile**: the rehearse page is the speaker grid — it needs the
+  notes-only stack under `lg` that present mode also lacks.
+- Second bet, still open: **living decks** — a talk as a template
+  (frozen outline + slot list), «новое выступление из этого» with new
+  inputs; the wedge into seats.

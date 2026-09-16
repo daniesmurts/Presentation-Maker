@@ -10,7 +10,7 @@ export interface TalkEvent {
   // 'image_generated' carries { slide, type } for one picture and
   // { done, failed, of } for a whole-deck pass — a deck that got 8 pictures
   // is different evidence from one that got 1 (§3.9).
-  event:       'exported' | 'subscribed' | 'renewed' | 'payment_failed' | 'renewal_failed' | 'refunded' | 'auto_renew_off' | 'auto_renew_on' | 'image_generated' | 'pro_granted' | 'pro_grant_revoked' | 'promo_redeemed' | 'referral_rewarded'
+  event:       'exported' | 'subscribed' | 'renewed' | 'payment_failed' | 'renewal_failed' | 'refunded' | 'auto_renew_off' | 'auto_renew_on' | 'image_generated' | 'pro_granted' | 'pro_grant_revoked' | 'promo_redeemed' | 'referral_rewarded' | 'rehearsed' | 'rehearsal_reviewed' | 'rehearsal_notes_applied'
   format?:     'pptx' | 'pdf'
   metadata?:   Record<string, unknown>
 }

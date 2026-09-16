@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useStageScale } from '../components/talks/useStageScale'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { X, Monitor } from 'lucide-react'
 import { getTalk } from '../api/talks'
 import { getBrand } from '../api/brand'
-import SlideStage, { STAGE_W, STAGE_H } from '../components/talks/SlideStage'
+import SlideStage from '../components/talks/SlideStage'
 import Spinner from '../components/ui/Spinner'
 import { copy } from '../lib/copy'
 
@@ -19,23 +20,6 @@ import { copy } from '../lib/copy'
 // F = fullscreen · Esc = leave.
 
 interface Sync { idx: number }
-
-// A callback ref, not useRef: the stage box mounts only after the talk
-// loads, and an effect keyed on a RefObject never re-runs when the element
-// appears — the first cut rendered at scale 1 inside a 739px column.
-function useStageScale(): [number, (el: HTMLDivElement | null) => void] {
-  const [el, setEl] = useState<HTMLDivElement | null>(null)
-  const [scale, setScale] = useState(1)
-  useEffect(() => {
-    if (!el) return
-    const measure = () => setScale(Math.min(el.clientWidth / STAGE_W, el.clientHeight / STAGE_H))
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [el])
-  return [scale, setEl]
-}
 
 export default function PresentPage() {
   const { id = '' } = useParams()

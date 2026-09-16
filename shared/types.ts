@@ -387,3 +387,83 @@ export function draftMissing(card: DraftCard): DraftMissing[] {
   if (card.theses.filter((t) => t.trim()).length === 0) out.push('theses')
   return out
 }
+
+// ─── Rehearsals («Репетиция») ─────────────────────────────────────────────────
+//
+// The user speaks the talk into the browser in a speaker-view page; the
+// browser's own speech recognition produces the words, the page stamps
+// every phrase with the slide it was said on. What reaches the server is
+// text and times — never audio. One row per rehearsal; the review (what
+// was said vs. the speaker's text) is a model pass over the row, stored
+// on it, and applied to the talk's notes slide by slide if the user wants.
+
+// One recognised phrase, as the recogniser finalised it.
+export interface RehearsalSegment {
+  slide:  number      // index into talk.slides at the moment it was said
+  at_ms:  number      // offset from the start of the rehearsal
+  text:   string
+}
+
+// Time spent on each slide, in the order the slides were visited. A slide
+// visited twice contributes two entries; the report sums them.
+export interface RehearsalVisit {
+  slide:  number
+  from_ms: number
+  to_ms:   number
+}
+
+// Computed on the server from segments + visits, no model involved.
+export interface RehearsalMetrics {
+  total_ms:        number
+  target_ms:       number | null     // from the talk's duration; null when it has none
+  words:           number
+  words_per_min:   number | null     // null when nothing was recognised
+  fillers:         number            // «ну», «вот», «как бы», um, uh, …
+  filler_examples: string[]          // the top few, for the copy
+  slides: Array<{
+    slide:      number
+    ms:         number
+    target_ms:  number | null
+    words:      number
+    over:       boolean              // > OVER_FACTOR × the slide's target
+  }>
+}
+
+export type RehearsalCoverage = 'covered' | 'partial' | 'skipped' | 'no_speech'
+
+// The model's reading of one slide's speech against its speaker text.
+export interface RehearsalSlideReview {
+  slide:        number
+  coverage:     RehearsalCoverage
+  missed:       string[]   // key points in the notes/slide that were not said
+  added:        string[]   // said, not on the slide or in the notes
+  verdict:      string     // one sentence
+  // The notes rewritten the way the speaker actually said it — clean prose,
+  // no fillers, same facts. Empty when there was no speech to rewrite from.
+  spoken_notes: string
+}
+
+export interface RehearsalReview {
+  summary:      string
+  strengths:    string[]
+  improvements: string[]
+  slides:       RehearsalSlideReview[]
+}
+
+export type RehearsalReviewStatus = 'none' | 'ready' | 'failed'
+
+export interface Rehearsal {
+  id:             string
+  talk_id:        string
+  workspace_id:   string
+  user_id:        string
+  started_at:     string
+  duration_ms:    number
+  speech_available: boolean   // false when the browser had no recogniser (timing-only)
+  segments:       RehearsalSegment[]
+  visits:         RehearsalVisit[]
+  metrics:        RehearsalMetrics
+  review:         RehearsalReview | null
+  review_status:  RehearsalReviewStatus
+  created_at:     string
+}

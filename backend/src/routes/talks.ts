@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { rehearsalsRouter } from './rehearsals'
 import rateLimit from 'express-rate-limit'
 import multer from 'multer'
 import { asyncHandler } from '../lib/asyncHandler'
@@ -36,6 +37,8 @@ import {
 
 export const talksRouter = Router()
 talksRouter.use(authenticate)
+// Rehearsals («Репетиция») live under a talk — routes/rehearsals.ts.
+talksRouter.use('/:id/rehearsals', rehearsalsRouter)
 
 // Bounds how many model-backed requests one USER can make — the spend cap
 // (services/spendCap.ts) is the money guard; this is the runaway-client

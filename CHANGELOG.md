@@ -6,6 +6,40 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
 ## [Unreleased]
 
 ### Added
+- **Rehearsal mode («Репетиция») — the talk, not just the slides.** The
+  positioning claims the speaking («от тезисов — к выступлению») and the
+  product stopped where slide generators stop; this is the first feature
+  that only makes sense for someone who will stand up and say it. Decisions:
+  - **The browser recognises, the server reads.** Web Speech API in the
+    rehearse page (`lib/speech.ts`, restarted on every `onend` because
+    continuous mode gives up after silence); the page logs *visits* (which
+    slide, from when to when) and *segments* (each finalised phrase,
+    stamped with the slide index) and posts text only. No audio upload, no
+    speech vendor, no consent question beyond the mic prompt — and the
+    intro card says so. Firefox has no recogniser: the rehearsal still
+    records timings, the copy says why the review is unavailable.
+  - **Two halves, two costs.** Metrics (`services/rehearsal.ts`
+    `computeMetrics`) are arithmetic on save: per-slide time against a
+    target that splits the talk's duration by speaker-text length (a
+    section divider is not owed a minute), over at 1.5×, wpm over time
+    on slides, fillers by whole-word match with multi-word ones first
+    («как бы» is not a stray «как»). The review is a model pass
+    (`rehearsal_review`), batched six slides per call like expansion,
+    aligned by the slide number the model echoes, silent slides never
+    sent. Free tier: one review a month (`rehearsalReviewsPerMonth`);
+    Pro unlimited — the review is the half worth paying for, the timings
+    are the half that makes people come back.
+  - **The transcript is user input entering a prompt** (§3.4): sanitised,
+    cut at 6 000 chars per slide, and the system prompt says it is data.
+  - **«Как вы это сказали» replaces notes, undoably.** The rewritten
+    notes are applied per chosen slide through one write that returns the
+    previous slides, same shape as the deck rewrite's undo.
+  - Measured on the first real run: a 4-phrase rehearsal reviewed for
+    $0.001 (two calls, 1 055 output tokens); a full 20-slide rehearsal is
+    four batches plus a summary, ~$0.02.
+  - Vitest quirk worth recording: `beforeEach(() => mock.mockReset())`
+    returns the mock, which vitest calls as a cleanup — one phantom call
+    with no arguments after every test. Braces.
 - **Founder alerts — an e-mail to the operator on every signup and every
   Pro payment.** `/admin` shows it all, but only when opened; the founder
   wanted to *hear* about the first paying customers as they arrive.

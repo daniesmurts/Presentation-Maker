@@ -3,7 +3,7 @@
 Legend: ✅ shipped · 🚧 in progress · 📋 planned. Grouped by the role that
 uses it. A 📋 item is marked, never implied. See `docs/WORKFLOW.md` §1.
 
-Last updated: «Как пользоваться» — eight explainers on the site, linked from the controls
+Last updated: Rehearsal mode («Репетиция») — the speaker view with a microphone, a report, and a review
 
 ---
 
@@ -89,6 +89,23 @@ on-prem install keeps `.pptx` open to everyone.
 - ✅ **Present mode** — full-screen slides with keyboard/click navigation,
   and a speaker window (current slide, notes, next slide, timer) that stays
   in step on a second screen.
+- ✅ **Rehearsal («Репетиция»)** — the speaker view with a microphone.
+  Talk through the deck; the browser's own speech recognition (Chrome,
+  Yandex Browser, Edge, Safari; Russian and English) turns it into words,
+  each phrase stamped with the slide it was said on, and nothing but text
+  ever reaches the server. The report: time per slide against the plan
+  (the talk's duration split by how much speaker text each slide carries),
+  slides that ran over 1.5× marked, words per minute, filler words («ну»,
+  «вот», «как бы» — um, uh, like), the transcript per slide. A browser
+  without recognition still gets the timings. Rehearsals are kept per
+  talk; the last one is linked from the talk header.
+- ✅ **Rehearsal review** — one pass over the rehearsal: per slide, was the
+  speaker's text covered / partial / skipped, which points did not get
+  said, what was added, one-sentence verdict; an overall summary with
+  strengths and «до выступления» to-dos; and «как вы это сказали» — the
+  speaker's text rewritten the way it was actually said, applied to any
+  chosen slides in one write with a one-step undo. Free: one review a
+  month; Pro: unlimited (recording and timings are never metered).
 - ✅ **Rewrite the whole talk from one instruction** («формальнее»,
   «короче») — you see old and new side by side per slide and accept only
   what you want; one-step undo after applying.

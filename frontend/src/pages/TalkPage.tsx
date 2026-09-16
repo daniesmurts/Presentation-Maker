@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Trash2, Download, Plus, Link2, Check, ChevronDown, Copy, Play, Wand2, CheckCircle2, Sparkles } from 'lucide-react'
+import { Trash2, Download, Plus, Link2, Check, ChevronDown, Copy, Play, Mic, Wand2, CheckCircle2, Sparkles } from 'lucide-react'
 import { getTalk, deleteTalk, updateSlide, regenerateSlide, deleteSlide, insertSlide, moveSlide, uploadSlideImage, removeSlideImage, setTalkTheme, shareTalk, unshareTalk, startRewrite, applyRewrite, dismissRewrite, replaceTalkSlides, getJob, approveTalk, getImagePrompt, generateSlideImage, generateDeckImages } from '../api/talks'
 import RewriteReview from '../components/talks/RewriteReview'
 import { remapAfterMove, remapAfterDelete, remapAfterInsert, toSlideNumbers, rangeBetween } from '../lib/slideSelection'
 import { getBrand } from '../api/brand'
+import { listRehearsals } from '../api/rehearsals'
 import { inputClass, Pill } from '../components/ui/Field'
 import { errorMessage } from '../api/client'
 import SlideCard, { type SlideEditActions } from '../components/talks/SlideCard'
@@ -36,6 +37,8 @@ export default function TalkPage() {
   const afterDownload = () => { setTimeout(() => void refresh(), 1500) }
   const { data: talk, isLoading, error } = useQuery({ queryKey: ['talk', id], queryFn: () => getTalk(id) })
   const { data: brandData } = useQuery({ queryKey: ['brand'], queryFn: getBrand, staleTime: 60_000 })
+  const { data: rehearsals } = useQuery({ queryKey: ['rehearsals', id], queryFn: () => listRehearsals(id), staleTime: 30_000 })
+  const lastRehearsal = rehearsals?.[0]
 
   const overfull = useMemo(() => {
     const map = new Map<number, string>()
@@ -180,6 +183,11 @@ export default function TalkPage() {
             {talk.approved_at && <Pill tone="ok">{copy.list.status.approved}</Pill>}
             {talk.share_token && <Pill tone="accent">{copy.list.status.shared} <HelpLink to="share" label="?" className="no-underline" /></Pill>}
             {overfull.size > 0 && <Pill tone="warn">{copy.talk.overfull}: {overfull.size} <HelpLink to="overfull" label="?" className="no-underline" /></Pill>}
+            {lastRehearsal && (
+              <Link to={`/talks/${id}/rehearsals/${lastRehearsal.id}`} className="text-accent hover:text-accent-deep underline">
+                {copy.rehearsal.lastOne(rehearsals!.length)}
+              </Link>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -216,6 +224,9 @@ export default function TalkPage() {
         <div className="flex items-center gap-2">
         <Link to={`/talks/${id}/present`} title={copy.present.hint} className={buttonClass('ghost')}>
           <Play className="w-4 h-4" aria-hidden /> <span className="hidden md:inline">{copy.present.button}</span>
+        </Link>
+        <Link to={`/talks/${id}/rehearse`} title={copy.rehearsal.hint} className={buttonClass('ghost')}>
+          <Mic className="w-4 h-4" aria-hidden /> <span className="hidden md:inline">{copy.rehearsal.button}</span>
         </Link>
         {/* Plain links, not fetch+blob: the browser streams the file and
             shows its own download UI; the cookie rides along same-origin. */}

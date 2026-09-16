@@ -14,6 +14,8 @@ import BrandPage from './pages/BrandPage'
 import BillingPage from './pages/BillingPage'
 import SharedPage from './pages/SharedPage'
 import PresentPage from './pages/PresentPage'
+import RehearsePage from './pages/RehearsePage'
+import RehearsalReportPage from './pages/RehearsalReportPage'
 import AdminLayout from './pages/admin/AdminLayout'
 import AdminOverviewPage from './pages/admin/AdminOverviewPage'
 import AdminWorkspacesPage from './pages/admin/AdminWorkspacesPage'
@@ -68,10 +70,12 @@ export default function App() {
       <Route path="/reset-password"  element={<ResetPasswordPage />} />
       <Route path="/s/:token"  element={<SharedPage />} />
       <Route path="/talks/:id/present" element={<RequireAuth><PresentPage /></RequireAuth>} />
+      <Route path="/talks/:id/rehearse" element={<RequireAuth><RehearsePage /></RequireAuth>} />
       <Route element={<RequireAuth><AppShell /></RequireAuth>}>
         <Route path="/talks"      element={<TalksPage />} />
         <Route path="/talks/new"  element={<NewTalkPage />} />
         <Route path="/talks/:id"  element={<TalkPage />} />
+        <Route path="/talks/:id/rehearsals/:rid" element={<RehearsalReportPage />} />
         <Route path="/jobs/:id"   element={<JobPage />} />
         <Route path="/drafts"     element={<DraftsPage />} />
         <Route path="/drafts/:id" element={<DraftPage />} />

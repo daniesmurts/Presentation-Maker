@@ -1027,7 +1027,7 @@ export function renderSlidesAsText(slides: Slide[], language: TalkLanguage = 'ru
   return slides.map((s, i) => renderSlideAsText(s, i + 1, language)).join('\n---\n')
 }
 
-function renderSlideAsText(s: Slide, n: number, language: TalkLanguage): string {
+export function renderSlideAsText(s: Slide, n: number, language: TalkLanguage): string {
   const ru = language === 'ru'
   const out: string[] = [`${ru ? 'СЛАЙД' : 'SLIDE'} ${n}: ${s.title}`]
 
