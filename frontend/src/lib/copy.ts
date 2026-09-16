@@ -286,6 +286,28 @@ export const copy = {
     payAgain:     'Оплатить месяц',
     saveCard:     'Сохранить карту и продлевать автоматически',
     saveCardHint: 'Без этого вы оплачиваете один месяц; когда он закончится, тариф вернётся на бесплатный. Отменить автопродление можно в любой момент.',
+    // What the buyer is agreeing to, stated before the button (T-Bank's
+    // condition for recurring charges): the amount today, the amount and
+    // period after, and how to stop it. The consent sentence itself comes
+    // from the API so the stored record is the text that was shown.
+    terms: {
+      today:    (rub: number) => `Сегодня: ${rub.toLocaleString('ru-RU')} ₽`,
+      firstMonthOnly: 'скидка только на первый месяц',
+      then:     (rub: number) => `Далее: ${rub.toLocaleString('ru-RU')} ₽ каждый месяц, автоматически, за день до конца оплаченного месяца`,
+      once:     (rub: number) => `Один платёж: ${rub.toLocaleString('ru-RU')} ₽ за месяц. Карта не сохраняется, списаний больше не будет.`,
+      cancel:   'Отмена — на этой странице, в один клик; оплаченный месяц дорабатывает до конца',
+      link:     'Условия подписки',
+      needed:   'Отметьте согласие на регулярные списания, чтобы продолжить',
+    },
+    resumeWithPrice: (rub: number) => `Включить автопродление — ${rub.toLocaleString('ru-RU')} ₽ в месяц`,
+    resumeHint:   'Нажимая, вы соглашаетесь на регулярные списания с сохранённой карты до отмены.',
+    refunds: {
+      heading:  'Отмена и возврат',
+      cancel:   'Отменить подписку — кнопка «Отключить автопродление» выше. Письма писать не нужно; Pro действует до конца оплаченного месяца.',
+      refund:   'Возврат: последнее списание возвращается полностью, если вы попросите в течение 14 дней после него и не пользовались оплаченным периодом (не создавали выступлений и не скачивали файлы).',
+      contact:  'По возврату и любому вопросу о списании — форма обратной связи или hello@tezarium.ru. Отвечаем в течение 2 рабочих дней.',
+      form:     'Написать нам',
+    },
     proUntil:     (date: string) => `Pro до ${date}`,
     renewsOn:     (date: string, last4: string | null) => `Продлится ${date}${last4 ? ` с карты ····${last4}` : ''}`,
     endsOn:       (date: string) => `Автопродление выключено — Pro закончится ${date}`,

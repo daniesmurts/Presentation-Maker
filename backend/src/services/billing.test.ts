@@ -2,25 +2,26 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Billing on, with a known terminal — set before config is imported
 // (imports are hoisted above plain statements; vi.hoisted runs first).
-const { queryMock, tbankInit, tbankCharge, tbankGetState } = vi.hoisted(() => {
+const { queryMock, tbankInit, tbankCharge, tbankGetState, sendEmailMock } = vi.hoisted(() => {
   process.env.BILLING_ENABLED     = '1'
   process.env.TBANK_TERMINAL_KEY  = 'TestTerminal'
   process.env.TBANK_PASSWORD      = 'test-password'
   process.env.PUBLIC_API_URL      = 'https://api.example.test'
-  return { queryMock: vi.fn(), tbankInit: vi.fn(), tbankCharge: vi.fn(), tbankGetState: vi.fn() }
+  return { queryMock: vi.fn(), tbankInit: vi.fn(), tbankCharge: vi.fn(), tbankGetState: vi.fn(), sendEmailMock: vi.fn() }
 })
 vi.mock('../db/connection', () => ({ pool: { query: queryMock, connect: async () => ({ query: queryMock, release: () => undefined }) } }))
 vi.mock('../lib/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }))
+vi.mock('./emailTransport', () => ({ sendEmail: sendEmailMock }))
 vi.mock('./tbank/client', async (orig) => ({
   ...(await orig<typeof import('./tbank/client')>()),
   init: tbankInit, charge: tbankCharge, getState: tbankGetState,
 }))
 
-import { nextPeriod, applyNotification, NotificationRejected, startCheckout, renewWorkspace, PRO_AMOUNT_KOPECKS, MAX_RENEWAL_FAILURES } from './billing'
+import { nextPeriod, applyNotification, NotificationRejected, startCheckout, renewWorkspace, setAutoRenewFor, PRO_AMOUNT_KOPECKS, MAX_RENEWAL_FAILURES, RECURRING_CONSENT_TEXT } from './billing'
 import { signRequest } from './tbank/token'
 import { TbankError } from './tbank/client'
 
-beforeEach(() => { queryMock.mockReset(); tbankInit.mockReset(); tbankCharge.mockReset(); tbankGetState.mockReset() })
+beforeEach(() => { queryMock.mockReset(); tbankInit.mockReset(); tbankCharge.mockReset(); tbankGetState.mockReset(); sendEmailMock.mockReset(); sendEmailMock.mockResolvedValue(undefined) })
 
 describe('nextPeriod', () => {
   it('starts now for a free workspace and at the current expiry for an active one', () => {
@@ -59,6 +60,7 @@ function db(opts: { payment?: Record<string, unknown> | null; lockedStatus?: str
     if (sql.includes('FROM workspaces WHERE id')) return { rows: [{ id: 'w1', plan_tier: 'free', plan_expires_at: null, tbank_rebill_id: null, card_last4: null, auto_renew: true, renewal_failures: 0, ...opts.ws }] }
     if (sql.includes('INSERT INTO payments')) return { rows: [{ ...paymentRow, order_id: params?.[1] as string, kind: params?.[2] }] }
     if (sql.includes('SELECT 1 FROM payments')) return { rowCount: 0, rows: [] }   // no open / recent attempts
+    if (sql.includes('SELECT email, display_name FROM users')) return { rows: [{ email: 'owner@example.test', display_name: 'Оля' }] }
     if (sql.includes('renewal_failures + 1')) return { rows: [{ renewal_failures: 1 }] }
     writes.push(sql)
     return { rows: [], rowCount: 1 }
@@ -155,9 +157,71 @@ describe('startCheckout', () => {
     expect(params.receipt.Items[0]).toMatchObject({ Amount: 250000, Quantity: 1, PaymentObject: 'service' })
     expect(params.orderId.length).toBeLessThanOrEqual(50)
   })
+  it('a saved card carries the consent sentence, the time and the address on the row, and stamps the workspace', async () => {
+    const writes = db({})
+    tbankInit.mockResolvedValue({ paymentId: '900001', paymentUrl: 'u', status: 'NEW' })
+    await startCheckout('w1', 'u@x', { consentIp: '10.0.0.7' })
+    const insert = queryMock.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO payments'))!
+    expect(insert[1].slice(5)).toEqual([expect.any(Date), RECURRING_CONSENT_TEXT, '10.0.0.7'])
+    expect(writes.some((s) => s.includes('recurring_consent_at = NOW()'))).toBe(true)
+  })
+  it('a one-time payment (save_card=false) records no consent — nothing recurring was agreed', async () => {
+    const writes = db({})
+    tbankInit.mockResolvedValue({ paymentId: '900002', paymentUrl: 'u', status: 'NEW' })
+    await startCheckout('w1', 'u@x', { saveCard: false, consentIp: '10.0.0.7' })
+    const insert = queryMock.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO payments'))!
+    expect(insert[1].slice(5)).toEqual([null, null, null])
+    expect(writes.some((s) => s.includes('recurring_consent_at = NOW()'))).toBe(false)
+  })
   it('refuses a second checkout for an active auto-renewing Pro', async () => {
     db({ ws: { plan_tier: 'pro', plan_expires_at: new Date(Date.now() + 86400e3), tbank_rebill_id: 'r1' } })
     await expect(startCheckout('w1', 'u@x')).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+  })
+})
+
+describe('setAutoRenewFor', () => {
+  it('switching renewal back on is a fresh consent: stamps the workspace and records the sentence', async () => {
+    const writes = db({ ws: { plan_tier: 'pro', tbank_rebill_id: 'r1', auto_renew: false } })
+    await setAutoRenewFor('w1', 'u1', true)
+    expect(writes.some((s) => s.includes('recurring_consent_at = NOW()'))).toBe(true)
+    const ev = queryMock.mock.calls.find(([sql, p]) => String(sql).includes('INSERT INTO talk_events') && (p as unknown[])[3] === 'auto_renew_on')!
+    expect(JSON.parse(ev[1][5] as string)).toEqual({ consent_text: RECURRING_CONSENT_TEXT })
+  })
+  it('switching off stamps nothing', async () => {
+    const writes = db({ ws: { plan_tier: 'pro', tbank_rebill_id: 'r1' } })
+    await setAutoRenewFor('w1', 'u1', false)
+    expect(writes.some((s) => s.includes('recurring_consent_at = NOW()'))).toBe(false)
+  })
+})
+
+describe('subscription e-mails', () => {
+  const flush = () => new Promise((r) => setTimeout(r, 0))
+  it('a CONFIRMED parent payment with a RebillId mails «подписка оформлена» with the amount, the period and how to cancel', async () => {
+    db({})
+    await applyNotification(confirmed())
+    await flush()
+    expect(sendEmailMock).toHaveBeenCalledTimes(1)
+    const mail = sendEmailMock.mock.calls[0][0]
+    expect(mail.to).toBe('owner@example.test')
+    expect(mail.subject).toMatch(/Подписка Pro оформлена/)
+    expect(mail.text).toMatch(/2\s500 ₽ будут списываться ежемесячно/)   // ru-RU thousands separator is U+00A0
+    expect(mail.text).toMatch(/····0777/)
+    expect(mail.text).toMatch(/Отключить автопродление/)
+    expect(mail.text).toMatch(/14 дней/)
+  })
+  it('a one-time payment (no RebillId, no card on the workspace) mails nothing', async () => {
+    db({})
+    await applyNotification(confirmed({ RebillId: undefined, Pan: undefined }))
+    await flush()
+    expect(sendEmailMock).not.toHaveBeenCalled()
+  })
+  it('a renewal mails «Pro продлён»; a failed mailer never fails the notification', async () => {
+    db({ payment: { ...paymentRow, kind: 'renewal' }, ws: { plan_tier: 'pro', tbank_rebill_id: 'r1', card_last4: '0777' } })
+    sendEmailMock.mockRejectedValue(new Error('smtp down'))
+    const r = await applyNotification(confirmed({ RebillId: undefined, Pan: undefined }))
+    expect(r.applied).toBe(true)
+    await flush()
+    expect(sendEmailMock.mock.calls[0][0].subject).toMatch(/Pro продлён/)
   })
 })
 
@@ -181,5 +245,8 @@ describe('renewWorkspace', () => {
     expect(bump[1]).toEqual(['w1', MAX_RENEWAL_FAILURES])
     const failed = queryMock.mock.calls.find(([sql]) => String(sql).includes('error_code = $3') && !String(sql).includes('raw_notification'))!
     expect(failed[1]).toEqual(['p1', 'REJECTED', '1051'])
+    await new Promise((r) => setTimeout(r, 0))
+    expect(sendEmailMock.mock.calls[0][0].subject).toMatch(/Не удалось продлить/)
+    expect(sendEmailMock.mock.calls[0][0].text).toMatch(/попробуем ещё раз завтра/)
   })
 })

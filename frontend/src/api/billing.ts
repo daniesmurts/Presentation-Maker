@@ -18,13 +18,15 @@ export interface Billing {
   auto_renew:       boolean
   card_last4:       string | null
   renewal_failures: number
+  /** The exact sentence the consent box shows; the server stores it on the payment. */
+  recurring_consent_text: string
   payments:         Payment[]
 }
 
 export interface PromoPreview { code: string; kind: 'percent' | 'fixed' | 'free_months'; value: number; price_rub?: number }
 
 export const getBilling = () => client.get<Billing>('/api/billing').then((r) => r.data)
-export const checkout   = (saveCard = true, promoCode?: string) => client.post<{ url: string; order_id: string }>('/api/billing/checkout', { save_card: saveCard, promo_code: promoCode }).then((r) => r.data)
+export const checkout   = (saveCard: boolean, recurringConsent: boolean, promoCode?: string) => client.post<{ url: string; order_id: string }>('/api/billing/checkout', { save_card: saveCard, recurring_consent: recurringConsent, promo_code: promoCode }).then((r) => r.data)
 export const verifyOrder = (order: string) => client.get<{ status: string; paid: boolean }>('/api/billing/verify', { params: { order } }).then((r) => r.data)
 export const cancelRenewal = () => client.post<Billing>('/api/billing/cancel').then((r) => r.data)
 export const resumeRenewal = () => client.post<Billing>('/api/billing/resume').then((r) => r.data)

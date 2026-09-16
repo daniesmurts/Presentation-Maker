@@ -27,9 +27,15 @@ export interface PaymentRow {
   period_start:     Date | null
   period_end:       Date | null
   promo_code_id:    string | null
+  // Consent to recurring charges, as ticked at checkout (migration 023).
+  recurring_consent_at:   Date | null
+  recurring_consent_text: string | null
+  recurring_consent_ip:   string | null
   created_at:       Date
   updated_at:       Date
 }
+
+export interface RecurringConsent { text: string; ip: string | null }
 
 const WS_COLS = 'id, plan_tier, plan_source, plan_expires_at, tbank_rebill_id, card_last4, auto_renew, renewal_failures'
 
@@ -40,7 +46,7 @@ export async function getWorkspaceBilling(workspaceId: string): Promise<Workspac
 
 export async function listPayments(workspaceId: string, limit = 12): Promise<PaymentRow[]> {
   const { rows } = await pool.query<PaymentRow>(
-    `SELECT id, workspace_id, order_id, tbank_payment_id, kind, amount_kopecks, status, error_code, period_start, period_end, promo_code_id, created_at, updated_at
+    `SELECT id, workspace_id, order_id, tbank_payment_id, kind, amount_kopecks, status, error_code, period_start, period_end, promo_code_id, recurring_consent_at, recurring_consent_text, recurring_consent_ip, created_at, updated_at
        FROM payments WHERE workspace_id = $1 ORDER BY created_at DESC LIMIT $2`,
     [workspaceId, limit],
   )
@@ -52,12 +58,18 @@ export async function findPaymentByOrderId(orderId: string): Promise<PaymentRow 
   return rows[0] ?? null
 }
 
-export async function createPayment(p: { workspaceId: string; orderId: string; kind: 'initial' | 'renewal'; amountKopecks: number; promoCodeId?: string | null }): Promise<PaymentRow> {
+export async function createPayment(p: { workspaceId: string; orderId: string; kind: 'initial' | 'renewal'; amountKopecks: number; promoCodeId?: string | null; consent?: RecurringConsent | null }): Promise<PaymentRow> {
   const { rows } = await pool.query<PaymentRow>(
-    `INSERT INTO payments (workspace_id, order_id, kind, amount_kopecks, promo_code_id) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-    [p.workspaceId, p.orderId, p.kind, p.amountKopecks, p.promoCodeId ?? null],
+    `INSERT INTO payments (workspace_id, order_id, kind, amount_kopecks, promo_code_id, recurring_consent_at, recurring_consent_text, recurring_consent_ip)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+    [p.workspaceId, p.orderId, p.kind, p.amountKopecks, p.promoCodeId ?? null, p.consent ? new Date() : null, p.consent?.text ?? null, p.consent?.ip ?? null],
   )
   return rows[0]
+}
+
+/** The workspace's latest consent to recurring charges (checkout, or auto-renew switched back on). */
+export async function stampRecurringConsent(workspaceId: string): Promise<void> {
+  await pool.query(`UPDATE workspaces SET recurring_consent_at = NOW() WHERE id = $1`, [workspaceId])
 }
 
 export async function setPaymentProviderId(id: string, tbankPaymentId: string, status: string): Promise<void> {

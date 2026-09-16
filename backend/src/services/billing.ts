@@ -7,7 +7,7 @@ import { PRO_PRICE_RUB } from '../lib/planTier'
 import { recordTalkEvent } from '../db/queries/talkEvents'
 import {
   getWorkspaceBilling, listPayments, findPaymentByOrderId, createPayment, setPaymentProviderId, markPaymentFailed,
-  hasOpenPayment, hasRenewalAttemptSince, applyPaymentStatus, setAutoRenew, bumpRenewalFailures, listDueForRenewal, expireLapsedPro, revokePro,
+  hasOpenPayment, hasRenewalAttemptSince, applyPaymentStatus, setAutoRenew, stampRecurringConsent, bumpRenewalFailures, listDueForRenewal, expireLapsedPro, revokePro,
   type PaymentRow, type WorkspaceBilling,
 } from '../db/queries/billing'
 import * as tbank from './tbank/client'
@@ -15,6 +15,8 @@ import { applyPromoToCharge, finalisePromoOnPayment } from './promoCodes'
 import { referrerDiscountCode, rewardReferralOnPayment, clawBackReferralOnRefund } from './referrals'
 import { verifyNotification } from './tbank/token'
 import { scheduleWithLease } from './schedulerLease'
+import { sendEmail } from './emailTransport'
+import { subscriptionStartedEmail, subscriptionRenewedEmail, renewalFailedEmail } from '../lib/emailTemplates'
 
 // The Pro subscription: 2 500 ₽ a month through T-Bank, auto-renewed from
 // the card saved on the first payment (Recurrent=Y → RebillId → Charge).
@@ -34,6 +36,14 @@ import { scheduleWithLease } from './schedulerLease'
 // GetState path the return page uses goes through the same function.
 
 export const PRO_AMOUNT_KOPECKS = PRO_PRICE_RUB * 100
+
+// The sentence the buyer ticks. Built here, sent to the page, and stored on
+// the payment row verbatim — so the record is of what was actually shown,
+// not of what the frontend bundle said at the time (T-Bank's condition for
+// recurring charges; migration 023).
+export const RECURRING_CONSENT_TEXT =
+  `Я соглашаюсь на регулярные списания ${PRO_PRICE_RUB.toLocaleString('ru-RU')} ₽ ежемесячно с сохранённой карты ` +
+  'до отмены подписки и принимаю условия подписки.'
 /** Days of Pro after the paid month ends before the tier drops — covers a
  *  webhook that lags and a card that needs a retry or two. */
 export const GRACE_DAYS = 3
@@ -64,6 +74,7 @@ export interface BillingView {
   auto_renew:  boolean
   card_last4:  string | null
   renewal_failures: number
+  recurring_consent_text: string
   payments:    Array<Pick<PaymentRow, 'id' | 'kind' | 'amount_kopecks' | 'status' | 'created_at' | 'period_start' | 'period_end'>>
 }
 
@@ -78,6 +89,7 @@ export async function billingView(workspaceId: string): Promise<BillingView> {
     auto_renew: ws?.auto_renew ?? false,
     card_last4: ws?.card_last4 ?? null,
     renewal_failures: ws?.renewal_failures ?? 0,
+    recurring_consent_text: RECURRING_CONSENT_TEXT,
     payments:   payments.map((p) => ({ id: p.id, kind: p.kind, amount_kopecks: p.amount_kopecks, status: p.status, created_at: p.created_at, period_start: p.period_start, period_end: p.period_end })),
   }
 }
@@ -121,7 +133,7 @@ export function nextPeriod(currentExpiry: Date | null, now = new Date()): { star
 // cabinet «Тест 1», which does not count a recurrent parent payment as a
 // plain successful one (2026-09-15: three CONFIRMED payments, test still
 // «не пройдено»).
-export async function startCheckout(workspaceId: string, email: string, opts: { saveCard?: boolean; promoCode?: string } = {}): Promise<{ url: string; order_id: string }> {
+export async function startCheckout(workspaceId: string, email: string, opts: { saveCard?: boolean; promoCode?: string; consentIp?: string | null } = {}): Promise<{ url: string; order_id: string }> {
   const saveCard = opts.saveCard !== false
   const t = assertEnabled()
   const ws = await getWorkspaceBilling(workspaceId)
@@ -143,7 +155,10 @@ export async function startCheckout(workspaceId: string, email: string, opts: { 
   const referralCode = explicitPromo ? null : await referrerDiscountCode(workspaceId)
   const promo = explicitPromo ?? (referralCode ? await applyPromoToCharge(referralCode, workspaceId, PRO_AMOUNT_KOPECKS).catch(() => null) : null)
   const amountKopecks = promo?.amountKopecks ?? PRO_AMOUNT_KOPECKS
-  const row = await createPayment({ workspaceId, orderId: newOrderId(workspaceId, 'initial'), kind: 'initial', amountKopecks, promoCodeId: promo?.promo.id })
+  // Saving the card means future charges; those need the ticked sentence on the row.
+  const consent = saveCard ? { text: RECURRING_CONSENT_TEXT, ip: opts.consentIp ?? null } : null
+  const row = await createPayment({ workspaceId, orderId: newOrderId(workspaceId, 'initial'), kind: 'initial', amountKopecks, promoCodeId: promo?.promo.id, consent })
+  if (consent) await stampRecurringConsent(workspaceId)
   const { successUrl, failUrl, notificationUrl } = urls(t)
   let result: tbank.InitResult
   try {
@@ -229,6 +244,15 @@ async function applyOutcome(
       // The referral reward is on the payment, not the discount — a
       // referee who paid full price still earns it. First payment only.
       if (payment.kind === 'initial') await rewardReferralOnPayment(payment.workspace_id, payment.id)
+      // A one-time payment (no card saved) gets no "you will be charged
+      // monthly" letter — nothing recurring was agreed to.
+      const recurring = Boolean(extra.rebillId ?? ws?.tbank_rebill_id)
+      if (payment.kind === 'renewal' || recurring) {
+        const last4 = extra.pan ? extra.pan.slice(-4) : ws?.card_last4 ?? null
+        void mailOwner(payment.workspace_id, (name) => payment.kind === 'initial'
+          ? subscriptionStartedEmail({ displayName: name, amountKopecks: payment.amount_kopecks, priceRub: PRO_PRICE_RUB, until: end, last4, billingUrl: BILLING_URL })
+          : subscriptionRenewedEmail({ displayName: name, amountKopecks: payment.amount_kopecks, until: end, last4, billingUrl: BILLING_URL }))
+      }
     }
     return applied
   }
@@ -297,13 +321,35 @@ export async function setAutoRenewFor(workspaceId: string, userId: string, on: b
   if (!ws) throw new AppError('Рабочее пространство не найдено', 404, 'NOT_FOUND')
   if (on && !ws.tbank_rebill_id) throw new ValidationError('Нет сохранённой карты — оплатите тариф заново, карта сохранится')
   await setAutoRenew(workspaceId, on)
-  recordTalkEvent({ talkId: null, workspaceId, userId, event: on ? 'auto_renew_on' : 'auto_renew_off' })
+  // Switching renewal back on is a fresh consent to future charges; the
+  // button carries the amount and period, and the event carries the sentence.
+  if (on) await stampRecurringConsent(workspaceId)
+  recordTalkEvent({ talkId: null, workspaceId, userId, event: on ? 'auto_renew_on' : 'auto_renew_off', metadata: on ? { consent_text: RECURRING_CONSENT_TEXT } : undefined })
 }
 
 async function noteRenewalFailure(workspaceId: string, orderId: string): Promise<void> {
   const failures = await bumpRenewalFailures(workspaceId, MAX_RENEWAL_FAILURES)
+  const autoRenewOff = failures >= MAX_RENEWAL_FAILURES
   recordTalkEvent({ talkId: null, workspaceId, userId: null, event: 'renewal_failed', metadata: { order_id: orderId, failures } })
-  logger.warn({ message: 'Renewal failed', workspaceId, orderId, failures, autoRenewOff: failures >= MAX_RENEWAL_FAILURES })
+  logger.warn({ message: 'Renewal failed', workspaceId, orderId, failures, autoRenewOff })
+  const ws = await getWorkspaceBilling(workspaceId)
+  const graceUntil = new Date((ws?.plan_expires_at ?? new Date()).getTime() + GRACE_DAYS * 86_400_000)
+  void mailOwner(workspaceId, (name) => renewalFailedEmail({ displayName: name, graceUntil, autoRenewOff, billingUrl: BILLING_URL }))
+}
+
+const BILLING_URL = `${config.frontendUrl}/billing`
+
+/** Mail the workspace owner. Fire-and-forget: a mail failure must never fail
+ *  the webhook that triggered it — T-Bank must still get its «OK». */
+async function mailOwner(workspaceId: string, build: (displayName: string | null) => { subject: string; html: string; text: string }): Promise<void> {
+  try {
+    const { rows } = await pool.query<{ email: string; display_name: string | null }>(
+      `SELECT email, display_name FROM users WHERE workspace_id = $1 ORDER BY created_at LIMIT 1`, [workspaceId])
+    if (!rows[0]) return
+    await sendEmail({ to: rows[0].email, ...build(rows[0].display_name) })
+  } catch (err) {
+    logger.error({ message: 'Billing e-mail failed', workspaceId, error: (err as Error).message })
+  }
 }
 
 /** One renewal attempt for one workspace: Init (no Recurrent) + Charge with the saved card. */

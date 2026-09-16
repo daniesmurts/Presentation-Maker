@@ -92,7 +92,14 @@ on-prem install keeps `.pptx` open to everyone.
   the paid month runs to its end; three days of grace after a declined
   renewal before the tier drops, with the page saying what to do. Payment
   history on the page. A locked `.pptx` in the download menu links to the
-  tariff page instead of downloading a 403.
+  tariff page instead of downloading a 403. Before paying with a saved
+  card the page states the amount today and the monthly amount after, and
+  the buyer ticks an (unticked) consent box themselves; the ticked
+  sentence, time and address are kept per payment. An «Отмена и возврат»
+  block: cancellation is the button, refunds within 14 days of an unused
+  period via the contact form or e-mail, answered in 2 working days.
+  Letters on subscription start, each renewal, and a failed renewal.
+  Public «Условия подписки» at `/legal/subscription`.
 - ✅ **Style learning** (off by default, one switch on the Brand page): new
   talks are written in the manner of the ones you marked «Готово» — notes
   depth, phrasing, tone — never their content, and never across workspaces.

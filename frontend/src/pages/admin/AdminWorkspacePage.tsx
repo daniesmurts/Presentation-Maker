@@ -80,7 +80,7 @@ export default function AdminWorkspacePage() {
       <Section title={D.payments}>
         {data.payments.length === 0 ? <p className="text-sm text-ink-secondary">{D.none}</p> : (
           <Table>
-            <thead><tr><th className={TH}>Когда</th><th className={TH}>Вид</th><th className={`${TH} text-right`}>Сумма</th><th className={TH}>Статус</th><th className={TH}>Период</th></tr></thead>
+            <thead><tr><th className={TH}>Когда</th><th className={TH}>Вид</th><th className={`${TH} text-right`}>Сумма</th><th className={TH}>Статус</th><th className={TH}>Период</th><th className={TH}>Согласие</th></tr></thead>
             <tbody>{data.payments.map((p) => (
               <tr key={p.id}>
                 <td className={`${TD} font-mono text-xs`}>{fmtDateTime(p.created_at)}</td>
@@ -88,6 +88,8 @@ export default function AdminWorkspacePage() {
                 <td className={`${TD} ${NUM}`}>{fmtRub(p.amount_kopecks)}</td>
                 <td className={TD}><Pill tone={PAYMENT_TONE[p.status] ?? 'bad'}>{p.status}</Pill>{p.error_code && <span className="ml-2 font-mono text-xs text-danger">{p.error_code}</span>}</td>
                 <td className={`${TD} font-mono text-xs`}>{p.period_start ? `${fmtDate(p.period_start)} – ${fmtDate(p.period_end)}` : '—'}</td>
+                {/* The chargeback answer: when the box was ticked and from where (migration 023). */}
+                <td className={`${TD} font-mono text-xs`} title={p.recurring_consent_at ? 'Согласие на регулярные списания' : undefined}>{p.recurring_consent_at ? `${fmtDateTime(p.recurring_consent_at)} · ${p.recurring_consent_ip ?? '—'}` : '—'}</td>
               </tr>
             ))}</tbody>
           </Table>

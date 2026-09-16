@@ -6,6 +6,45 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
 ## [Unreleased]
 
 ### Added
+- **Consent to recurring charges, refund contacts, subscription terms —
+  T-Bank's conditions for enabling Recurrent/Charge** (their letter,
+  2026-09-16: «покупателю нужно указать сумму и периодичность списания
+  перед оплатой … чек-бокс согласия, который покупатель заполняет
+  самостоятельно», and «форму обратной связи либо контакты для
+  обращения по возврату или отмене»). What changed and why it is shaped
+  this way:
+  - The «save card» box was on by default and doubled as consent. Now
+    save-card chooses the mode and a *second*, unticked box carries the
+    consent sentence; the button stays disabled until it is ticked. The
+    sentence comes from the API (`recurring_consent_text`) and is stored
+    on the payment row with the time and `req.ip` (migration 023) —
+    the answer to a chargeback is a row, not a claim. `POST /checkout`
+    with `save_card` and no `recurring_consent:true` is a 400, so a
+    client that skipped the page cannot save a card either.
+  - A terms block above the button says «Сегодня: X ₽ · Далее: 2 500 ₽
+    каждый месяц …» — with a promo, X differs and the block says the
+    discount is for the first month only. One-time mode says «карта не
+    сохраняется, списаний больше не будет».
+  - «Включить автопродление» became «… — 2 500 ₽ в месяц» with a line
+    under it; clicking it stamps `workspaces.recurring_consent_at` and
+    the `auto_renew_on` event carries the sentence.
+  - Refund rule decided: the latest charge is refunded in full on request
+    within 14 days if the paid period was unused; otherwise the period
+    runs out. On the billing page, on `/legal/subscription` (new, linked
+    from the footer, terms §6.2, the pricing block, the FAQ, the contact
+    page), and in every subscription e-mail. `/contact?category=billing`
+    preselects the topic.
+  - E-mails on subscription start, renewal and failed renewal — each
+    restates amount, period, how to cancel, how to ask for a refund.
+    Fire-and-forget from the webhook path: a mailer outage still returns
+    `OK` to T-Bank (tested).
+  - Admin workspace page: a «Согласие» column on payments (time · IP).
+  - Verified locally: box unticked → button disabled; ticked → row with
+    sentence/time/IP; one-time mode → no consent recorded; server 400
+    without consent; signed CONFIRMED replay → Pro + rebill id; landing
+    builds, `/legal/subscription` renders, contact preselects billing.
+    Still to do before writing back to T-Bank: fill `operator.ts` (the
+    reviewer will see highlighted placeholders), deploy.
 - **Email confirmation, password reset, and "remember me".** Decided
   2026-09-16, ahead of onboarding the first real users: registration
   created and logged a user in with zero proof they own the address, and a
@@ -86,6 +125,45 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 ## [Unreleased]
 
 ### Added
+- **Consent to recurring charges, refund contacts, subscription terms —
+  T-Bank's conditions for enabling Recurrent/Charge** (their letter,
+  2026-09-16: «покупателю нужно указать сумму и периодичность списания
+  перед оплатой … чек-бокс согласия, который покупатель заполняет
+  самостоятельно», and «форму обратной связи либо контакты для
+  обращения по возврату или отмене»). What changed and why it is shaped
+  this way:
+  - The «save card» box was on by default and doubled as consent. Now
+    save-card chooses the mode and a *second*, unticked box carries the
+    consent sentence; the button stays disabled until it is ticked. The
+    sentence comes from the API (`recurring_consent_text`) and is stored
+    on the payment row with the time and `req.ip` (migration 023) —
+    the answer to a chargeback is a row, not a claim. `POST /checkout`
+    with `save_card` and no `recurring_consent:true` is a 400, so a
+    client that skipped the page cannot save a card either.
+  - A terms block above the button says «Сегодня: X ₽ · Далее: 2 500 ₽
+    каждый месяц …» — with a promo, X differs and the block says the
+    discount is for the first month only. One-time mode says «карта не
+    сохраняется, списаний больше не будет».
+  - «Включить автопродление» became «… — 2 500 ₽ в месяц» with a line
+    under it; clicking it stamps `workspaces.recurring_consent_at` and
+    the `auto_renew_on` event carries the sentence.
+  - Refund rule decided: the latest charge is refunded in full on request
+    within 14 days if the paid period was unused; otherwise the period
+    runs out. On the billing page, on `/legal/subscription` (new, linked
+    from the footer, terms §6.2, the pricing block, the FAQ, the contact
+    page), and in every subscription e-mail. `/contact?category=billing`
+    preselects the topic.
+  - E-mails on subscription start, renewal and failed renewal — each
+    restates amount, period, how to cancel, how to ask for a refund.
+    Fire-and-forget from the webhook path: a mailer outage still returns
+    `OK` to T-Bank (tested).
+  - Admin workspace page: a «Согласие» column on payments (time · IP).
+  - Verified locally: box unticked → button disabled; ticked → row with
+    sentence/time/IP; one-time mode → no consent recorded; server 400
+    without consent; signed CONFIRMED replay → Pro + rebill id; landing
+    builds, `/legal/subscription` renders, contact preselects billing.
+    Still to do before writing back to T-Bank: fill `operator.ts` (the
+    reviewer will see highlighted placeholders), deploy.
 - **Referral fraud gates**, before the first deploy (TODO M follow-up).
   Migration 020: `users.signup_ip` and a `referrals.status` value
   `'blocked'`. Normalised-e-mail match (`+tag` stripped on any provider;

@@ -101,7 +101,7 @@ export interface AdminWorkspaceDetail {
   workspace: { id: string; name: string; plan_tier: string; plan_source: string; plan_expires_at: string | null; auto_renew: boolean; card_last4: string | null; renewal_failures: number; monthly_spend_cap_usd: number | null; style_learning: boolean; created_at: string }
   users:     Array<{ id: string; email: string; display_name: string | null; is_admin: boolean; deactivated_at: string | null; terms_accepted_at: string | null; terms_version: string | null; created_at: string }>
   talks:     Array<{ id: string; title: string; intent: string; audience: string; language: string; slides: number; theme_id: string; approved_at: string | null; shared: boolean; created_at: string }>
-  payments:  Array<{ id: string; kind: string; amount_kopecks: number; status: string; error_code: string | null; period_start: string | null; period_end: string | null; created_at: string }>
+  payments:  Array<{ id: string; kind: string; amount_kopecks: number; status: string; error_code: string | null; period_start: string | null; period_end: string | null; recurring_consent_at: string | null; recurring_consent_ip: string | null; created_at: string }>
   spend:     Array<{ month: string; calls: number; cost_usd: number; failed: number }>
   events:    Array<{ id: string; talk_id: string | null; event: string; format: string | null; metadata: unknown; created_at: string }>
   jobs:      Array<{ id: string; kind: string; status: string; error_message: string | null; attempts: number; created_at: string; updated_at: string }>
@@ -116,7 +116,7 @@ export async function getAdminWorkspace(id: string): Promise<AdminWorkspaceDetai
     pool.query<AdminWorkspaceDetail['talks'][number] & { slides: string }>(
       `SELECT id, title, intent, audience, language, COALESCE(jsonb_array_length(slides), 0)::text AS slides, theme_id, approved_at, share_token IS NOT NULL AS shared, created_at
          FROM talks WHERE workspace_id = $1 ORDER BY created_at DESC LIMIT 200`, [id]),
-    pool.query<AdminWorkspaceDetail['payments'][number]>(`SELECT id, kind, amount_kopecks, status, error_code, period_start, period_end, created_at FROM payments WHERE workspace_id = $1 ORDER BY created_at DESC LIMIT 100`, [id]),
+    pool.query<AdminWorkspaceDetail['payments'][number]>(`SELECT id, kind, amount_kopecks, status, error_code, period_start, period_end, recurring_consent_at, recurring_consent_ip, created_at FROM payments WHERE workspace_id = $1 ORDER BY created_at DESC LIMIT 100`, [id]),
     pool.query<{ month: string; calls: string; cost_usd: string; failed: string }>(
       `SELECT to_char(date_trunc('month', created_at), 'YYYY-MM') AS month, COUNT(*)::text AS calls, COALESCE(SUM(cost_usd), 0)::text AS cost_usd, COUNT(*) FILTER (WHERE NOT success)::text AS failed
          FROM usage_log WHERE workspace_id = $1 GROUP BY 1 ORDER BY 1 DESC LIMIT 12`, [id]),

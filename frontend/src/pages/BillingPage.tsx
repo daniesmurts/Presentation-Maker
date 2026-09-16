@@ -5,7 +5,7 @@ import { ChevronDown } from 'lucide-react'
 import { getBilling, checkout, verifyOrder, cancelRenewal, resumeRenewal, previewPromo, redeemPromo, type Billing, type PromoPreview } from '../api/billing'
 import { me } from '../api/auth'
 import { errorMessage } from '../api/client'
-import Button from '../components/ui/Button'
+import Button, { buttonClass } from '../components/ui/Button'
 import { Checkbox, inputClass } from '../components/ui/Field'
 import Spinner from '../components/ui/Spinner'
 import { useAuth } from '../lib/auth'
@@ -68,6 +68,8 @@ export default function BillingPage() {
     try { apply(await fn()); toast(ok, 'success') } catch (err) { toast(errorMessage(err), 'error') } finally { setBusy(false) }
   }
   const [saveCard, setSaveCard] = useState(true)
+  // Unticked by default and never pre-filled: the buyer's own act (T-Bank).
+  const [consent, setConsent] = useState(false)
   const [promoOpen, setPromoOpen] = useState(false)
   const [promoInput, setPromoInput] = useState('')
   const [promo, setPromo] = useState<PromoPreview | null>(null)
@@ -91,7 +93,7 @@ export default function BillingPage() {
   async function pay() {
     setBusy(true)
     try {
-      const { url } = await checkout(saveCard, promo?.kind !== 'free_months' ? promo?.code : undefined)
+      const { url } = await checkout(saveCard, saveCard && consent, promo?.kind !== 'free_months' ? promo?.code : undefined)
       window.location.assign(url)   // the hosted form; T-Bank brings the user back to /billing
     } catch (err) { toast(errorMessage(err), 'error'); setBusy(false) }
   }
@@ -160,14 +162,35 @@ export default function BillingPage() {
                   </div>
                 )}
 
+                {promo?.kind !== 'free_months' && (
+                  <div className="text-sm text-ink border-l-2 border-accent pl-3 py-0.5 space-y-0.5 max-w-[62ch]" data-testid="subscription-terms">
+                    {saveCard ? (
+                      <>
+                        <p>{copy.billing.terms.today(promo?.price_rub ?? data.price_rub)}{promo?.price_rub != null && promo.price_rub !== data.price_rub && <span className="text-ink-secondary"> — {copy.billing.terms.firstMonthOnly}</span>}</p>
+                        <p>{copy.billing.terms.then(data.price_rub)}</p>
+                        <p className="text-ink-secondary">{copy.billing.terms.cancel} · <a href="/legal/subscription" target="_blank" rel="noopener" className="text-accent hover:text-accent-deep underline underline-offset-2">{copy.billing.terms.link}</a></p>
+                      </>
+                    ) : (
+                      <p>{copy.billing.terms.once(promo?.price_rub ?? data.price_rub)}</p>
+                    )}
+                  </div>
+                )}
+                {saveCard && promo?.kind !== 'free_months' && (
+                  <Checkbox checked={consent} onChange={setConsent} label={data.recurring_consent_text} />
+                )}
                 {promo?.kind === 'free_months'
                   ? <Button onClick={() => void activatePromo()} loading={busy}>{copy.billing.promo.activate}</Button>
-                  : <Button onClick={() => void pay()} loading={busy}>{isPro ? copy.billing.payAgain : copy.billing.subscribe(promo?.price_rub ?? data.price_rub)}</Button>}
+                  : <Button onClick={() => void pay()} loading={busy} disabled={saveCard && !consent} title={saveCard && !consent ? copy.billing.terms.needed : undefined}>{isPro ? copy.billing.payAgain : copy.billing.subscribe(promo?.price_rub ?? data.price_rub)}</Button>}
+                {saveCard && !consent && promo?.kind !== 'free_months' && <p className="text-xs text-ink-secondary">{copy.billing.terms.needed}</p>}
               </div>
             ) : data.auto_renew ? (
               <Button variant="secondary" onClick={() => void run(cancelRenewal, copy.billing.cancelled)} loading={busy}>{copy.billing.cancel}</Button>
             ) : (
-              <Button onClick={() => void run(resumeRenewal, copy.billing.resumed)} loading={busy}>{copy.billing.resume}</Button>
+              <div className="space-y-1">
+                {/* The button is the consent act: amount and period on its face, the server stamps it. */}
+                <Button onClick={() => void run(resumeRenewal, copy.billing.resumed)} loading={busy}>{copy.billing.resumeWithPrice(data.price_rub)}</Button>
+                <p className="text-xs text-ink-secondary">{copy.billing.resumeHint}</p>
+              </div>
             )}
           </div>
 
@@ -181,6 +204,19 @@ export default function BillingPage() {
                 {copy.billing.how.map((line) => <li key={line}>{line}</li>)}
               </ul>
             )}
+          </div>
+        </section>
+      )}
+
+      {data.enabled && (
+        <section className="space-y-2">
+          <h2 className="eyebrow text-ink-tertiary">{copy.billing.refunds.heading}</h2>
+          <p className="text-sm text-ink-secondary max-w-[62ch]">{copy.billing.refunds.cancel}</p>
+          <p className="text-sm text-ink-secondary max-w-[62ch]">{copy.billing.refunds.refund}</p>
+          <p className="text-sm text-ink-secondary max-w-[62ch]">{copy.billing.refunds.contact}</p>
+          <div className="flex items-center gap-2 pt-1">
+            <a href="/contact?category=billing" className={buttonClass('ghost', 'sm')}>{copy.billing.refunds.form}</a>
+            <a href="mailto:hello@tezarium.ru" className="text-sm text-accent hover:text-accent-deep underline underline-offset-2">hello@tezarium.ru</a>
           </div>
         </section>
       )}

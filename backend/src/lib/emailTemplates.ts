@@ -41,3 +41,52 @@ export function passwordChangedEmail(displayName: string | null) {
     text: `${greeting}\n\nПароль вашего аккаунта в Тезариуме только что был изменён. Если это были не вы — напишите нам: hello@tezarium.ru.`,
   }
 }
+
+// ─── Subscription ───────────────────────────────────────────────────────────
+// Each of these restates the terms the buyer agreed to — amount, period, how
+// to cancel, how to ask for a refund — so a later dispute meets a paper trail
+// on their side too (T-Bank's condition for recurring charges, 2026-09-16).
+
+const REFUND_LINE =
+  'Возврат: последнее списание возвращается полностью, если вы попросите в течение 14 дней после него и не пользовались оплаченным периодом. ' +
+  'Напишите на hello@tezarium.ru или через форму на tezarium.ru/contact — ответим в течение 2 рабочих дней.'
+
+const fmtDate = (d: Date) => d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).replace(/\s*г\.$/, '')
+const fmtRub  = (kopecks: number) => `${(kopecks / 100).toLocaleString('ru-RU')} ₽`
+
+export function subscriptionStartedEmail(p: { displayName: string | null; amountKopecks: number; priceRub: number; until: Date; last4: string | null; billingUrl: string }) {
+  const greeting = p.displayName ? `${p.displayName}, здравствуйте!` : 'Здравствуйте!'
+  const card = p.last4 ? ` с карты ····${p.last4}` : ''
+  const body =
+    `Тариф Pro подключён до ${fmtDate(p.until)}. Списано ${fmtRub(p.amountKopecks)}. ` +
+    `Далее ${p.priceRub.toLocaleString('ru-RU')} ₽ будут списываться ежемесячно, автоматически${card}, за день до конца оплаченного месяца — пока вы не отключите автопродление.`
+  const cancel = 'Отключить автопродление можно в любой момент на странице «Тариф» — оплаченный месяц дорабатывает до конца.'
+  return {
+    subject: 'Подписка Pro оформлена — Тезариум',
+    html: wrap('Подписка Pro оформлена', `<p>${greeting}</p><p>${body}</p><p>${cancel}</p>${button(p.billingUrl, 'Открыть «Тариф»')}<p style="font-size:13px;color:#5B6170;">${REFUND_LINE}</p>`),
+    text: `${greeting}\n\n${body}\n\n${cancel}\n${p.billingUrl}\n\n${REFUND_LINE}`,
+  }
+}
+
+export function subscriptionRenewedEmail(p: { displayName: string | null; amountKopecks: number; until: Date; last4: string | null; billingUrl: string }) {
+  const greeting = p.displayName ? `${p.displayName}, здравствуйте!` : 'Здравствуйте!'
+  const body = `Списано ${fmtRub(p.amountKopecks)}${p.last4 ? ` с карты ····${p.last4}` : ''} — тариф Pro продлён до ${fmtDate(p.until)}.`
+  const cancel = 'Отключить автопродление можно в любой момент на странице «Тариф».'
+  return {
+    subject: 'Pro продлён — Тезариум',
+    html: wrap('Pro продлён', `<p>${greeting}</p><p>${body}</p><p>${cancel}</p>${button(p.billingUrl, 'Открыть «Тариф»')}<p style="font-size:13px;color:#5B6170;">${REFUND_LINE}</p>`),
+    text: `${greeting}\n\n${body}\n\n${cancel}\n${p.billingUrl}\n\n${REFUND_LINE}`,
+  }
+}
+
+export function renewalFailedEmail(p: { displayName: string | null; graceUntil: Date; autoRenewOff: boolean; billingUrl: string }) {
+  const greeting = p.displayName ? `${p.displayName}, здравствуйте!` : 'Здравствуйте!'
+  const body = p.autoRenewOff
+    ? `Списание за Pro не прошло несколько раз подряд — автопродление выключено. Pro действует до ${fmtDate(p.graceUntil)}; чтобы продолжить, оплатите месяц заново на странице «Тариф» — карта сохранится снова.`
+    : `Списание за Pro не прошло: карта отклонена. Мы попробуем ещё раз завтра; Pro действует до ${fmtDate(p.graceUntil)}. Если хотите оплатить другой картой — на странице «Тариф».`
+  return {
+    subject: 'Не удалось продлить Pro — Тезариум',
+    html: wrap('Не удалось продлить Pro', `<p>${greeting}</p><p>${body}</p>${button(p.billingUrl, 'Открыть «Тариф»')}<p style="font-size:13px;color:#5B6170;">Вопросы по списанию — hello@tezarium.ru.</p>`),
+    text: `${greeting}\n\n${body}\n${p.billingUrl}\n\nВопросы по списанию — hello@tezarium.ru.`,
+  }
+}

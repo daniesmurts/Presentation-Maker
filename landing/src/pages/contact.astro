@@ -12,6 +12,7 @@ const description = 'Вопрос по продукту, техническая 
         <h1 style="margin: 14px 0 16px">Связаться с нами</h1>
         <p class="muted measure" style="margin-bottom: 28px">Опишите вопрос — ответим на указанный email. Для срочной технической проблемы приложите, что вы делали и что пошло не так.</p>
         <p class="muted small">Или напишите напрямую: <a href={`mailto:${OPERATOR.email}`}>{OPERATOR.email}</a></p>
+        <p class="muted small">По возврату и отмене подписки Pro — эта форма (тема «Оплата и биллинг») или письмо на {OPERATOR.email}; отвечаем в течение 2 рабочих дней. Подписка отключается и без обращения — кнопкой «Отключить автопродление» на странице «Тариф». <a href="/legal/subscription">Условия подписки</a></p>
       </div>
 
       <form id="contact-form" novalidate>
@@ -45,6 +46,11 @@ const description = 'Вопрос по продукту, техническая 
 <script>
   const form = document.getElementById('contact-form') as HTMLFormElement
   const status = document.getElementById('contact-status') as HTMLParagraphElement
+  // /contact?category=billing — the app's «Тариф» page and the subscription
+  // terms link here with the topic preselected.
+  const preset = new URLSearchParams(location.search).get('category')
+  const select = form.elements.namedItem('category') as HTMLSelectElement | null
+  if (preset && select && [...select.options].some((o) => o.value === preset)) select.value = preset
   form.addEventListener('submit', async (e) => {
     e.preventDefault()
     const data = Object.fromEntries(new FormData(form).entries())

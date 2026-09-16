@@ -50,8 +50,12 @@ billingRouter.get('/', asyncHandler(async (req, res) => {
 billingRouter.post('/checkout', checkoutLimiter, asyncHandler(async (req, res) => {
   const b = (req.body ?? {}) as Record<string, unknown>
   const saveCard = b.save_card !== false
+  // Saving the card = agreeing to be charged again. The box is unticked by
+  // default and the page disables the button — this is the server's copy of
+  // the same rule, for a client that skipped the page.
+  if (saveCard && b.recurring_consent !== true) throw new ValidationError('Подтвердите согласие на регулярные списания')
   const promoCode = typeof b.promo_code === 'string' && b.promo_code.trim() ? b.promo_code.trim() : undefined
-  res.json(await startCheckout(req.user.workspace_id, req.user.email, { saveCard, promoCode }))
+  res.json(await startCheckout(req.user.workspace_id, req.user.email, { saveCard, promoCode, consentIp: req.ip ?? null }))
 }))
 
 const promoLimiter = rateLimit({

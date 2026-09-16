@@ -248,9 +248,19 @@ option is still open.
   3. ✅ 2026-09-15 — refund tested in the cabinet: webhook → `REFUNDED`;
      a full refund of the current period now drops the tier and stops
      auto-renew (decided by the founder after the test).
-  4. An e-mail on a failed renewal — there is no mail sender yet; the page
-     carries the message until there is.
-  5. Landing: a pricing block (2 500 ₽ / месяц) once item I has a place for it.
+  4. ✅ 2026-09-16 — e-mails on subscription start, renewal and failed
+     renewal (`lib/emailTemplates.ts`), each restating amount, period,
+     how to cancel and the refund rule.
+  5. ✅ 2026-09-15 — pricing block on the landing (item I).
+  6. **T-Bank's conditions for recurring charges** (their letter,
+     2026-09-16) — ✅ code shipped the same day: an unticked consent box
+     with the amount and period before payment (stored per payment with
+     time and IP, migration 023), a refund/cancellation block with the
+     contact form and e-mail, `/legal/subscription`. **Left**: fill
+     `landing/src/data/operator.ts` (the legal name/ОГРН/ИНН placeholders
+     are highlighted on the page the reviewer will open), deploy, then
+     send T-Bank: a screenshot of the checkout block on `/billing`,
+     `https://tezarium.ru/legal/subscription`, `https://tezarium.ru/contact`.
 
 ### L. Design v3 — backgrounds, rhythm, a theme library · Effort: L · 🟢 L1–L3 SHIPPED (2026-09-15, code) · generated images left
 - **Why**: decks are clean but samey. A theme today is `palette + fonts +
