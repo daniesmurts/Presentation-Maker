@@ -97,6 +97,10 @@ async function main(): Promise<void> {
   startTalkOutlineSweeper()
   startBillingJobs()
 
+  if (config.nodeEnv === 'production' && !process.env.UNISENDER_API_KEY) {
+    logger.warn({ message: 'UNISENDER_API_KEY not set — verification and password-reset emails will be logged, not sent' })
+  }
+
   const server = app.listen(config.port, () => {
     logger.info({ message: `Tezarium backend listening on :${config.port}`, env: config.nodeEnv, mode: config.deploymentMode })
   })

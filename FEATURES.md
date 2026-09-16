@@ -3,7 +3,7 @@
 Legend: ✅ shipped · 🚧 in progress · 📋 planned. Grouped by the role that
 uses it. A 📋 item is marked, never implied. See `docs/WORKFLOW.md` §1.
 
-Last updated: design v3, layer 2 — five rhythm types and a design vocabulary the model chooses from
+Last updated: email confirmation, password reset, "remember me"
 
 ---
 
@@ -38,7 +38,10 @@ on-prem install keeps `.pptx` open to everyone.
   talk contains only what the brief says — fewer slides rather than
   invented content.
 - ✅ **Sign up / sign in** with e-mail and password; one workspace per
-  account.
+  account. «Запомнить меня» keeps a session for 60 days instead of 7.
+  Forgot-password sends a one-hour reset link. New accounts get an
+  e-mail-confirmation link (a dismissible banner, never a block on using
+  the product) — 📋 nothing is gated on verification yet.
 - ✅ **View the talk.** One card per slide by type, formulas rendered,
   speaker notes beside the slide when the talk has them; slides that will
   not fit a 16:9 frame carry a «Много текста» flag. Copy any slide as text.

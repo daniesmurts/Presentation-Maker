@@ -3,6 +3,58 @@
 Engineering log — what changed and, above all, *why*. Dated sections are
 dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
 
+## [Unreleased]
+
+### Added
+- **Email confirmation, password reset, and "remember me".** Decided
+  2026-09-16, ahead of onboarding the first real users: registration
+  created and logged a user in with zero proof they own the address, and a
+  locked-out user had no self-service recovery at all — not partially
+  built, completely absent on both counts.
+  - **Verification is a soft gate**, not a hard one: it never blocks signup
+    or login, only a dismissible (per-tab) banner with a resend link. A
+    stateless HMAC token (`services/emailVerification.ts`) — the MAC covers
+    the email address, not just the user id, so a verify link stops
+    working if the account's email ever changes; it never otherwise
+    expires. `GET /api/auth/verify-email` redirects straight to
+    `?verified=1|0` rather than the Teaching-assistant sibling's stricter
+    GET→confirm-page→POST dance — there is no pre-registration window here
+    for a mail-scanner prefetch to hijack, since the account already
+    exists and its owner is already the one logged in.
+  - **Password reset** is a random 32-byte token, SHA-256 hashed at rest,
+    single-use, 1-hour expiry, with the forgot-password endpoint always
+    returning the same response regardless of whether the address is
+    registered (no enumeration). `/forgot-password` and `/reset-password`
+    are deliberately **not** gated on being logged out — a reset link is
+    clicked exactly when a stale session in the same browser (another tab,
+    another account) is most likely to be sitting there, and it must not
+    stand in the way.
+  - **"Remember me"** on login trades the fixed 7-day session cookie for a
+    60-day one; both are the same signed JWT, only `expiresIn` and the
+    cookie's `maxAge` change together (`lib/jwt.ts`, `lib/session.ts`).
+  - **Email provider: Unisender Go**, the same one the ИСПУМ sibling runs
+    on in production (`services/emailTransport.ts`, ported pattern, no
+    second vendor introduced for one sibling product). No API key
+    configured → every send is logged instead of thrown away or crashing
+    startup, so local dev and CI read the verify/reset link straight out
+    of the log line.
+  - Migration `021_email_verification_and_reset.sql`: `users.email_verified_at`
+    (NULL for every account created before this, including all of today's —
+    expand-only, no backfill implied) and `password_reset_tokens`.
+  - Verified end to end locally: registered a throwaway account, confirmed
+    the unverified banner, computed the HMAC link the way the backend does
+    and hit it — banner cleared, `email_verified_at` set in the DB;
+    requested a reset, read the raw link from the dev-fallback log, reset
+    the password through the UI, confirmed the old password token can't be
+    reused (`VALIDATION_ERROR`) and the new password logs in. Along the
+    way, found and fixed two real bugs: local `.env`'s `FRONTEND_URL` was
+    stale at port 5173 (collided with the unrelated ИСПУМ dev server also
+    running on this machine — Tezarium's frontend is deliberately 5174,
+    per the comment in `vite.config.ts`), which sent the verify-email
+    redirect to the wrong app entirely; and `/reset-password` was gated
+    behind "no active session," which is backwards for exactly the
+    scenario the page exists for.
+
 ## [0.1.0] — 2026-09-14
 
 First production deploy: https://tezarium.ru, one Yandex Cloud VM (2 vCPU

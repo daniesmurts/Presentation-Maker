@@ -3,7 +3,13 @@ import { UnauthorizedError } from '../errors/AppError'
 
 const ALGORITHM: jwt.Algorithm = 'HS256'
 const ISSUER  = 'tezarium'
-const EXPIRY  = '7d'
+type Expiry = NonNullable<jwt.SignOptions['expiresIn']>
+export const SESSION_EXPIRY: Expiry = '7d'
+// "Remember me" (CLAUDE.md-style decision, 2026-09-16): unchecked keeps the
+// existing 7-day session; checked trades it for 60 days. Both are the same
+// JWT mechanism — only expiresIn and the cookie's maxAge change together
+// (session.ts).
+export const REMEMBER_ME_EXPIRY: Expiry = '60d'
 
 function secret(): string {
   const s = process.env.JWT_SECRET
@@ -18,8 +24,8 @@ export interface TokenPayload {
   exp: number
 }
 
-export function signToken(payload: { id: string; ws: string }): string {
-  return jwt.sign(payload, secret(), { expiresIn: EXPIRY, algorithm: ALGORITHM, issuer: ISSUER })
+export function signToken(payload: { id: string; ws: string }, expiresIn: Expiry = SESSION_EXPIRY): string {
+  return jwt.sign(payload, secret(), { expiresIn, algorithm: ALGORITHM, issuer: ISSUER })
 }
 
 export function verifyToken(token: string): TokenPayload {

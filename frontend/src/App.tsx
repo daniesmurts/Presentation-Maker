@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import AppShell from './components/layout/AppShell'
 import AuthPage from './pages/AuthPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import TalksPage from './pages/TalksPage'
 import NewTalkPage from './pages/NewTalkPage'
 import JobPage from './pages/JobPage'
@@ -41,6 +43,12 @@ export default function App() {
     <Routes>
       <Route path="/login"    element={!loading && user ? <Navigate to="/talks" replace /> : <AuthPage mode="login" />} />
       <Route path="/register" element={!loading && user ? <Navigate to="/talks" replace /> : <AuthPage mode="register" />} />
+      {/* Not gated on `user`, unlike /login and /register: a reset link is
+          clicked precisely when the account's password is in doubt, and a
+          stale session in this browser (another tab, another account) must
+          not stand between the user and resetting it. */}
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password"  element={<ResetPasswordPage />} />
       <Route path="/s/:token"  element={<SharedPage />} />
       <Route path="/talks/:id/present" element={<RequireAuth><PresentPage /></RequireAuth>} />
       <Route element={<RequireAuth><AppShell /></RequireAuth>}>

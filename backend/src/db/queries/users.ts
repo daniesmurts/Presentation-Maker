@@ -9,6 +9,7 @@ export interface UserRow {
   locale:        string
   deactivated_at: string | null
   signup_ip:     string | null
+  email_verified_at: string | null
   created_at:    string
 }
 
@@ -20,6 +21,7 @@ export interface PublicUser {
   locale:       string
   is_admin:     boolean
   deactivated_at: string | null
+  email_verified_at: string | null
   plan_tier:    string
   plan_expires_at: string | null
   /** What this tier may do here — set by the auth route from lib/planTier.ts. */
@@ -34,12 +36,25 @@ export async function findUserByEmail(email: string): Promise<UserRow | null> {
 
 export async function findPublicUserById(id: string): Promise<PublicUser | null> {
   const { rows } = await pool.query<PublicUser>(
-    `SELECT u.id, u.workspace_id, u.email, u.display_name, u.locale, u.is_admin, u.deactivated_at, w.plan_tier, w.plan_expires_at
+    `SELECT u.id, u.workspace_id, u.email, u.display_name, u.locale, u.is_admin, u.deactivated_at, u.email_verified_at, w.plan_tier, w.plan_expires_at
        FROM users u JOIN workspaces w ON w.id = u.workspace_id
       WHERE u.id = $1`,
     [id],
   )
   return rows[0] ?? null
+}
+
+export async function findUserById(id: string): Promise<UserRow | null> {
+  const { rows } = await pool.query<UserRow>(`SELECT * FROM users WHERE id = $1`, [id])
+  return rows[0] ?? null
+}
+
+export async function setEmailVerified(userId: string): Promise<void> {
+  await pool.query(`UPDATE users SET email_verified_at = NOW() WHERE id = $1 AND email_verified_at IS NULL`, [userId])
+}
+
+export async function updateUserPassword(userId: string, passwordHash: string): Promise<void> {
+  await pool.query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [passwordHash, userId])
 }
 
 /** One workspace per user at signup (TODO A decisions). One transaction.

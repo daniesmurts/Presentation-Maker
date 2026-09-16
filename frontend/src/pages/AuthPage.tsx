@@ -22,6 +22,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [consent, setConsent] = useState(false)
+  const [rememberMe, setRememberMe] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
 
@@ -35,7 +36,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
     setBusy(true); setError(undefined)
     try {
       const ref = params.get('ref') ?? (() => { try { return localStorage.getItem(REF_KEY) } catch { return null } })()
-      const user = mode === 'login' ? await login(email, password) : await register(email, password, name, consent, ref)
+      const user = mode === 'login' ? await login(email, password, rememberMe) : await register(email, password, name, consent, ref)
       setUser(user)
       navigate('/talks', { replace: true })
     } catch (err) {
@@ -65,6 +66,15 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
           <Field label={copy.auth.password} htmlFor="password">
             <PasswordField id="password" value={password} onChange={setPassword} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} rules={mode === 'register'} />
           </Field>
+          {mode === 'login' && (
+            <div className="flex items-center justify-between -mt-1">
+              <label className="flex items-center gap-2 min-h-[32px] cursor-pointer">
+                <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="w-4 h-4 accent-accent cursor-pointer" />
+                <span className="text-sm text-ink-secondary">{copy.auth.rememberMe}</span>
+              </label>
+              <Link to="/forgot-password" className="text-sm text-accent underline underline-offset-4 hover:text-accent-deep">{copy.auth.forgotPassword}</Link>
+            </div>
+          )}
           {mode === 'register' && (
             // A real <label> around the 44px row (touch has no hover); the
             // document links open the public site in a new tab so the form

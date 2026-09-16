@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { useAuth } from '../../lib/auth'
 import { copy } from '../../lib/copy'
 import ThemeToggle from '../ui/ThemeToggle'
+import EmailVerifyBanner from './EmailVerifyBanner'
 
 // The desk («Редакция»): a left rail ≥ lg that holds every kind of material
 // the product will make — talks now; posts and ads are listed and marked
@@ -84,6 +85,7 @@ export default function AppShell() {
       <div className="min-w-0 bg-surface lg:min-h-screen">
         {/* Bottom bar height + safe area reserved below the content so the last row is never under it. */}
         <main className="max-w-5xl mx-auto px-4 lg:px-10 py-6 lg:py-8 pb-24 lg:pb-8">
+          <EmailVerifyBanner />
           <Outlet />
         </main>
         <footer className="max-w-5xl mx-auto px-4 lg:px-10 pb-6 text-xs text-ink-tertiary hidden lg:block">{copy.brand} · {__APP_VERSION__}</footer>

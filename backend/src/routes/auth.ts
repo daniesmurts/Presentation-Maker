@@ -2,9 +2,12 @@ import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import rateLimit from 'express-rate-limit'
 import { asyncHandler } from '../lib/asyncHandler'
-import { signToken } from '../lib/jwt'
+import { signToken, REMEMBER_ME_EXPIRY } from '../lib/jwt'
 import { setSessionCookie, clearSessionCookie } from '../lib/session'
-import { createUserWithWorkspace, findUserByEmail, findPublicUserById, type PublicUser } from '../db/queries/users'
+import {
+  createUserWithWorkspace, findUserByEmail, findUserById, findPublicUserById,
+  setEmailVerified, updateUserPassword, type PublicUser,
+} from '../db/queries/users'
 import { quotaOf } from '../lib/planTier'
 import { countTalksThisMonth } from '../db/queries/talks'
 import { countDownloadsThisMonth } from '../db/queries/talkEvents'
@@ -12,6 +15,12 @@ import { recordTermsAcceptance } from '../db/queries/consent'
 import { passwordIsStrong, PASSWORD_RULES } from '../../../shared/password'
 import { config } from '../lib/config'
 import { attachReferralOnSignup } from '../services/referrals'
+import { sendEmail } from '../services/emailTransport'
+import { verifyEmailEmail, passwordResetEmail, passwordChangedEmail } from '../lib/emailTemplates'
+import { emailVerifyUrl, extractUserIdFromVerifyToken, verifyEmailVerifyToken } from '../services/emailVerification'
+import {
+  generateRawToken, hashToken, createResetToken, invalidateExistingTokens, findValidToken, markTokenUsed,
+} from '../db/queries/passwordReset'
 
 // The UI reads the gate from here, never from the tier name: what is locked
 // depends on the tier AND on billing being on in THIS installation, and
@@ -62,17 +71,22 @@ authRouter.post('/register', authLimiter, asyncHandler(async (req, res) => {
   await recordTermsAcceptance(user.id)
   const ref = (req.body as Record<string, unknown> | null)?.ref
   if (typeof ref === 'string' && ref) await attachReferralOnSignup(user.workspace_id, ref, email, req.ip ?? null)
+  // Soft gate (decided 2026-09-16): verification never blocks signup or
+  // login, only a dismissible-by-verifying banner — fire-and-forget so a
+  // mail-provider outage never fails registration.
+  void sendEmail({ ...verifyEmailEmail(displayName, emailVerifyUrl(user.id, user.email)), to: user.email })
   setSessionCookie(res, signToken({ id: user.id, ws: user.workspace_id }))
   res.status(201).json({ user: await withFeatures(await findPublicUserById(user.id)) })
 }))
 
 authRouter.post('/login', authLimiter, asyncHandler(async (req, res) => {
   const { email, password } = readCredentials(req.body)
+  const rememberMe = (req.body as Record<string, unknown> | null)?.remember_me === true
   const user = await findUserByEmail(email)
   // Same message for "no such user" and "wrong password".
   if (!user || !(await bcrypt.compare(password, user.password_hash))) throw new UnauthorizedError('Неверный e-mail или пароль')
   if (user.deactivated_at) throw new DeactivatedError()
-  setSessionCookie(res, signToken({ id: user.id, ws: user.workspace_id }))
+  setSessionCookie(res, signToken({ id: user.id, ws: user.workspace_id }, rememberMe ? REMEMBER_ME_EXPIRY : undefined), rememberMe)
   res.json({ user: await withFeatures(await findPublicUserById(user.id)) })
 }))
 
@@ -83,4 +97,62 @@ authRouter.post('/logout', (_req, res) => {
 
 authRouter.get('/me', authenticate, asyncHandler(async (req, res) => {
   res.json({ user: await withFeatures(req.user) })
+}))
+
+// ─── Email verification ──────────────────────────────────────────────────────
+// GET, not POST: it's a link clicked from an email client. Unlike the
+// Teaching-assistant sibling's stricter GET→confirm-page→POST dance, a bare
+// GET is safe here — verifying only proves address ownership after the
+// account already exists and the owner is already logged in; there is no
+// pre-registration window for a mail scanner's prefetch to hijack.
+authRouter.get('/verify-email', asyncHandler(async (req, res) => {
+  const token = typeof req.query.token === 'string' ? req.query.token : ''
+  const userId = extractUserIdFromVerifyToken(token)
+  const user = userId ? await findUserById(userId) : null
+  if (user && verifyEmailVerifyToken(token, user.email)) {
+    await setEmailVerified(user.id)
+    res.redirect(`${config.frontendUrl}/talks?verified=1`)
+  } else {
+    res.redirect(`${config.frontendUrl}/talks?verified=0`)
+  }
+}))
+
+authRouter.post('/resend-verification', authenticate, authLimiter, asyncHandler(async (req, res) => {
+  const user = await findUserById(req.user.id)
+  if (user && !user.email_verified_at) {
+    void sendEmail({ ...verifyEmailEmail(user.display_name, emailVerifyUrl(user.id, user.email)), to: user.email })
+  }
+  res.json({ ok: true })
+}))
+
+// ─── Password reset ──────────────────────────────────────────────────────────
+
+authRouter.post('/forgot-password', authLimiter, asyncHandler(async (req, res) => {
+  const email = typeof (req.body as Record<string, unknown> | null)?.email === 'string'
+    ? ((req.body as Record<string, unknown>).email as string).trim().toLowerCase() : ''
+  const user = email ? await findUserByEmail(email) : null
+  if (user && !user.deactivated_at) {
+    const rawToken = generateRawToken()
+    await invalidateExistingTokens(user.id)
+    await createResetToken(user.id, hashToken(rawToken), new Date(Date.now() + 60 * 60 * 1000))
+    const resetUrl = `${config.frontendUrl}/reset-password?token=${rawToken}`
+    void sendEmail({ ...passwordResetEmail(user.display_name, resetUrl), to: user.email })
+  }
+  // Always the same response — never reveal whether the address is registered.
+  res.json({ message: 'Если этот адрес зарегистрирован, письмо со ссылкой отправлено.' })
+}))
+
+authRouter.post('/reset-password', authLimiter, asyncHandler(async (req, res) => {
+  const body = req.body as Record<string, unknown> | null
+  const rawToken = typeof body?.token === 'string' ? body.token : ''
+  const password = typeof body?.password === 'string' ? body.password : ''
+  if (!rawToken) throw new ValidationError('Ссылка для сброса пароля недействительна или устарела')
+  if (!passwordIsStrong(password)) throw new ValidationError('Пароль: не менее 8 символов, заглавная буква и цифра')
+  const record = await findValidToken(hashToken(rawToken))
+  if (!record) throw new ValidationError('Ссылка для сброса пароля недействительна или устарела')
+  await updateUserPassword(record.user_id, await bcrypt.hash(password, 12))
+  await markTokenUsed(record.id)
+  const user = await findUserById(record.user_id)
+  if (user) void sendEmail({ ...passwordChangedEmail(user.display_name), to: user.email })
+  res.json({ message: 'Пароль изменён. Теперь вы можете войти.' })
 }))
