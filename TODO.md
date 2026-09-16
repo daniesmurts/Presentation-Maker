@@ -389,7 +389,7 @@ option is still open.
   stage — the four renderers still agree (J's guarantee is the thing L
   must not spend).
 
-### M. Admin panel · plan grants · promo codes · referrals · Effort: L · 🟢 phases 1–2 SHIPPED (2026-09-16, code) · phases 3–5 next
+### M. Admin panel · plan grants · promo codes · referrals · Effort: L · 🟢 phases 1–3 SHIPPED (2026-09-16, code) · phases 4–5 next
 - **Why**: there are paying users and a support form, and the only way to
   see who they are, what they do, what they cost and whether a payment went
   through is `psql` on the VM — which the agent is not permitted to touch
@@ -466,11 +466,37 @@ option is still open.
      end-to-end against a local DB and API: grant → revoke → spend cap →
      deactivate → login refused (403) → reactivate → login OK; support
      answered/reopened with the admin's e-mail recorded.
-  3. **Promo codes**: `promo_codes` (code, kind `percent | fixed |
-     free_months`, max_uses, once per workspace, valid_until, active),
-     `promo_redemptions`; a code field on the tariff page; the discount
-     applied in `startCheckout` so T-Bank charges and the receipt shows the
-     real sum; admin CRUD + redemptions list.
+  3. ✅ 2026-09-16 **Promo codes**: migration 018 — `promo_codes` (code,
+     kind `percent | fixed | free_months`, value, max_uses, valid_until,
+     active) and `promo_redemptions`, one redemption per (code, workspace)
+     — the simplest rule that covers every campaign this product runs, DB
+     unique constraint backs it against races. `services/promoCodes.ts`:
+     `validatePromoCode` (active, not expired, uses left, not already
+     redeemed — checked server-side, never trusted from the client) and
+     `discountKopecks` (a 1 ₽ floor — no code, however generous, charges
+     ₽0 through T-Bank). `percent`/`fixed` flow through
+     `startCheckout` → the discounted amount is what T-Bank actually
+     charges and what the 54-ФЗ receipt prints; `applyOutcome` records the
+     redemption only once the payment is CONFIRMED, so an abandoned
+     checkout never burns a use. `free_months` never touches T-Bank — it
+     calls `adminActions.planGrant` directly (the identical rule an
+     admin's gift uses: extends a live paid Pro and keeps it paid, else
+     grants from today with `plan_source='granted'`), so it works even
+     with `BILLING_ENABLED=0`. Routes: `GET /api/billing/promo/:code`
+     (read-only preview — price after discount, or the free months),
+     `POST /api/billing/promo/:code/redeem` (free_months only),
+     `POST /api/billing/checkout` takes an optional `promo_code`; admin
+     CRUD at `/api/admin/promo-codes` (create, list with redemption
+     counts, deactivate — codes are soft-disabled, never deleted, so
+     history stays intact). Frontend: a disclosed promo field on the
+     tariff page (preview → pay with the discount, or a direct «Активировать»
+     for a free-months code) and an admin tab to create and manage codes.
+     Verified end-to-end locally: created a 20%-off and a 1-free-month
+     code in the admin UI, previewed 2500→2000 ₽ on the tariff page,
+     redeemed the free-months code (Pro granted, `plan_source='granted'`,
+     no payment row), a second redemption attempt refused, admin list
+     showed the activation count, deactivating a code took it out of
+     circulation immediately.
   4. **Referrals**: `users.referral_code` (short, unique, at signup),
      `users.referred_by`, `referrals` (referrer, referee, status `signed_up
      → paid → rewarded | clawed_back`, fraud flags); `/register?ref=CODE`

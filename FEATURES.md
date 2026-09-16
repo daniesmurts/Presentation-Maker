@@ -105,7 +105,14 @@ on-prem install keeps `.pptx` open to everyone.
   recorded in an audit journal: grant or revoke Pro (a gift never renews
   the card and never counts against a live subscription), set a
   workspace's spend cap, deactivate or reactivate a user, mark a support
-  message answered. 📋 Promo codes, referrals, usage/health pages (TODO M).
+  message answered. A promo-codes tab: create/deactivate percent, fixed,
+  or free-months codes and see how many times each was redeemed.
+  📋 Referrals, usage/health pages (TODO M).
+- ✅ **Promo codes**: a code on the tariff page discounts the first month's
+  T-Bank charge (percent or a flat amount, never below ₽1) or, for a
+  free-months code, grants Pro immediately with no payment at all — works
+  even when card billing isn't configured. One redemption per workspace
+  per code.
 - ✅ **Public contact / tech-support form** at `/contact` on the landing
   site, no account needed. Submissions (name, email, category, message)
   land in `support_messages` and show in the admin's support inbox; no

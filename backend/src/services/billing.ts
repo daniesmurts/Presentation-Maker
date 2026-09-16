@@ -11,6 +11,7 @@ import {
   type PaymentRow, type WorkspaceBilling,
 } from '../db/queries/billing'
 import * as tbank from './tbank/client'
+import { applyPromoToCharge, finalisePromoOnPayment } from './promoCodes'
 import { verifyNotification } from './tbank/token'
 import { scheduleWithLease } from './schedulerLease'
 
@@ -119,7 +120,7 @@ export function nextPeriod(currentExpiry: Date | null, now = new Date()): { star
 // cabinet «Тест 1», which does not count a recurrent parent payment as a
 // plain successful one (2026-09-15: three CONFIRMED payments, test still
 // «не пройдено»).
-export async function startCheckout(workspaceId: string, email: string, opts: { saveCard?: boolean } = {}): Promise<{ url: string; order_id: string }> {
+export async function startCheckout(workspaceId: string, email: string, opts: { saveCard?: boolean; promoCode?: string } = {}): Promise<{ url: string; order_id: string }> {
   const saveCard = opts.saveCard !== false
   const t = assertEnabled()
   const ws = await getWorkspaceBilling(workspaceId)
@@ -130,15 +131,19 @@ export async function startCheckout(workspaceId: string, email: string, opts: { 
   if (await hasOpenPayment(workspaceId, 'initial', OPEN_PAYMENT_MINUTES)) {
     throw new ValidationError('Предыдущая оплата ещё не завершена. Закончите её или подождите несколько минут.')
   }
-  const row = await createPayment({ workspaceId, orderId: newOrderId(workspaceId, 'initial'), kind: 'initial', amountKopecks: PRO_AMOUNT_KOPECKS })
+  // The discount is re-derived here from the code, never taken from the
+  // client — this is the number T-Bank charges and the receipt prints.
+  const promo = opts.promoCode ? await applyPromoToCharge(opts.promoCode, workspaceId, PRO_AMOUNT_KOPECKS) : null
+  const amountKopecks = promo?.amountKopecks ?? PRO_AMOUNT_KOPECKS
+  const row = await createPayment({ workspaceId, orderId: newOrderId(workspaceId, 'initial'), kind: 'initial', amountKopecks, promoCodeId: promo?.promo.id })
   const { successUrl, failUrl, notificationUrl } = urls(t)
   let result: tbank.InitResult
   try {
     result = await tbank.init({
-      amountKopecks: PRO_AMOUNT_KOPECKS, orderId: row.order_id, description: `Тезариум Pro — 1 месяц`,
+      amountKopecks, orderId: row.order_id, description: `Тезариум Pro — 1 месяц`,
       customerKey: workspaceId, recurrent: saveCard,
       successUrl: successUrl + row.order_id, failUrl, notificationUrl,
-      receipt: tbank.subscriptionReceipt(email, PRO_AMOUNT_KOPECKS, 'Подписка Тезариум Pro, 1 месяц'),
+      receipt: tbank.subscriptionReceipt(email, amountKopecks, 'Подписка Тезариум Pro, 1 месяц'),
     })
   } catch (err) {
     await markPaymentFailed(row.id, 'INIT_FAILED', err instanceof tbank.TbankError ? err.errorCode : null)
@@ -210,6 +215,9 @@ async function applyOutcome(
     if (applied) {
       recordTalkEvent({ talkId: null, workspaceId: payment.workspace_id, userId: null, event: payment.kind === 'initial' ? 'subscribed' : 'renewed', metadata: { amount_kopecks: payment.amount_kopecks, kind: payment.kind, order_id: payment.order_id } })
       logger.info({ message: 'Payment confirmed', orderId: payment.order_id, kind: payment.kind, workspaceId: payment.workspace_id, until: end.toISOString() })
+      if (payment.promo_code_id) {
+        await finalisePromoOnPayment(payment.promo_code_id, payment.workspace_id, payment.id, PRO_AMOUNT_KOPECKS - payment.amount_kopecks)
+      }
     }
     return applied
   }

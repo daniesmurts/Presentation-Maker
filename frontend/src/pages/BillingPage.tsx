@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { ChevronDown } from 'lucide-react'
-import { getBilling, checkout, verifyOrder, cancelRenewal, resumeRenewal, type Billing } from '../api/billing'
+import { getBilling, checkout, verifyOrder, cancelRenewal, resumeRenewal, previewPromo, redeemPromo, type Billing, type PromoPreview } from '../api/billing'
 import { me } from '../api/auth'
 import { errorMessage } from '../api/client'
 import Button from '../components/ui/Button'
-import { Checkbox } from '../components/ui/Field'
+import { Checkbox, inputClass } from '../components/ui/Field'
 import Spinner from '../components/ui/Spinner'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../lib/toast'
@@ -67,10 +67,30 @@ export default function BillingPage() {
     try { apply(await fn()); toast(ok, 'success') } catch (err) { toast(errorMessage(err), 'error') } finally { setBusy(false) }
   }
   const [saveCard, setSaveCard] = useState(true)
+  const [promoOpen, setPromoOpen] = useState(false)
+  const [promoInput, setPromoInput] = useState('')
+  const [promo, setPromo] = useState<PromoPreview | null>(null)
+  const [promoBusy, setPromoBusy] = useState(false)
+  async function checkPromo() {
+    if (!promoInput.trim()) return
+    setPromoBusy(true)
+    try { setPromo(await previewPromo(promoInput.trim())) } catch (err) { setPromo(null); toast(errorMessage(err), 'error') } finally { setPromoBusy(false) }
+  }
+  async function activatePromo() {
+    if (!promo) return
+    setBusy(true)
+    try {
+      await redeemPromo(promo.code)
+      await qc.invalidateQueries({ queryKey: ['billing'] })
+      setUser(await me())
+      setPromo(null); setPromoInput(''); setPromoOpen(false)
+      toast(copy.billing.promo.activated, 'success')
+    } catch (err) { toast(errorMessage(err), 'error') } finally { setBusy(false) }
+  }
   async function pay() {
     setBusy(true)
     try {
-      const { url } = await checkout(saveCard)
+      const { url } = await checkout(saveCard, promo?.kind !== 'free_months' ? promo?.code : undefined)
       window.location.assign(url)   // the hosted form; T-Bank brings the user back to /billing
     } catch (err) { toast(errorMessage(err), 'error'); setBusy(false) }
   }
@@ -116,9 +136,32 @@ export default function BillingPage() {
 
           <div className="flex items-center gap-2 flex-wrap">
             {!isPro || renewalBroken || !data.card_last4 ? (
-              <div className="space-y-2">
+              <div className="space-y-2 w-full">
                 <Checkbox checked={saveCard} onChange={setSaveCard} label={copy.billing.saveCard} hint={copy.billing.saveCardHint} />
-                <Button onClick={() => void pay()} loading={busy}>{isPro ? copy.billing.payAgain : copy.billing.subscribe(data.price_rub)}</Button>
+
+                {!promoOpen && !promo && (
+                  <button type="button" onClick={() => setPromoOpen(true)} className="block text-xs text-ink-secondary hover:text-ink underline underline-offset-2">{copy.billing.promo.toggle}</button>
+                )}
+                {promoOpen && !promo && (
+                  <div className="flex items-end gap-2">
+                    <label className="block text-xs text-ink-secondary">
+                      {copy.billing.promo.label}
+                      <input value={promoInput} onChange={(e) => setPromoInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), void checkPromo())}
+                             className={`${inputClass} mt-1 !w-40 font-mono uppercase`} maxLength={32} />
+                    </label>
+                    <Button variant="secondary" size="sm" onClick={() => void checkPromo()} loading={promoBusy} disabled={!promoInput.trim()}>{copy.billing.promo.check}</Button>
+                  </div>
+                )}
+                {promo && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-success">{promo.kind === 'free_months' ? copy.billing.promo.freeMonths(promo.value) : copy.billing.promo.applied(promo.price_rub!)}</span>
+                    <button type="button" onClick={() => { setPromo(null); setPromoInput('') }} className="text-xs text-ink-secondary hover:text-ink underline underline-offset-2">{copy.billing.promo.clear}</button>
+                  </div>
+                )}
+
+                {promo?.kind === 'free_months'
+                  ? <Button onClick={() => void activatePromo()} loading={busy}>{copy.billing.promo.activate}</Button>
+                  : <Button onClick={() => void pay()} loading={busy}>{isPro ? copy.billing.payAgain : copy.billing.subscribe(promo?.price_rub ?? data.price_rub)}</Button>}
               </div>
             ) : data.auto_renew ? (
               <Button variant="secondary" onClick={() => void run(cancelRenewal, copy.billing.cancelled)} loading={busy}>{copy.billing.cancel}</Button>

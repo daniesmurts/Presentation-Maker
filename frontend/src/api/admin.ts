@@ -44,3 +44,13 @@ export const setSpendCap     = (id: string, cap_usd: number | null, reason: stri
 export const deactivateUser  = (id: string, reason: string) => client.post(`/api/admin/users/${id}/deactivate`, { reason }).then(() => undefined)
 export const reactivateUser  = (id: string, reason: string) => client.post(`/api/admin/users/${id}/reactivate`, { reason }).then(() => undefined)
 export const setSupportAnswered = (id: string, answered: boolean) => client.post(`/api/admin/support/${id}/answered`, { answered }).then(() => undefined)
+
+export interface AdminPromoRow {
+  id: string; code: string; kind: 'percent' | 'fixed' | 'free_months'; value: number
+  max_uses: number | null; valid_until: string | null; active: boolean
+  created_by_email: string | null; created_at: string; redemptions: number
+}
+export const listPromoCodes = () => client.get<{ rows: AdminPromoRow[] }>('/api/admin/promo-codes').then((r) => r.data.rows)
+export const createPromoCode = (input: { code: string; kind: string; value: number; max_uses: number | null; valid_until: string | null }) =>
+  client.post<{ promo: AdminPromoRow }>('/api/admin/promo-codes', input).then((r) => r.data.promo)
+export const setPromoCodeActive = (id: string, active: boolean) => client.post<{ promo: AdminPromoRow }>(`/api/admin/promo-codes/${id}/active`, { active }).then((r) => r.data.promo)

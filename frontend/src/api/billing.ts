@@ -21,8 +21,12 @@ export interface Billing {
   payments:         Payment[]
 }
 
+export interface PromoPreview { code: string; kind: 'percent' | 'fixed' | 'free_months'; value: number; price_rub?: number }
+
 export const getBilling = () => client.get<Billing>('/api/billing').then((r) => r.data)
-export const checkout   = (saveCard = true) => client.post<{ url: string; order_id: string }>('/api/billing/checkout', { save_card: saveCard }).then((r) => r.data)
+export const checkout   = (saveCard = true, promoCode?: string) => client.post<{ url: string; order_id: string }>('/api/billing/checkout', { save_card: saveCard, promo_code: promoCode }).then((r) => r.data)
 export const verifyOrder = (order: string) => client.get<{ status: string; paid: boolean }>('/api/billing/verify', { params: { order } }).then((r) => r.data)
 export const cancelRenewal = () => client.post<Billing>('/api/billing/cancel').then((r) => r.data)
 export const resumeRenewal = () => client.post<Billing>('/api/billing/resume').then((r) => r.data)
+export const previewPromo = (code: string) => client.get<PromoPreview>(`/api/billing/promo/${encodeURIComponent(code)}`).then((r) => r.data)
+export const redeemPromo  = (code: string) => client.post(`/api/billing/promo/${encodeURIComponent(code)}/redeem`).then(() => undefined)

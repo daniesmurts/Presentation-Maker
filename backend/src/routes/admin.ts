@@ -5,6 +5,7 @@ import { requireAdmin } from '../middleware/requireAdmin'
 import { NotFoundError } from '../errors/AppError'
 import { adminOverview, listAdminWorkspaces, getAdminWorkspace, listAdminSupport, type WorkspaceSort } from '../db/queries/admin'
 import { grantPro, revokeGrant, setSpendCap, deactivateUser, reactivateUser, setSupportAnswered, listActions, requireReason } from '../services/adminActions'
+import { readCreateInput, createPromoCode, listPromoCodes, setPromoCodeActive, findPromoCodeById } from '../services/promoCodes'
 
 // The admin panel's API (TODO M). Every write goes through
 // services/adminActions.ts and lands in admin_actions; reads are not logged.
@@ -87,4 +88,21 @@ adminRouter.post('/users/:id/reactivate', asyncHandler(async (req, res) => {
 adminRouter.post('/support/:id/answered', asyncHandler(async (req, res) => {
   await setSupportAnswered({ adminId: req.user.id }, id(req.params.id), body(req).answered !== false)
   res.json({ ok: true })
+}))
+
+// ── Promo codes ─────────────────────────────────────────────────────────────
+
+adminRouter.get('/promo-codes', asyncHandler(async (_req, res) => {
+  res.json({ rows: await listPromoCodes() })
+}))
+
+adminRouter.post('/promo-codes', asyncHandler(async (req, res) => {
+  const input = readCreateInput(body(req), req.user.id)
+  res.status(201).json({ promo: await createPromoCode(input) })
+}))
+
+adminRouter.post('/promo-codes/:id/active', asyncHandler(async (req, res) => {
+  if (!(await findPromoCodeById(id(req.params.id)))) throw new NotFoundError()
+  const promo = await setPromoCodeActive(req.params.id, body(req).active !== false)
+  res.json({ promo })
 }))

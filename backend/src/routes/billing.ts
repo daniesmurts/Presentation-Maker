@@ -4,7 +4,8 @@ import { asyncHandler } from '../lib/asyncHandler'
 import { authenticate } from '../middleware/authenticate'
 import { ValidationError } from '../errors/AppError'
 import { logger } from '../lib/logger'
-import { billingView, startCheckout, verifyOrder, setAutoRenewFor, applyNotification, NotificationRejected } from '../services/billing'
+import { billingView, startCheckout, verifyOrder, setAutoRenewFor, applyNotification, NotificationRejected, PRO_AMOUNT_KOPECKS } from '../services/billing'
+import { previewPromo, redeemFreeMonthsPromo } from '../services/promoCodes'
 
 // Two routers: the T-Bank webhook is server-to-server (no session cookie, no
 // X-Requested-With) and is authenticated by its signature instead; the rest
@@ -47,8 +48,26 @@ billingRouter.get('/', asyncHandler(async (req, res) => {
 
 // POST /api/billing/checkout → { url } — the hosted payment form to redirect to.
 billingRouter.post('/checkout', checkoutLimiter, asyncHandler(async (req, res) => {
-  const saveCard = (req.body as Record<string, unknown> | null)?.save_card !== false
-  res.json(await startCheckout(req.user.workspace_id, req.user.email, { saveCard }))
+  const b = (req.body ?? {}) as Record<string, unknown>
+  const saveCard = b.save_card !== false
+  const promoCode = typeof b.promo_code === 'string' && b.promo_code.trim() ? b.promo_code.trim() : undefined
+  res.json(await startCheckout(req.user.workspace_id, req.user.email, { saveCard, promoCode }))
+}))
+
+const promoLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, limit: 20, standardHeaders: true, legacyHeaders: false,
+  keyGenerator: (req) => req.user?.id ?? req.ip ?? 'anonymous',
+})
+
+// GET /api/billing/promo/:code — read-only, what the code does; does not consume it.
+billingRouter.get('/promo/:code', promoLimiter, asyncHandler(async (req, res) => {
+  res.json(await previewPromo(req.params.code, req.user.workspace_id, PRO_AMOUNT_KOPECKS))
+}))
+
+// POST /api/billing/promo/:code/redeem — free_months only: grants Pro directly, no T-Bank.
+billingRouter.post('/promo/:code/redeem', promoLimiter, asyncHandler(async (req, res) => {
+  const plan = await redeemFreeMonthsPromo(req.params.code, req.user.workspace_id)
+  res.json({ plan })
 }))
 
 // GET /api/billing/verify?order=… — the return page asks whether its order

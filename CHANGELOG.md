@@ -34,6 +34,28 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 ## [Unreleased]
 
 ### Added
+- **Promo codes, phase 3** (TODO M). Migration 018: `promo_codes`
+  (kind `percent | fixed | free_months`, value, max_uses, valid_until,
+  active) and `promo_redemptions`, one redemption per (code, workspace) —
+  a DB unique constraint, not just an app-level check. `percent`/`fixed`
+  discount the initial T-Bank charge: `startCheckout` re-derives the
+  amount from the code server-side (never trusts a client-supplied
+  discount), so it's the number T-Bank actually charges and the 54-ФЗ
+  receipt prints; the redemption is only recorded once `applyOutcome`
+  sees the payment CONFIRMED, so an abandoned checkout never burns a use.
+  A 1 ₽ floor (`MIN_CHARGE_KOPECKS`) means no code can charge ₽0.
+  `free_months` skips T-Bank entirely — it calls the same `planGrant` rule
+  an admin's gift uses (extend-if-paid, else grant-from-today), so it
+  works even with billing off. New routes: `GET /api/billing/promo/:code`
+  (read-only preview), `POST /api/billing/promo/:code/redeem`
+  (free_months), `POST /api/billing/checkout` gained an optional
+  `promo_code`; admin CRUD at `/api/admin/promo-codes` (codes are
+  deactivated, never deleted — redemption history stays intact). Frontend:
+  a disclosed promo field on the tariff page and an admin tab to create
+  and manage codes. Verified end-to-end locally: 20%-off previewed
+  2500→2000 ₽; a 1-free-month code granted Pro with no payment row and no
+  T-Bank call, a second redemption was refused, the admin list showed the
+  activation, deactivating pulled the code out of circulation immediately.
 - **Admin panel, phase 2 — writes** (TODO M). Migration 017:
   `admin_actions` (admin, action, target, before/after JSON, a required
   reason — the panel's audit trail); `workspaces.plan_source` ('paid' |
