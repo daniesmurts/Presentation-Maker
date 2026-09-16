@@ -6,6 +6,7 @@ import { backgroundSvg, backgroundCssUrl, hasTreatment, SOLID } from '../../../s
 import { Checkbox } from '../components/ui/Field'
 import { errorMessage } from '../api/client'
 import Button from '../components/ui/Button'
+import HelpLink from '../components/ui/HelpLink'
 import { Field, inputClass } from '../components/ui/Field'
 import Spinner from '../components/ui/Spinner'
 import { useToast } from '../lib/toast'
@@ -49,7 +50,7 @@ export default function BrandPage() {
       <div>
         <div className="eyebrow text-accent mb-1.5">{copy.nav.workspace}</div>
         <h1 className="display font-semibold text-[30px] leading-tight text-ink">{copy.brandKit.heading}</h1>
-        <p className="text-sm text-ink-secondary mt-1.5 max-w-[62ch]">{copy.brandKit.lead}</p>
+        <p className="text-sm text-ink-secondary mt-1.5 max-w-[62ch]">{copy.brandKit.lead} <HelpLink to="brand" /></p>
       </div>
 
       {/* One form, one primary action (CLAUDE.md §6): accent and name save together. */}

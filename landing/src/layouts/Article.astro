@@ -1,0 +1,40 @@
+---
+// An explainer («Как пользоваться»): one narrow measure, the same prose
+// styles as a legal document, no version line — an article is current or
+// it is deleted. `control` names the place in the app the article is
+// linked from, so the reader who came from the app sees they are in the
+// right place, and a reader from search learns where the control lives.
+import Base from './Base.astro'
+interface Props { title: string; description: string; canonical: string; control?: string; updated: string }
+const { title, description, canonical, control, updated } = Astro.props
+---
+<Base title={`${title} — Тезариум`} description={description} canonical={canonical}>
+  <section class="doc" style="border-top:0">
+    <div class="wrap">
+      <div class="eyebrow pencil">Как пользоваться</div>
+      <h1>{title}</h1>
+      <p class="meta muted">{control && <>В приложении: {control} · </>}<a href="/help">Все статьи</a> · обновлено {updated}</p>
+      <div class="body">
+        <slot />
+      </div>
+      <p class="next muted">Не нашли ответ — <a href="/contact">напишите нам</a>, ответим и допишем статью.</p>
+    </div>
+  </section>
+</Base>
+<style is:global>
+  .doc { padding: 56px 0 96px; }
+  .doc h1 { font-size: clamp(2rem, 4vw, 3rem); margin: 14px 0 10px; max-width: 24ch; }
+  .doc .meta { font-size: 14px; margin-bottom: 40px; }
+  .doc .body { max-width: 68ch; font-size: 16.5px; line-height: 1.6; }
+  .doc .body h2 { font-size: 1.35rem; margin: 40px 0 12px; }
+  .doc .body h2:first-child { margin-top: 0; }
+  .doc .body p { margin: 0 0 12px; }
+  .doc .body ul, .doc .body ol { margin: 0 0 14px; padding-left: 22px; }
+  .doc .body li { margin: 4px 0; }
+  .doc .body table { border-collapse: collapse; width: 100%; font-size: 15px; margin: 8px 0 16px; }
+  .doc .body th, .doc .body td { text-align: left; vertical-align: top; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--c-border); }
+  .doc .body th { font-weight: 500; color: rgb(var(--c-ink-secondary)); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+  .doc .body .note { border-left: 2px solid rgb(var(--c-accent)); padding: 6px 0 6px 16px; color: rgb(var(--c-ink-secondary)); margin: 16px 0; }
+  .doc .body kbd { font-family: var(--mono); font-size: 0.9em; border: 1px solid var(--c-border-strong); border-radius: 4px; padding: 0 5px; }
+  .doc .next { max-width: 68ch; margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--c-border); font-size: 15px; }
+</style>

@@ -153,6 +153,8 @@ export const copy = {
       resent: 'Письмо отправлено', verified: 'E-mail подтверждён', notVerified: 'Ссылка недействительна или устарела',
     },
   },
+  // Links to the site's explainers (components/ui/HelpLink.tsx).
+  help: { more: 'Подробнее' },
   form: {
     title:        'Тема выступления',
     titleHint:    'Одной строкой: о чём это',

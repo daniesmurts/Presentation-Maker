@@ -6,6 +6,7 @@ import { getDraft, sendMessage, saveCard, deleteDraft, collectDraft } from '../a
 import { errorMessage, errorUpgrade } from '../api/client'
 import Spinner from '../components/ui/Spinner'
 import Button from '../components/ui/Button'
+import HelpLink from '../components/ui/HelpLink'
 import { Field, inputClass, proseInputClass } from '../components/ui/Field'
 import { useToast } from '../lib/toast'
 import { copy, INTENT_LABEL, AUDIENCE_LABEL, minutesCount } from '../lib/copy'
@@ -209,7 +210,7 @@ function CardPanel({ prefix, card, onEdit, jobId, onCollect, collecting }: {
   return (
     <div className="text-sm">
       <div className="eyebrow text-ink-tertiary mb-1 hidden lg:block">{D.card}</div>
-      <p className="text-xs text-ink-secondary mb-4">{D.cardHint}</p>
+      <p className="text-xs text-ink-secondary mb-4">{D.cardHint} <HelpLink to="editor" /></p>
 
       <div className="space-y-3.5">
         <Field label={copy.form.title} htmlFor={id("title")}>

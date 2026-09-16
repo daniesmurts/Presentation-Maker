@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import Button from '../ui/Button'
+import HelpLink from '../ui/HelpLink'
 import { Field, Checkbox, inputClass, proseInputClass } from '../ui/Field'
 import { copy, INTENT_LABEL, INTENT_HINT, AUDIENCE_LABEL, slidesCount, minutesCount } from '../../lib/copy'
 import {
@@ -116,8 +117,8 @@ export default function TalkForm({ onSubmit, submitting, error, upgrade }: Props
 
       <div className="divide-y divide-border border-y border-border">
         <Checkbox checked={notes} onChange={(v) => { setNotes(v); setNotesTouched(true) }} label={copy.form.notes} hint={copy.form.notesHint} />
-        <Checkbox checked={strict} onChange={setStrict} label={copy.form.strict} hint={copy.form.strictHint} />
-        <Checkbox checked={review} onChange={setReview} label={copy.form.reviewOutline} hint={copy.form.reviewHint} />
+        <Checkbox checked={strict} onChange={setStrict} label={copy.form.strict} hint={<>{copy.form.strictHint} <HelpLink to="strict" /></>} />
+        <Checkbox checked={review} onChange={setReview} label={copy.form.reviewOutline} hint={<>{copy.form.reviewHint} <HelpLink to="outline" /></>} />
       </div>
 
       {error && (

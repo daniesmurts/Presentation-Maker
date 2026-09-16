@@ -11,6 +11,7 @@ import { errorMessage } from '../api/client'
 import SlideCard, { type SlideEditActions } from '../components/talks/SlideCard'
 import Spinner from '../components/ui/Spinner'
 import Button, { buttonClass } from '../components/ui/Button'
+import HelpLink from '../components/ui/HelpLink'
 import { useToast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 import { copy, INTENT_LABEL, AUDIENCE_LABEL, slidesCount } from '../lib/copy'
@@ -177,8 +178,8 @@ export default function TalkPage() {
           <p className="text-sm text-ink-secondary mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
             <span>{sub}</span>
             {talk.approved_at && <Pill tone="ok">{copy.list.status.approved}</Pill>}
-            {talk.share_token && <Pill tone="accent">{copy.list.status.shared}</Pill>}
-            {overfull.size > 0 && <Pill tone="warn">{copy.talk.overfull}: {overfull.size}</Pill>}
+            {talk.share_token && <Pill tone="accent">{copy.list.status.shared} <HelpLink to="share" label="?" className="no-underline" /></Pill>}
+            {overfull.size > 0 && <Pill tone="warn">{copy.talk.overfull}: {overfull.size} <HelpLink to="overfull" label="?" className="no-underline" /></Pill>}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

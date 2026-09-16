@@ -1,0 +1,26 @@
+---
+import Base from '../../layouts/Base.astro'
+import { HELP } from '../../data/help'
+---
+<Base title="Как пользоваться — Тезариум" description="Короткие статьи о том, как работает Тезариум: план, редактор, режим «только по моим материалам», ссылка для просмотра, бренд и темы, экспорт в .pptx, загрузка своей презентации." canonical="/help">
+  <section style="border-top:0; padding-top: 56px;">
+    <div class="wrap">
+      <div class="eyebrow pencil">Как пользоваться</div>
+      <h1 style="margin: 14px 0 10px">Восемь вещей, которые не очевидны</h1>
+      <p class="muted" style="margin-bottom: 40px; max-width: 60ch">Каждая статья отвечает на один вопрос и открывается из того места в приложении, где он возникает. Что здесь не описано — работает так, как выглядит.</p>
+      <ul class="docs">
+        {HELP.map((d, i) => (
+          <li><a href={`/help/${d.slug}`}><span class="n">{String(i + 1).padStart(2, '0')}</span><span><h2>{d.title}</h2><p class="muted">{d.lead}</p></span></a></li>
+        ))}
+      </ul>
+    </div>
+  </section>
+</Base>
+<style>
+  .docs { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--c-border-strong); max-width: 760px; }
+  .docs li { border-bottom: 1px solid var(--c-border); }
+  .docs a { display: grid; grid-template-columns: 40px 1fr; gap: 12px; padding: 22px 0; text-decoration: none; color: inherit; }
+  .docs .n { font-family: var(--mono); font-size: 14px; color: rgb(var(--c-ink-tertiary)); padding-top: 6px; }
+  .docs h2 { font-size: 1.4rem; margin: 0 0 6px; color: rgb(var(--c-ink)); }
+  .docs a:hover h2 { color: rgb(var(--c-accent)); }
+</style>

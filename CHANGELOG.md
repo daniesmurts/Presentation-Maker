@@ -6,6 +6,19 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
 ## [Unreleased]
 
 ### Added
+- **«Как пользоваться» — eight explainers on the site, linked from the
+  controls.** Decided against a knowledge base: the §6 rule (explanation
+  lives at the control) came out of user testing, there are no external
+  users yet to tell us which forty topics matter, and a wiki's screenshots
+  rot with every release. So: eight articles on `landing/` (`/help/<slug>`,
+  Astro, markdown-free prose in the site's own layout — `Article.astro`
+  is `Legal.astro` without the version line), each reachable by a
+  «Подробнее» link at the control it explains (`HelpLink`, same origin,
+  new tab) and public because the topics are what people search («текст
+  докладчика к слайдам»). The list lives once in `landing/src/data/help.ts`;
+  `Field`/`Checkbox` hints accept a node now so a link can sit in one.
+  The share and «Много текста» pills carry a «?» to their articles. Nine
+  onward waits for `support_messages`.
 - **Drafts («Наброски») — talk it through with the editor before the
   form.** The new-talk form assumes the user already knows what they want
   to say; the people the product is for often do not. A draft is a
@@ -247,6 +260,19 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 ## [Unreleased]
 
 ### Added
+- **«Как пользоваться» — eight explainers on the site, linked from the
+  controls.** Decided against a knowledge base: the §6 rule (explanation
+  lives at the control) came out of user testing, there are no external
+  users yet to tell us which forty topics matter, and a wiki's screenshots
+  rot with every release. So: eight articles on `landing/` (`/help/<slug>`,
+  Astro, markdown-free prose in the site's own layout — `Article.astro`
+  is `Legal.astro` without the version line), each reachable by a
+  «Подробнее» link at the control it explains (`HelpLink`, same origin,
+  new tab) and public because the topics are what people search («текст
+  докладчика к слайдам»). The list lives once in `landing/src/data/help.ts`;
+  `Field`/`Checkbox` hints accept a node now so a link can sit in one.
+  The share and «Много текста» pills carry a «?» to their articles. Nine
+  onward waits for `support_messages`.
 - **Drafts («Наброски») — talk it through with the editor before the
   form.** The new-talk form assumes the user already knows what they want
   to say; the people the product is for often do not. A draft is a

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 
 // Explanation lives at the control (CLAUDE.md §6), as a hint under it.
-export function Field({ label, hint, htmlFor, children }: { label: string; hint?: string; htmlFor?: string; children: ReactNode }) {
+export function Field({ label, hint, htmlFor, children }: { label: string; hint?: ReactNode; htmlFor?: string; children: ReactNode }) {
   return (
     <div className="space-y-1.5">
       <label htmlFor={htmlFor} className="block text-sm font-medium text-ink">{label}</label>
@@ -20,7 +20,7 @@ export const inputClass =
 export const proseInputClass = `${inputClass} font-display leading-relaxed`
 
 // A real <label> wrapper so the whole 44px row is the target (touch has no hover).
-export function Checkbox({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) {
+export function Checkbox({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: ReactNode }) {
   return (
     <label className="flex items-start gap-3 min-h-[44px] py-2 cursor-pointer">
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 w-4 h-4 accent-accent cursor-pointer" />
