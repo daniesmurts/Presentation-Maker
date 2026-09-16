@@ -37,6 +37,19 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
   - Measured on the first real run: a 4-phrase rehearsal reviewed for
     $0.001 (two calls, 1 055 output tokens); a full 20-slide rehearsal is
     four batches plus a summary, ~$0.02.
+  - **Talk toolbar regrouped** while adding the button: nine controls in
+    one wrapping row, three of them bare text (§6: an action without a
+    border reads as a caption). Now three groups — the talk (theme,
+    «Готово») · «Переделать всё ▾» (rewrite, draw pictures — two
+    whole-deck model actions under one chip; «Изменить» was tried and
+    collides with the per-slide «Изменить») · use it (show, rehearse,
+    share, download, «⋯» with delete — destructive and rare, it does not
+    earn a slot next to the CTA). Every action a bordered chip, one solid
+    CTA. Measured: first slide still above the fold at 1280×800.
+  - Help article `/help/rehearsal` — the microphone question will recur:
+    where the audio goes (the browser's recogniser, not us), what the
+    numbers mean, how to rehearse so the review has something to compare.
+    Linked from the intro card and the review card.
   - Vitest quirk worth recording: `beforeEach(() => mock.mockReset())`
     returns the mock, which vitest calls as a cleanup — one phantom call
     with no arguments after every test. Braces.

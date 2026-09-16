@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Trash2, Download, Plus, Link2, Check, ChevronDown, Copy, Play, Mic, Wand2, CheckCircle2, Sparkles } from 'lucide-react'
+import { Trash2, Download, Plus, Link2, Check, ChevronDown, Copy, Play, Mic, Wand2, CheckCircle2, MoreHorizontal } from 'lucide-react'
 import { getTalk, deleteTalk, updateSlide, regenerateSlide, deleteSlide, insertSlide, moveSlide, uploadSlideImage, removeSlideImage, setTalkTheme, shareTalk, unshareTalk, startRewrite, applyRewrite, dismissRewrite, replaceTalkSlides, getJob, approveTalk, getImagePrompt, generateSlideImage, generateDeckImages } from '../api/talks'
 import RewriteReview from '../components/talks/RewriteReview'
 import { remapAfterMove, remapAfterDelete, remapAfterInsert, toSlideNumbers, rangeBetween } from '../lib/slideSelection'
@@ -57,6 +57,8 @@ export default function TalkPage() {
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [anchor, setAnchor] = useState<number | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [changeOpen, setChangeOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   // Deck-level rewrite: an instruction box → a job → a proposal to review.
   const [rewriteOpen, setRewriteOpen] = useState(false)
@@ -190,93 +192,122 @@ export default function TalkPage() {
             )}
           </p>
         </div>
+        {/* The toolbar reads in three groups, left to right: the talk as a
+            thing (theme, «Готово») · change all of it (one menu — two
+            whole-deck model actions were two bare text links, which read
+            as captions, §6) · use it (show, rehearse, share, download).
+            Delete is in an overflow: destructive and rare, it does not
+            earn a slot next to «Скачать». Every action is a bordered
+            chip; the one solid CTA is the download. */}
         <div className="flex flex-wrap items-center gap-2">
-        {brandData && (
-          <select value={talk.theme_id} onChange={(e) => void run(() => setTalkTheme(id, e.target.value), false)} disabled={busy}
-                  aria-label={copy.theme.label} title={copy.theme.label} className={`${inputClass} !w-auto h-10 py-0 text-sm`}>
-            {brandData.themes.map((t) => <option key={t.id} value={t.id}>{copy.theme.label}: {t.name}</option>)}
-          </select>
-        )}
-        <Button variant={talk.approved_at ? 'secondary' : 'ghost'} onClick={() => void run(() => approveTalk(id, !talk.approved_at), false)} disabled={busy} title={copy.approve.hint} aria-label={copy.approve.button}>
-          <CheckCircle2 className="w-4 h-4" aria-hidden /> <span className="hidden lg:inline">{talk.approved_at ? copy.approve.on : copy.approve.button}</span>
-        </Button>
-        <Button variant="quiet" onClick={() => setRewriteOpen((o) => !o)} disabled={busy || Boolean(rewriteJob)} title={copy.rewrite.lead} aria-label={copy.rewrite.button}>
-          <Wand2 className="w-4 h-4" aria-hidden /> <span className="hidden lg:inline">{copy.rewrite.button}</span>
-        </Button>
-        {brandData?.image_generation && (
-          <Button variant="quiet" onClick={() => void drawDeck()} disabled={busy} title={copy.talk.image.deckHint} aria-label={copy.talk.image.deck}>
-            <Sparkles className="w-4 h-4" aria-hidden /> <span className="hidden lg:inline">{copy.talk.image.deck}</span>
-          </Button>
-        )}
-        <div className="flex items-center gap-1">
-          <Button variant={talk.share_token ? 'secondary' : 'quiet'} loading={share.isPending} onClick={() => share.mutate(!talk.share_token)}
-                  aria-label={copy.talk.share.button} title={copy.talk.share.hint}>
-            <Link2 className="w-4 h-4" aria-hidden /> <span className="hidden md:inline">{talk.share_token ? copy.talk.share.off : copy.talk.share.button}</span>
-          </Button>
-          {shareUrl && (
-            <Button variant="quiet" onClick={copyShare} aria-label={copy.talk.share.copy} title={shareUrl}>
-              {copied ? <Check className="w-4 h-4" aria-hidden /> : <Copy className="w-4 h-4" aria-hidden />}
+          <div className="flex items-center gap-2">
+            {brandData && (
+              <select value={talk.theme_id} onChange={(e) => void run(() => setTalkTheme(id, e.target.value), false)} disabled={busy}
+                      aria-label={copy.theme.label} title={copy.theme.label} className={`${inputClass} !w-auto h-10 py-0 text-sm`}>
+                {brandData.themes.map((t) => <option key={t.id} value={t.id}>{copy.theme.label}: {t.name}</option>)}
+              </select>
+            )}
+            <Button variant={talk.approved_at ? 'secondary' : 'ghost'} onClick={() => void run(() => approveTalk(id, !talk.approved_at), false)} disabled={busy} title={copy.approve.hint} aria-label={copy.approve.button}>
+              <CheckCircle2 className="w-4 h-4" aria-hidden /> <span className="hidden lg:inline">{talk.approved_at ? copy.approve.on : copy.approve.button}</span>
             </Button>
-          )}
-        </div>
-        <span className="flex-1" />
-        {/* Present · download · delete wrap as one group, not one control at a time. */}
-        <div className="flex items-center gap-2">
-        <Link to={`/talks/${id}/present`} title={copy.present.hint} className={buttonClass('ghost')}>
-          <Play className="w-4 h-4" aria-hidden /> <span className="hidden md:inline">{copy.present.button}</span>
-        </Link>
-        <Link to={`/talks/${id}/rehearse`} title={copy.rehearsal.hint} className={buttonClass('ghost')}>
-          <Mic className="w-4 h-4" aria-hidden /> <span className="hidden md:inline">{copy.rehearsal.button}</span>
-        </Link>
-        {/* Plain links, not fetch+blob: the browser streams the file and
-            shows its own download UI; the cookie rides along same-origin. */}
-        <div className="relative flex-shrink-0">
-          <Button onClick={() => setMenuOpen((o) => !o)} aria-haspopup="menu" aria-expanded={menuOpen}>
-            <Download className="w-4 h-4" aria-hidden /> <span className="hidden sm:inline">{copy.talk.downloadMenu}</span>
-            {selected.size > 0 && <span className="text-xs bg-bg/20 rounded px-1.5 tabular-nums">{selected.size}</span>}
-            <ChevronDown className="w-3.5 h-3.5" aria-hidden />
-          </Button>
-          {menuOpen && (
-            <div role="menu" className="absolute right-0 mt-1 w-72 bg-surface border border-border rounded-md shadow-lg z-30 py-1" onClick={() => setMenuOpen(false)}>
-              {/* The gate (lib/planTier.ts) answers a plain <a download> with a
-                  403 JSON the browser would save as a file — so a locked .pptx
-                  is a link to the tariff page, not a download that fails. */}
-              {pptxOpen ? (
-                <a role="menuitem" href={`/api/talks/${id}/export.pptx${selQuery}`} download onClick={afterDownload} className="block px-3 py-2 text-sm text-ink hover:bg-surface-soft">
-                  {selected.size > 0 ? copy.talk.downloadSelected('.pptx', selected.size) : copy.talk.downloadAll('.pptx')}
-                  {Number.isFinite(left('pptx')) && <span className="block text-xs text-ink-tertiary">{copy.billing.quotaLeft('.pptx', left('pptx'), user!.quota.pptx.limit!)}</span>}
-                </a>
-              ) : (
-                <Link role="menuitem" to="/billing" className="flex items-center justify-between gap-2 px-3 py-2 text-sm text-ink-secondary hover:bg-surface-soft">
-                  {copy.billing.quotaUsed('.pptx', user?.quota?.pptx.limit ?? 0)} <span className="text-accent text-xs font-medium">{copy.billing.upgradeLink} →</span>
-                </Link>
+          </div>
+          <span className="hidden sm:block w-px h-6 bg-border-strong" aria-hidden />
+          <div className="relative">
+            <Button variant="ghost" onClick={() => setChangeOpen((o) => !o)} disabled={busy} aria-haspopup="menu" aria-expanded={changeOpen} title={copy.talk.changeHint}>
+              <Wand2 className="w-4 h-4" aria-hidden /> <span className="hidden md:inline">{copy.talk.changeMenu}</span> <ChevronDown className="w-3.5 h-3.5" aria-hidden />
+            </Button>
+            {changeOpen && (
+              <div role="menu" className="absolute left-0 mt-1 w-72 bg-surface border border-border rounded-md shadow-lg z-30 py-1" onClick={() => setChangeOpen(false)}>
+                <button role="menuitem" type="button" disabled={Boolean(rewriteJob)} onClick={() => setRewriteOpen((o) => !o)} className="block w-full text-left px-3 py-2 text-sm text-ink hover:bg-surface-soft disabled:opacity-50">
+                  {copy.rewrite.button}
+                  <span className="block text-xs text-ink-tertiary">{copy.rewrite.short}</span>
+                </button>
+                {brandData?.image_generation && (
+                  <button role="menuitem" type="button" onClick={() => void drawDeck()} className="block w-full text-left px-3 py-2 text-sm text-ink hover:bg-surface-soft">
+                    {copy.talk.image.deck}
+                    <span className="block text-xs text-ink-tertiary">{copy.talk.image.deckHint}</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          <span className="flex-1" />
+          <div className="flex items-center gap-2">
+            <Link to={`/talks/${id}/present`} title={copy.present.hint} className={buttonClass('ghost')}>
+              <Play className="w-4 h-4" aria-hidden /> <span className="hidden md:inline">{copy.present.button}</span>
+            </Link>
+            <Link to={`/talks/${id}/rehearse`} title={copy.rehearsal.hint} className={buttonClass('ghost')}>
+              <Mic className="w-4 h-4" aria-hidden /> <span className="hidden md:inline">{copy.rehearsal.button}</span>
+            </Link>
+            <div className="flex items-center gap-1">
+              <Button variant={talk.share_token ? 'secondary' : 'ghost'} loading={share.isPending} onClick={() => share.mutate(!talk.share_token)}
+                      aria-label={copy.talk.share.button} title={copy.talk.share.hint}>
+                <Link2 className="w-4 h-4" aria-hidden /> <span className="hidden md:inline">{talk.share_token ? copy.talk.share.off : copy.talk.share.button}</span>
+              </Button>
+              {shareUrl && (
+                <Button variant="ghost" size="icon" onClick={copyShare} aria-label={copy.talk.share.copy} title={shareUrl}>
+                  {copied ? <Check className="w-4 h-4" aria-hidden /> : <Copy className="w-4 h-4" aria-hidden />}
+                </Button>
               )}
-              {pdfOpen ? (
-                <>
-                  <a role="menuitem" href={`/api/talks/${id}/export.pdf${selQuery}`} download onClick={afterDownload} className="block px-3 py-2 text-sm text-ink hover:bg-surface-soft">
-                    {selected.size > 0 ? copy.talk.downloadSelected('PDF', selected.size) : copy.talk.downloadAll('PDF')}
-                    {Number.isFinite(left('pdf')) && <span className="block text-xs text-ink-tertiary">{copy.billing.quotaLeft('PDF', left('pdf'), user!.quota.pdf.limit!)}</span>}
-                  </a>
-                  {talk.notes_enabled && (
-                    <a role="menuitem" href={`/api/talks/${id}/export.pdf${selQuery}${selQuery ? '&' : '?'}notes=1`} download onClick={afterDownload} className="block px-3 py-2 text-sm text-ink hover:bg-surface-soft">
-                      {copy.talk.withNotes}
-                    </a>
-                  )}
-                </>
-              ) : (
-                <Link role="menuitem" to="/billing" className="flex items-center justify-between gap-2 px-3 py-2 text-sm text-ink-secondary hover:bg-surface-soft">
-                  {copy.billing.quotaUsed('PDF', user?.quota?.pdf.limit ?? 0)} <span className="text-accent text-xs font-medium">{copy.billing.upgradeLink} →</span>
-                </Link>
-              )}
-              {selected.size > 0 && <button role="menuitem" type="button" onClick={() => setSelected(new Set())} className="block w-full text-left px-3 py-2 text-sm text-ink-secondary hover:bg-surface-soft">{copy.talk.clearSelection}</button>}
             </div>
-          )}
-        </div>
-        <Button variant="quiet" size="icon" loading={remove.isPending} aria-label={copy.talk.delete} title={copy.talk.delete} className="hover:!text-danger hover:!bg-danger-bg"
-                onClick={() => { if (window.confirm(copy.talk.deleteConfirm)) remove.mutate() }}>
-          <Trash2 className="w-4 h-4" aria-hidden />
-        </Button>
-        </div>
+            {/* Plain links, not fetch+blob: the browser streams the file and
+                shows its own download UI; the cookie rides along same-origin. */}
+            <div className="relative flex-shrink-0">
+              <Button onClick={() => setMenuOpen((o) => !o)} aria-haspopup="menu" aria-expanded={menuOpen}>
+                <Download className="w-4 h-4" aria-hidden /> <span className="hidden sm:inline">{copy.talk.downloadMenu}</span>
+                {selected.size > 0 && <span className="text-xs bg-bg/20 rounded px-1.5 tabular-nums">{selected.size}</span>}
+                <ChevronDown className="w-3.5 h-3.5" aria-hidden />
+              </Button>
+              {menuOpen && (
+                <div role="menu" className="absolute right-0 mt-1 w-72 bg-surface border border-border rounded-md shadow-lg z-30 py-1" onClick={() => setMenuOpen(false)}>
+                  {/* The gate (lib/planTier.ts) answers a plain <a download> with a
+                      403 JSON the browser would save as a file — so a locked .pptx
+                      is a link to the tariff page, not a download that fails. */}
+                  {pptxOpen ? (
+                    <a role="menuitem" href={`/api/talks/${id}/export.pptx${selQuery}`} download onClick={afterDownload} className="block px-3 py-2 text-sm text-ink hover:bg-surface-soft">
+                      {selected.size > 0 ? copy.talk.downloadSelected('.pptx', selected.size) : copy.talk.downloadAll('.pptx')}
+                      {Number.isFinite(left('pptx')) && <span className="block text-xs text-ink-tertiary">{copy.billing.quotaLeft('.pptx', left('pptx'), user!.quota.pptx.limit!)}</span>}
+                    </a>
+                  ) : (
+                    <Link role="menuitem" to="/billing" className="flex items-center justify-between gap-2 px-3 py-2 text-sm text-ink-secondary hover:bg-surface-soft">
+                      {copy.billing.quotaUsed('.pptx', user?.quota?.pptx.limit ?? 0)} <span className="text-accent text-xs font-medium">{copy.billing.upgradeLink} →</span>
+                    </Link>
+                  )}
+                  {pdfOpen ? (
+                    <>
+                      <a role="menuitem" href={`/api/talks/${id}/export.pdf${selQuery}`} download onClick={afterDownload} className="block px-3 py-2 text-sm text-ink hover:bg-surface-soft">
+                        {selected.size > 0 ? copy.talk.downloadSelected('PDF', selected.size) : copy.talk.downloadAll('PDF')}
+                        {Number.isFinite(left('pdf')) && <span className="block text-xs text-ink-tertiary">{copy.billing.quotaLeft('PDF', left('pdf'), user!.quota.pdf.limit!)}</span>}
+                      </a>
+                      {talk.notes_enabled && (
+                        <a role="menuitem" href={`/api/talks/${id}/export.pdf${selQuery}${selQuery ? '&' : '?'}notes=1`} download onClick={afterDownload} className="block px-3 py-2 text-sm text-ink hover:bg-surface-soft">
+                          {copy.talk.withNotes}
+                        </a>
+                      )}
+                    </>
+                  ) : (
+                    <Link role="menuitem" to="/billing" className="flex items-center justify-between gap-2 px-3 py-2 text-sm text-ink-secondary hover:bg-surface-soft">
+                      {copy.billing.quotaUsed('PDF', user?.quota?.pdf.limit ?? 0)} <span className="text-accent text-xs font-medium">{copy.billing.upgradeLink} →</span>
+                    </Link>
+                  )}
+                  {selected.size > 0 && <button role="menuitem" type="button" onClick={() => setSelected(new Set())} className="block w-full text-left px-3 py-2 text-sm text-ink-secondary hover:bg-surface-soft">{copy.talk.clearSelection}</button>}
+                </div>
+              )}
+            </div>
+            <div className="relative">
+              <Button variant="ghost" size="icon" onClick={() => setMoreOpen((o) => !o)} aria-haspopup="menu" aria-expanded={moreOpen} aria-label={copy.talk.more} title={copy.talk.more}>
+                <MoreHorizontal className="w-4 h-4" aria-hidden />
+              </Button>
+              {moreOpen && (
+                <div role="menu" className="absolute right-0 mt-1 w-56 bg-surface border border-border rounded-md shadow-lg z-30 py-1" onClick={() => setMoreOpen(false)}>
+                  <button role="menuitem" type="button" disabled={remove.isPending} onClick={() => { if (window.confirm(copy.talk.deleteConfirm)) remove.mutate() }}
+                          className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-danger hover:bg-danger-bg">
+                    <Trash2 className="w-4 h-4" aria-hidden /> {copy.talk.delete}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </header>
 

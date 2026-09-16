@@ -42,7 +42,7 @@ on-prem install keeps `.pptx` open to everyone.
   start; 40 turns a day free, 400 on Pro. Pasting material as a message
   works; uploading a file into a draft does not yet. *(step 1 of the
   draft plan; steps 2–4 in TODO N)*
-- ✅ **«Как пользоваться»** — eight short explainers on the public site
+- ✅ **«Как пользоваться»** — nine short explainers on the public site
   (`/help`), one per thing that is not obvious: the outline gate, the
   editor, «только по моим материалам», the «Много текста» flag, the share
   link, brand vs theme, what stays editable in the `.pptx`, what an
