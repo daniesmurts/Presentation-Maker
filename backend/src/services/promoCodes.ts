@@ -3,6 +3,7 @@ import { ValidationError } from '../errors/AppError'
 import { getWorkspaceBilling } from '../db/queries/billing'
 import { recordTalkEvent } from '../db/queries/talkEvents'
 import { planGrant } from './adminActions'
+import { alertPromoRedeemed } from './founderAlerts'
 import {
   findActivePromoByCode, countRedemptions, hasWorkspaceRedeemed, recordRedemption,
   createPromoCode, listPromoCodes, setPromoCodeActive, findPromoCodeById,
@@ -77,6 +78,9 @@ export async function redeemFreeMonthsPromo(code: string, workspaceId: string): 
   const inserted = await recordRedemption({ promoCodeId: promo.id, workspaceId, paymentId: null, discountKopecks: null, monthsGranted: promo.value })
   if (!inserted) throw new ValidationError('Этот промокод уже использован в вашем пространстве')
   recordTalkEvent({ talkId: null, workspaceId, userId: null, event: 'promo_redeemed', metadata: { code: promo.code, months: promo.value } })
+  void pool.query<{ email: string }>(`SELECT email FROM users WHERE workspace_id = $1 ORDER BY created_at LIMIT 1`, [workspaceId])
+    .then((r) => r.rows[0]?.email ?? null, () => null)
+    .then((email) => alertPromoRedeemed({ email, workspaceId, code: promo.code, months: promo.value, until: after.plan_expires_at }))
   return after
 }
 

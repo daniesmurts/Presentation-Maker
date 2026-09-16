@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit'
 import { asyncHandler } from '../lib/asyncHandler'
 import { ValidationError } from '../errors/AppError'
 import { createSupportMessage, type SupportCategory } from '../db/queries/supportMessages'
+import { alertSupportMessage } from '../services/founderAlerts'
 
 // Public contact / tech-support form (landing page, no account). No LLM
 // prompt ever reads this text, so this isn't the CLAUDE.md §3.4 sanitiser —
@@ -41,6 +42,8 @@ supportRouter.post('/contact', asyncHandler(async (req, res) => {
     user_agent: req.get('user-agent')?.slice(0, 500) ?? null,
     ip: req.ip ?? null,
   })
+  // Stored first, alerted second: the inbox is the record, the letter is the doorbell.
+  alertSupportMessage(params)
 
   res.status(201).json({ ok: true })
 }))

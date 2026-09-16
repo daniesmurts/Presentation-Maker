@@ -12,6 +12,8 @@ const { queryMock, tbankInit, tbankCharge, tbankGetState, sendEmailMock } = vi.h
 vi.mock('../db/connection', () => ({ pool: { query: queryMock, connect: async () => ({ query: queryMock, release: () => undefined }) } }))
 vi.mock('../lib/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }))
 vi.mock('./emailTransport', () => ({ sendEmail: sendEmailMock }))
+// The founder alert is its own unit (founderAlerts.test.ts); here we count the buyer's letters only.
+vi.mock('./founderAlerts', () => ({ alertProPayment: vi.fn(), alertRefund: vi.fn(), alertRenewalFailed: vi.fn() }))
 vi.mock('./tbank/client', async (orig) => ({
   ...(await orig<typeof import('./tbank/client')>()),
   init: tbankInit, charge: tbankCharge, getState: tbankGetState,

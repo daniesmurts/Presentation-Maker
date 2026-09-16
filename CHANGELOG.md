@@ -6,6 +6,28 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
 ## [Unreleased]
 
 ### Added
+- **Founder alerts — an e-mail to the operator on every signup and every
+  Pro payment.** `/admin` shows it all, but only when opened; the founder
+  wanted to *hear* about the first paying customers as they arrive.
+  `services/founderAlerts.ts`: one short letter (subject «Новая
+  регистрация» / «Купили Pro» / «Pro продлён», a table of the facts) to
+  `FOUNDER_ALERT_EMAILS`, falling back to `ADMIN_EMAILS` — the person who
+  can open the admin panel is the person who wants the ping. Rides the
+  existing Unisender transport; fire-and-forget on both call sites, which
+  matters most in `applyOutcome`: a mail failure inside the T-Bank webhook
+  would return non-200 and make T-Bank retry a payment we had already
+  applied. Display names are escaped into the HTML (user input). The
+  operator's own registrations are skipped. Not analytics — `talk_events`
+  still carries the record; this is only the doorbell.
+  Same day, the rest of the doorbell: refunds (the letter states the
+  *effect* — full refund of the current period revokes Pro, a partial or
+  past-period one doesn't — because that rule lives in `applyOutcome` and
+  the T-Bank cabinet doesn't know it), declined renewals (streak and
+  whether auto-renew switched off), `/contact` submissions (full text,
+  escaped — the inbox stays the record, this closes the «no notification
+  yet» note in FEATURES), and free-months promo redemptions (Pro without
+  a payment, so the payment alert would never fire). Admin grants are
+  deliberately not alerted: the admin is the person who'd receive it.
 - **«Как пользоваться» — eight explainers on the site, linked from the
   controls.** Decided against a knowledge base: the §6 rule (explanation
   lives at the control) came out of user testing, there are no external

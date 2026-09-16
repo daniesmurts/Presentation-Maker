@@ -23,6 +23,7 @@ import {
   generateRawToken, hashToken, createResetToken, invalidateExistingTokens, findValidToken, markTokenUsed,
 } from '../db/queries/passwordReset'
 import { yandexAuthorizeUrl, exchangeYandexCode, fetchYandexUser } from '../services/yandexOAuth'
+import { alertSignup } from '../services/founderAlerts'
 
 // The UI reads the gate from here, never from the tier name: what is locked
 // depends on the tier AND on billing being on in THIS installation, and
@@ -73,6 +74,7 @@ authRouter.post('/register', authLimiter, asyncHandler(async (req, res) => {
   await recordTermsAcceptance(user.id)
   const ref = (req.body as Record<string, unknown> | null)?.ref
   if (typeof ref === 'string' && ref) await attachReferralOnSignup(user.workspace_id, ref, email, req.ip ?? null)
+  alertSignup({ email, displayName, via: 'password', referred: typeof ref === 'string' && Boolean(ref) })
   // Soft gate (decided 2026-09-16): verification never blocks signup or
   // login, only a dismissible-by-verifying banner — fire-and-forget so a
   // mail-provider outage never fails registration.
@@ -245,6 +247,7 @@ if (config.yandexOAuth.enabled) {
         await recordTermsAcceptance(created.id)
         const ref = saved?.get('ref')
         if (ref) await attachReferralOnSignup(created.workspace_id, ref, email, req.ip ?? null)
+        alertSignup({ email, displayName, via: 'yandex', referred: Boolean(ref) })
         user = created
       }
     }

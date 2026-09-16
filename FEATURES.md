@@ -158,8 +158,17 @@ on-prem install keeps `.pptx` open to everyone.
   Capped at 12 rewards a year per referrer.
 - ✅ **Public contact / tech-support form** at `/contact` on the landing
   site, no account needed. Submissions (name, email, category, message)
-  land in `support_messages` and show in the admin's support inbox; no
-  notification yet.
+  land in `support_messages` and show in the admin's support inbox, and
+  are mailed to the operator (founder alerts, below).
+- ✅ **Founder alerts by e-mail**: a short letter to `FOUNDER_ALERT_EMAILS`
+  (default `ADMIN_EMAILS`) on every new account (e-mail, name, password or
+  Яндекс ID, referral or not), every confirmed Pro payment (buyer, amount,
+  promo, paid-until, order) and renewal, every refund (with what it did to
+  Pro), every declined renewal (streak, whether auto-renew went off), every
+  support-form message (full text) and every free-months promo redeemed.
+  Same transport as the transactional mail, so it needs `UNISENDER_API_KEY`;
+  nothing configured → nothing sent. Admin-panel grants are not alerted —
+  the admin is the operator.
 - ✅ **Immutable images built in CI** for the API and the web bundle, each
   carrying its build version (`/health`, `/version.txt`); a pull-based
   `deploy.sh` with a CI gate, image guard, one-shot migration, rolling

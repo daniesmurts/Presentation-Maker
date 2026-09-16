@@ -16,6 +16,7 @@ import { referrerDiscountCode, rewardReferralOnPayment, clawBackReferralOnRefund
 import { verifyNotification } from './tbank/token'
 import { scheduleWithLease } from './schedulerLease'
 import { sendEmail } from './emailTransport'
+import { alertProPayment, alertRefund, alertRenewalFailed } from './founderAlerts'
 import { subscriptionStartedEmail, subscriptionRenewedEmail, renewalFailedEmail } from '../lib/emailTemplates'
 
 // The Pro subscription: 2 500 ₽ a month through T-Bank, auto-renewed from
@@ -244,6 +245,10 @@ async function applyOutcome(
       // The referral reward is on the payment, not the discount — a
       // referee who paid full price still earns it. First payment only.
       if (payment.kind === 'initial') await rewardReferralOnPayment(payment.workspace_id, payment.id)
+      // The operator hears about every paid month as it lands (alerts are
+      // fire-and-forget; a mail failure never makes T-Bank retry the webhook).
+      void ownerEmail(payment.workspace_id).catch(() => null).then((email) =>
+        alertProPayment({ email, workspaceId: payment.workspace_id, kind: payment.kind, amountKopecks: payment.amount_kopecks, until: end, orderId: payment.order_id, promo: Boolean(payment.promo_code_id) }))
       // A one-time payment (no card saved) gets no "you will be charged
       // monthly" letter — nothing recurring was agreed to.
       const recurring = Boolean(extra.rebillId ?? ws?.tbank_rebill_id)
@@ -275,13 +280,18 @@ async function applyOutcome(
     // refund of an earlier period, is recorded and left to support.
     const applied = await applyPaymentStatus(payment.id, status, errorCode, raw, null)
     const current = payment.period_end != null && new Date(payment.period_end).getTime() > Date.now()
+    let revoked = false
     if (applied && status === 'REFUNDED' && current) {
-      const revoked = await revokePro(payment.workspace_id)
+      revoked = await revokePro(payment.workspace_id)
       logger.warn({ message: 'Payment refunded — Pro revoked', orderId: payment.order_id, workspaceId: payment.workspace_id, revoked })
       recordTalkEvent({ talkId: null, workspaceId: payment.workspace_id, userId: null, event: 'refunded', metadata: { amount_kopecks: payment.amount_kopecks, kind: payment.kind, order_id: payment.order_id, revoked } })
       if (payment.kind === 'initial') await clawBackReferralOnRefund(payment.id)
     } else {
       logger.warn({ message: 'Payment refunded', orderId: payment.order_id, status, current, applied })
+    }
+    if (applied) {
+      void ownerEmail(payment.workspace_id).catch(() => null).then((email) =>
+        alertRefund({ email, workspaceId: payment.workspace_id, kind: payment.kind, amountKopecks: payment.amount_kopecks, status, orderId: payment.order_id, currentPeriod: current, revoked }))
     }
     return applied
   }
@@ -335,6 +345,7 @@ async function noteRenewalFailure(workspaceId: string, orderId: string): Promise
   const ws = await getWorkspaceBilling(workspaceId)
   const graceUntil = new Date((ws?.plan_expires_at ?? new Date()).getTime() + GRACE_DAYS * 86_400_000)
   void mailOwner(workspaceId, (name) => renewalFailedEmail({ displayName: name, graceUntil, autoRenewOff, billingUrl: BILLING_URL }))
+  void ownerEmail(workspaceId).catch(() => null).then((email) => alertRenewalFailed({ email, workspaceId, orderId, failures, autoRenewOff, graceUntil }))
 }
 
 const BILLING_URL = `${config.frontendUrl}/billing`
