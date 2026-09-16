@@ -57,8 +57,8 @@ export const setPromoCodeActive = (id: string, active: boolean) => client.post<{
 
 export interface AdminReferralRow {
   id: string; referrer_workspace_id: string; referee_workspace_id: string
-  status: 'signed_up' | 'paid' | 'rewarded' | 'capped' | 'clawed_back'
-  reward_days: number | null; flagged: boolean; created_at: string; paid_at: string | null; rewarded_at: string | null
+  status: 'signed_up' | 'paid' | 'rewarded' | 'capped' | 'clawed_back' | 'blocked'
+  reward_days: number | null; flagged: boolean; flag_reason: string | null; created_at: string; paid_at: string | null; rewarded_at: string | null
   referrer_email: string | null; referee_email: string | null
 }
 export interface ReferralFunnel { invited: number; paid: number; rewarded: number; reward_days_total: number }

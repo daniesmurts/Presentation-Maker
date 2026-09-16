@@ -430,7 +430,8 @@ export const copy = {
     referrals: {
       heading:  'Рефералы',
       funnel:   { invited: 'Приглашено', paid: 'Оплатили', rewarded: 'Награждено', cost: 'Дней Pro подарено' },
-      status:   { signed_up: 'зарегистрировался', paid: 'оплатил', rewarded: 'награждён', capped: 'лимит года', clawed_back: 'возврат отменён' } as Record<string, string>,
+      status:   { signed_up: 'зарегистрировался', paid: 'оплатил', rewarded: 'награждён', capped: 'лимит года', clawed_back: 'возврат отменён', blocked: 'заблокирован' } as Record<string, string>,
+      flagReason: { same_ip: 'тот же IP при регистрации', same_card: 'та же карта при оплате' } as Record<string, string>,
       cols:     { referrer: 'Пригласил', referee: 'Пришёл', status: 'Статус', days: 'Дней', created: 'Когда' },
       empty:    'Рефералов ещё нет',
     },

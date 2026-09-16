@@ -4,7 +4,7 @@ export interface ReferralRow {
   id:                    string
   referrer_workspace_id: string
   referee_workspace_id:  string
-  status:                'signed_up' | 'paid' | 'rewarded' | 'capped' | 'clawed_back'
+  status:                'signed_up' | 'paid' | 'rewarded' | 'capped' | 'clawed_back' | 'blocked'
   referee_payment_id:    string | null
   reward_days:           number | null
   flagged:               boolean
@@ -40,10 +40,27 @@ export async function getReferredBy(workspaceId: string): Promise<string | null>
   return rows[0]?.referred_by_workspace_id ?? null
 }
 
-/** Called right after the new workspace is created — best-effort, never blocks registration. */
-export async function attachReferral(refereeWorkspaceId: string, referrerWorkspaceId: string): Promise<void> {
+/** Called right after the new workspace is created — best-effort, never
+ *  blocks registration. `flag` records a soft fraud signal (still gets the
+ *  discount and could still reward — an admin can see it in the list) as
+ *  opposed to a hard block, which never calls this at all. */
+export async function attachReferral(refereeWorkspaceId: string, referrerWorkspaceId: string, flag?: { reason: string }): Promise<void> {
   await pool.query(`UPDATE workspaces SET referred_by_workspace_id = $2 WHERE id = $1`, [refereeWorkspaceId, referrerWorkspaceId])
-  await pool.query(`INSERT INTO referrals (referrer_workspace_id, referee_workspace_id) VALUES ($1, $2)`, [referrerWorkspaceId, refereeWorkspaceId])
+  await pool.query(
+    `INSERT INTO referrals (referrer_workspace_id, referee_workspace_id, flagged, flag_reason) VALUES ($1, $2, $3, $4)`,
+    [referrerWorkspaceId, refereeWorkspaceId, !!flag, flag?.reason ?? null],
+  )
+}
+
+export interface ReferrerFraudContext { ownerEmail: string | null; signupIp: string | null; createdAt: string }
+
+export async function getReferrerFraudContext(referrerWorkspaceId: string): Promise<ReferrerFraudContext | null> {
+  const { rows } = await pool.query<{ email: string | null; signup_ip: string | null; created_at: string }>(
+    `SELECT email, signup_ip, created_at FROM users WHERE workspace_id = $1 ORDER BY created_at LIMIT 1`,
+    [referrerWorkspaceId],
+  )
+  if (!rows[0]) return null
+  return { ownerEmail: rows[0].email, signupIp: rows[0].signup_ip, createdAt: rows[0].created_at }
 }
 
 export async function findReferralByReferee(refereeWorkspaceId: string): Promise<ReferralRow | null> {
@@ -73,6 +90,11 @@ export async function markReferralCapped(id: string): Promise<void> {
 
 export async function markReferralClawedBack(id: string): Promise<void> {
   await pool.query(`UPDATE referrals SET status = 'clawed_back' WHERE id = $1`, [id])
+}
+
+/** A payment the fraud check refused to reward — never granted at all, unlike a clawback. */
+export async function markReferralBlocked(id: string, reason: string): Promise<void> {
+  await pool.query(`UPDATE referrals SET status = 'blocked', flagged = TRUE, flag_reason = $2 WHERE id = $1`, [id, reason])
 }
 
 export async function findReferralByPaymentId(paymentId: string): Promise<ReferralRow | null> {

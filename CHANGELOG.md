@@ -34,6 +34,27 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 ## [Unreleased]
 
 ### Added
+- **Referral fraud gates**, before the first deploy (TODO M follow-up).
+  Migration 020: `users.signup_ip` and a `referrals.status` value
+  `'blocked'`. Normalised-e-mail match (`+tag` stripped on any provider;
+  dots stripped only for Gmail-family domains — everywhere else a dot is
+  a different inbox) and the same signup IP inside a 60-minute window
+  **block** the attach outright — no referral row is created, so there is
+  nothing to discount and nothing to ever reward; the user sees nothing
+  different. The same IP *outside* that window only **flags** it
+  (`referrals.flagged`/`flag_reason`, visible in the admin tab) — a
+  shared household or office isn't proof of abuse on its own. A shared
+  saved card (`tbank_rebill_id` or `card_last4`) blocks only the
+  *reward*, checked at payment time since a card is unknowable any
+  earlier; the referee's own discount already used is not reversed.
+  Fixed on the way: `index.ts` never called `app.set('trust proxy', 1)`,
+  so `req.ip` read Caddy's own address for every request in production —
+  silently defeating both this IP check and the pre-existing per-IP rate
+  limiters on checkout and login. Verified locally: a same-IP signup
+  moments after the referrer's was refused with no `referrals` row at
+  all; a genuinely different IP (via `X-Forwarded-For`) attached clean; a
+  same-IP signup made two hours later attached flagged — all three
+  states rendered correctly in the admin referrals tab.
 - **Usage and health, phase 5 — TODO M complete** (2026-09-16). A fifth
   admin tab, «Здоровье», the page for «сломалось»: `talk_jobs` by status
   with stuck jobs (untouched 15+ min — the worker's own timeout is

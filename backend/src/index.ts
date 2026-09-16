@@ -33,6 +33,14 @@ registerBeforeCall(async (ctx) => {
 
 const app = express()
 
+// Behind Caddy in every deployment — trust its X-Forwarded-For so req.ip is
+// the real client, not the proxy. One hop: Caddy is the only thing in front
+// (deploy/Caddyfile). Without this, every request looks like it came from
+// Caddy's own address — the rate limiters key on it, and so does the
+// referral fraud check's same-IP signal (services/referrals.ts), which
+// would otherwise flag every single referral pair.
+app.set('trust proxy', 1)
+
 app.use(helmet())
 app.use(cors({ origin: config.frontendUrl, credentials: true }))
 app.use(cookieParser())

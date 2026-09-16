@@ -434,9 +434,29 @@ option is still open.
     IP within an hour, invitee created within minutes of the referrer, same
     normalised e-mail. No cash payouts (tax and accounting at this size).
     **Shipped in phase 4**: the referrer/referee-are-the-same-workspace
-    check and the yearly cap. **Not yet built**: the card/IP/timing/e-mail
-    gates above — there is no live traffic to have abused this yet; add
-    them before or as soon as referrals see real volume, not before.
+    check and the yearly cap. **Shipped 2026-09-16, before first deploy**
+    (migration 020): normalised-e-mail match (`+tag` stripped everywhere,
+    dots stripped only for Gmail-family domains) and same-signup-IP within
+    `FRAUD_IP_WINDOW_MINUTES` (60) **block** the attach outright — no
+    referral row, no discount, silent to the user; the same IP *outside*
+    that window **flags** the referral instead of blocking it (a shared
+    household or office is not proof of abuse) — `referrals.flagged` /
+    `flag_reason`, shown in the admin tab. Same saved card (`tbank_rebill_id`
+    or `card_last4` match) **blocks only the reward**, checked at payment
+    time since the referee's card is not known any earlier — the referee's
+    own discount is not reversed. Required `app.set('trust proxy', 1)` in
+    `index.ts` (found while building this: `req.ip` was never configured
+    to read Caddy's `X-Forwarded-For`, so every request behind Caddy would
+    have looked like it came from the same address — silently breaking
+    both this IP check and the existing per-IP rate limiters). Verified
+    locally end-to-end: same-IP-fast-follow blocked (no row at all),
+    genuinely different IP (via `X-Forwarded-For`) attached clean, same IP
+    outside the window attached flagged — all visible correctly in the
+    admin referrals tab. **Still open**: per-user rate limiting on how
+    many *different* referral codes one IP can redeem in a day (catches a
+    farm working through a list of stolen/synthetic e-mails one at a
+    time) — add if the flagged-rate in the admin tab ever looks organised
+    rather than incidental.
     The alternative on record — 500 ₽ credit per paid referral, stackable,
     applied to the next renewal — is cheaper (20% of a month, not 100%) and
     gives free users a balance to spend on upgrading; switch to it if

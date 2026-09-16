@@ -8,6 +8,7 @@ export interface UserRow {
   display_name:  string | null
   locale:        string
   deactivated_at: string | null
+  signup_ip:     string | null
   created_at:    string
 }
 
@@ -41,8 +42,10 @@ export async function findPublicUserById(id: string): Promise<PublicUser | null>
   return rows[0] ?? null
 }
 
-/** One workspace per user at signup (TODO A decisions). One transaction. */
-export async function createUserWithWorkspace(email: string, passwordHash: string, displayName: string | null, isAdmin = false): Promise<UserRow> {
+/** One workspace per user at signup (TODO A decisions). One transaction.
+ *  `signupIp` is used only for the referral fraud checks (TODO M) — never
+ *  logged anywhere else, never shown to anyone but an admin. */
+export async function createUserWithWorkspace(email: string, passwordHash: string, displayName: string | null, isAdmin = false, signupIp: string | null = null): Promise<UserRow> {
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
@@ -51,8 +54,8 @@ export async function createUserWithWorkspace(email: string, passwordHash: strin
       [displayName || email.toLowerCase()],
     )
     const { rows } = await client.query<UserRow>(
-      `INSERT INTO users (workspace_id, email, password_hash, display_name, is_admin) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [ws.rows[0].id, email.toLowerCase(), passwordHash, displayName, isAdmin],
+      `INSERT INTO users (workspace_id, email, password_hash, display_name, is_admin, signup_ip) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [ws.rows[0].id, email.toLowerCase(), passwordHash, displayName, isAdmin, signupIp],
     )
     await client.query('COMMIT')
     return rows[0]

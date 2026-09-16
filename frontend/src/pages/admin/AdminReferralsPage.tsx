@@ -7,7 +7,7 @@ import { copy } from '../../lib/copy'
 import { fmtDateTime, Table, TH, TD, NUM } from './AdminLayout'
 
 const R = copy.admin.referrals
-const TONE = { signed_up: 'plain', paid: 'accent', rewarded: 'ok', capped: 'warn', clawed_back: 'bad' } as const
+const TONE = { signed_up: 'plain', paid: 'accent', rewarded: 'ok', capped: 'warn', clawed_back: 'bad', blocked: 'bad' } as const
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
@@ -46,7 +46,7 @@ export default function AdminReferralsPage() {
             <tr key={r.id}>
               <td className={`${TD} font-mono text-xs`}>{r.referrer_email ?? r.referrer_workspace_id}</td>
               <td className={`${TD} font-mono text-xs`}>{r.referee_email ?? r.referee_workspace_id}</td>
-              <td className={TD}><Pill tone={TONE[r.status]}>{R.status[r.status]}</Pill>{r.flagged && <span className="ml-2 text-xs text-danger">⚑</span>}</td>
+              <td className={TD}><Pill tone={TONE[r.status]}>{R.status[r.status]}</Pill>{r.flagged && <span className="ml-2 text-xs text-danger" title={r.flag_reason ?? undefined}>⚑ {r.flag_reason ? R.flagReason[r.flag_reason] ?? r.flag_reason : ''}</span>}</td>
               <td className={`${TD} ${NUM}`}>{r.reward_days ?? ''}</td>
               <td className={`${TD} font-mono text-xs`}>{fmtDateTime(r.created_at)}</td>
             </tr>
