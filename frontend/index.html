@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
     <title>Тезариум — от тезисов к выступлению</title>
+    <!-- Static fallback card for any app URL that isn't /s/:token (which
+         gets its own per-talk card from routes/shareCard.ts — these tags
+         are baked into the built HTML, so link-preview scrapers that don't
+         execute JS still see SOMETHING instead of nothing, even for a
+         plain /login or /talks link. Absolute URLs: scrapers don't resolve
+         relative ones against the page they fetched. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Тезариум" />
+    <meta property="og:title" content="Тезариум — от тезисов к выступлению" />
+    <meta property="og:description" content="Тезариум превращает ваши тезисы в готовое выступление: план, слайды, текст для докладчика." />
+    <meta property="og:url" content="https://tezarium.ru" />
+    <meta property="og:image" content="https://tezarium.ru/og.png" />
+    <meta property="og:locale" content="ru_RU" />
+    <meta name="twitter:card" content="summary_large_image" />
     <!-- Three faces, all with full Cyrillic: Literata (display, speaker
          notes), Golos Text (UI), JetBrains Mono (numbers). display=swap so
          text never goes invisible while they load; the fallback stacks in

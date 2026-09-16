@@ -65,6 +65,9 @@ on-prem install keeps `.pptx` open to everyone.
   deletions and insertions.
 - ✅ **Share link** — a read-only page with the slides and pictures, no
   account needed; speaker notes and the brief stay private. Revoke any time.
+  Pasted into Telegram/WhatsApp/iMessage/Slack it shows a real card — the
+  talk's title, slide count, and first picture, served to those scrapers
+  specifically (they don't run JS, so the app itself can't do this).
 - ✅ **Present mode** — full-screen slides with keyboard/click navigation,
   and a speaker window (current slide, notes, next slide, timer) that stays
   in step on a second screen.

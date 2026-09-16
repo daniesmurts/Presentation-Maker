@@ -11,6 +11,7 @@ import { authRouter } from './routes/auth'
 import { talksRouter } from './routes/talks'
 import { brandRouter } from './routes/brand'
 import { sharedRouter } from './routes/shared'
+import { shareCardRouter } from './routes/shareCard'
 import { supportRouter } from './routes/support'
 import { referralsRouter } from './routes/referrals'
 import { billingRouter, billingWebhookRouter } from './routes/billing'
@@ -63,6 +64,11 @@ app.use('/api/auth',  authRouter)
 app.use('/api/talks', talksRouter)
 app.use('/api/brand', brandRouter)
 app.use('/api/shared', sharedRouter)
+// Not under /api — deploy/Caddyfile proxies /s/:token here verbatim, but
+// only for known bot user-agents; a human hitting /s/:token still gets
+// the SPA. Same path, same rate limiter, deliberately no cross-import
+// with sharedRouter (this one hands out HTML, that one JSON).
+app.use('/s', shareCardRouter)
 app.use('/api/support', supportRouter)
 app.use('/api/referrals', referralsRouter)
 app.use('/api/admin',   adminRouter)

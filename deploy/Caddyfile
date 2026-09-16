@@ -28,6 +28,24 @@
 		reverse_proxy api:3000 api2:3000
 	}
 
+	# Link-preview scrapers (Telegram, WhatsApp, iMessage, Slack, ...) don't
+	# execute JS, so the SPA's client-rendered <title>/meta are invisible to
+	# them — every shared talk link previewed as a bare URL. Known bot user
+	# agents on /s/:token go to the backend's HTML card (routes/shareCard.ts,
+	# mounted at /s) instead of the SPA; everyone else still hits @app below,
+	# completely unchanged. New bots get added here, not in the backend.
+	@sharebot {
+		path /s/*
+		header_regexp User-Agent (?i)(facebookexternalhit|Twitterbot|TelegramBot|WhatsApp|Slackbot|LinkedInBot|Discordbot|vkShare|SkypeUriPreview|redditbot|Applebot|Pinterest|Viber|okhttp)
+	}
+	handle @sharebot {
+		reverse_proxy api:3000 api2:3000 {
+			lb_policy least_conn
+			health_uri /health
+			health_interval 15s
+		}
+	}
+
 	@app path /talks /talks/* /jobs/* /brand /billing /admin /admin/* /login /register /s/* /assets/* /version.txt
 	handle @app {
 		root * /srv/app

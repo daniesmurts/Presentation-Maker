@@ -211,10 +211,22 @@ notification; pricing section updated with the real Pro price 2026-09-15. Existi
 `POST /api/support/contact`, stored in `support_messages` — no email
 notification yet, an operator has to query the table; add one (or an
 admin list view) once there is an operator who isn't watching the DB.
-Next: an OG image (`/og.png` is referenced,
-not yet drawn); `/examples/<intent>/<audience>` from real generated talks
-(three by hand first); blog scaffold; Метрика + Webmaster verification;
-the 404 page.
+Метрика shipped 2026-09-16 (both the site and the app — SPA route changes
+fire a manual `hit`, the site's plain snippet needed nothing extra). OG
+cards shipped the same day: `/og.png` exists (1200×630) and every landing
+page already carried real og:title/description; the actual gap was the
+**app** — `frontend/index.html` had no OG tags at all, and shared talk
+links (`/s/:token`) are 100% client-rendered, so a link-preview scraper
+(Telegram, WhatsApp, iMessage, Slack — none execute JS) saw nothing. Fixed
+with a bot-only route: `deploy/Caddyfile`'s `@sharebot` matcher sends known
+crawler user-agents on `/s/*` to `routes/shareCard.ts` (mounted at `/s`,
+separate from the JSON `sharedRouter` at `/api/shared`), which renders real
+HTML with the talk's actual title, slide count, and first slide's picture
+(via the same token-scoped, unauthenticated media proxy shared.ts already
+exposes) — everyone else still gets the ordinary SPA. `index.html` also
+got a static site-wide fallback card for every other app URL.
+Next: `/examples/<intent>/<audience>` from real generated talks (three by
+hand first); blog scaffold; Webmaster verification; the 404 page.
 
 ### J. Themes v2 — the deck looks like the landing · Effort: L · 🟢 SHIPPED (2026-09-14)
 `shared/slideGeometry.ts` is the one source; pptx, PDF, the stage and

@@ -93,6 +93,65 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
     redirect to the wrong app entirely; and `/reset-password` was gated
     behind "no active session," which is backwards for exactly the
     scenario the page exists for.
+- **Split-screen redesign of login/register/password-reset** (2026-09-16):
+  the auth pages were a plain stacked form on blank paper. A new
+  `AuthShowcase` panel (desktop only) carries the brand, a CSS-drawn
+  slide-stack mockup, and three capability callouts each mapped to a
+  real shipped feature — not marketing copy. Kept the existing
+  «Редакция» tokens rather than the generic glass-morphism/pink-accent
+  look a default design-system search suggested; that would have thrown
+  out an already-measured, tested system for a trend that doesn't fit.
+- **Yandex Metrika, on the app and the landing site** (2026-09-16): two
+  different integrations because they're two different navigation
+  models. `landing/` (Astro) does real page loads, so the plain snippet's
+  auto pageview is correct as-is. `frontend/` (React Router) never
+  reloads the page, so `lib/metrika.ts` inits once and fires a manual
+  `hit` on every route change instead — otherwise the whole app session
+  would count as one pageview. No webvisor (session/DOM recording) in
+  the app, since its screens show the user's own тезисы and slide text
+  while they type it; landing keeps it, nothing there is user-typed.
+  Counter id is a Dockerfile build ARG (`METRIKA_ID`), same shape as the
+  existing `BUILD_VERSION` — Vite/Astro env vars are compile-time.
+- **Sign in / register with Yandex ID** (2026-09-16): standard OAuth 2.0
+  authorization-code flow (`services/yandexOAuth.ts`). An existing
+  password account whose email matches gets the Yandex id linked (email
+  marked verified — Yandex vouches for it) instead of a second account;
+  `password_hash` is now nullable (migration `022_yandex_oauth.sql`) for
+  Yandex-only accounts, and the password-login route treats "no password
+  hash" the same as "wrong password" so account existence stays
+  indistinguishable from outside either way. No checkbox to gate consent
+  on before a redirect leaves the app, so the button carries a proximate
+  disclosure line instead, recorded server-side the same way
+  (`recordTermsAcceptance`) when a new account is actually created. Off
+  by default: `GET /api/auth/providers` reports whether
+  `YANDEX_OAUTH_CLIENT_ID`/`SECRET` are configured, and the frontend only
+  renders the button when true.
+- **Social-share cards for shared talk links** (2026-09-16). Audit
+  turned up that `/s/:token` — the read-only "share a deck, no account
+  needed" link, arguably the single most shareable artefact in the
+  product — produced no preview at all when pasted into Telegram,
+  WhatsApp, iMessage, or Slack: it's 100% client-rendered React, and none
+  of those scrapers execute JS, so the SPA's (nonexistent) client-set
+  `<title>` was invisible to them. `frontend/index.html` itself carried
+  zero OG tags either, so even a generic site-wide fallback was missing.
+  Fixed with a bot-only route: `deploy/Caddyfile`'s new `@sharebot`
+  matcher sends known crawler user agents on `/s/*` to
+  `routes/shareCard.ts` (mounted at `/s`, deliberately separate from the
+  JSON `sharedRouter` at `/api/shared`) — real server-rendered HTML with
+  the talk's actual title, pluralised slide count, and first slide's
+  picture (through the same token-scoped, unauthenticated media proxy
+  `shared.ts` already exposes), falling back to the site's `/og.png`
+  when a talk has no pictures. Every other request on `/s/*` — i.e. every
+  human — still gets the ordinary SPA, completely unchanged.
+  `frontend/index.html` also got a static site-wide fallback card for
+  every other app URL. `landing/`'s own OG setup was already correct —
+  `og.png` (1200×630) exists and every page already carried real
+  og:title/description; `TODO.md` had a stale note claiming otherwise.
+  Verified against a real local talk end to end: `GET /s/:token` from a
+  bot's vantage point returns the exact title, correct Russian plural
+  slide count, and the right fallback image; 8 new unit tests cover the
+  image-resolution branches (top-level image, diagram body.image,
+  no-image fallback) and HTML escaping.
 
 ## [0.1.0] — 2026-09-14
 
