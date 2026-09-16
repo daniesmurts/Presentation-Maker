@@ -389,7 +389,7 @@ option is still open.
   stage — the four renderers still agree (J's guarantee is the thing L
   must not spend).
 
-### M. Admin panel · plan grants · promo codes · referrals · Effort: L · 🟢 phase 1 SHIPPED (2026-09-16, code) · phases 2–5 next
+### M. Admin panel · plan grants · promo codes · referrals · Effort: L · 🟢 phases 1–2 SHIPPED (2026-09-16, code) · phases 3–5 next
 - **Why**: there are paying users and a support form, and the only way to
   see who they are, what they do, what they cost and whether a payment went
   through is `psql` on the VM — which the agent is not permitted to touch
@@ -447,11 +447,25 @@ option is still open.
      spend), workspace detail (users, talks, payments, spend by month, the
      event timeline), support list. Pages `/admin`, `/admin/workspaces`,
      `/admin/workspaces/:id`, `/admin/support`.
-  2. **Writes**: `admin_actions`; grant / extend / revoke Pro, set the spend
-     cap, deactivate / reactivate a user (`users.deactivated_at`;
-     `authenticate` refuses the session; data kept — 152-ФЗ deletion is its
-     own explicit flow), mark a support message answered. `plan_source`
-     on workspaces; the renew job skips `granted`.
+  2. ✅ 2026-09-16 **Writes**: migration 017 — `admin_actions` (who, what,
+     before/after, reason — required, ≥3 chars); `workspaces.plan_source`
+     ('paid' | 'granted' — `listDueForRenewal` skips a grant, a confirmed
+     payment resets it to 'paid'); `users.deactivated_at` (`authenticate`
+     and `/login` both refuse the session with a new `DeactivatedError`,
+     403 `ACCOUNT_DEACTIVATED`; data kept — 152-ФЗ deletion is its own
+     flow); `support_messages.answered_at/by`. `services/adminActions.ts`:
+     `grantPro` (extends a live paid Pro and keeps it paid — the card
+     still renews at the new date; anything else becomes a grant from
+     today, capped to 7/14/30/90/365 days), `revokeGrant` (a granted Pro
+     only — a paid month is refunded in the T-Bank cabinet, never revoked
+     here), `setSpendCap`, `de/reactivateUser` (refuses self and admins),
+     `setSupportAnswered`. Admin cannot deactivate an admin or themselves.
+     Frontend: a reason field gates every button; the workspace page grew
+     an actions block and a journal table; the support inbox got an
+     open/all filter and an answered toggle with attribution. Verified
+     end-to-end against a local DB and API: grant → revoke → spend cap →
+     deactivate → login refused (403) → reactivate → login OK; support
+     answered/reopened with the admin's e-mail recorded.
   3. **Promo codes**: `promo_codes` (code, kind `percent | fixed |
      free_months`, max_uses, once per workspace, valid_until, active),
      `promo_redemptions`; a code field on the tariff page; the discount

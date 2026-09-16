@@ -123,7 +123,7 @@ export async function applyPaymentStatus(
       // check a parameter change (that is how this fix was verified).
       await client.query(
         `UPDATE workspaces
-            SET plan_tier = 'pro', plan_expires_at = $2, renewal_failures = 0,
+            SET plan_tier = 'pro', plan_expires_at = $2, renewal_failures = 0, plan_source = 'paid',
                 auto_renew = ($3::text IS NOT NULL OR tbank_rebill_id IS NOT NULL),
                 tbank_rebill_id = COALESCE($3::text, tbank_rebill_id), card_last4 = COALESCE($4::text, card_last4)
           WHERE id = $1`,
@@ -155,11 +155,14 @@ export async function bumpRenewalFailures(workspaceId: string, disableAfter: num
   return rows[0]?.renewal_failures ?? 0
 }
 
-/** Pro workspaces whose paid month ends within `withinHours` and that have a card to charge. */
+/** Pro workspaces whose paid month ends within `withinHours` and that have a
+ *  card to charge. A granted Pro (TODO M) is never charged: a gift ending
+ *  is not a renewal, even when a card from an earlier subscription is still
+ *  on file. */
 export async function listDueForRenewal(withinHours: number): Promise<WorkspaceBilling[]> {
   const { rows } = await pool.query<WorkspaceBilling>(
     `SELECT ${WS_COLS} FROM workspaces
-      WHERE plan_tier = 'pro' AND auto_renew AND tbank_rebill_id IS NOT NULL
+      WHERE plan_tier = 'pro' AND plan_source = 'paid' AND auto_renew AND tbank_rebill_id IS NOT NULL
         AND plan_expires_at IS NOT NULL AND plan_expires_at < NOW() + make_interval(hours => $1)
       ORDER BY plan_expires_at`,
     [withinHours],

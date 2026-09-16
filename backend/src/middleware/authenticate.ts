@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction } from 'express'
 import { verifyToken } from '../lib/jwt'
 import { SESSION_COOKIE_NAME } from '../lib/session'
 import { findPublicUserById, type PublicUser } from '../db/queries/users'
-import { ForbiddenError, UnauthorizedError } from '../errors/AppError'
+import { DeactivatedError, ForbiddenError, UnauthorizedError } from '../errors/AppError'
 
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 
@@ -27,6 +27,7 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
     const payload = verifyToken(token)
     const user = await findPublicUserById(payload.id)
     if (!user) { next(new UnauthorizedError()); return }
+    if (user.deactivated_at) { next(new DeactivatedError()); return }
     req.user = user
     next()
   } catch (err) {

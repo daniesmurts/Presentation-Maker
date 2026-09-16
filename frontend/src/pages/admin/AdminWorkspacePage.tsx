@@ -7,6 +7,7 @@ import { Pill } from '../../components/ui/Field'
 import { copy, INTENT_LABEL, AUDIENCE_LABEL } from '../../lib/copy'
 import type { Intent, Audience } from '../../../../shared/types'
 import { fmtDate, fmtDateTime, fmtRub, fmtUsd, Table, TH, TD, NUM, Section } from './AdminLayout'
+import AdminWorkspaceActions from './AdminWorkspaceActions'
 
 type Tone = 'ok' | 'warn' | 'bad' | 'plain' | 'accent'
 const PAYMENT_TONE: Record<string, Tone> = { CONFIRMED: 'ok', AUTHORIZED: 'warn', NEW: 'plain', FORM_SHOWED: 'plain', REFUNDED: 'warn', PARTIAL_REFUNDED: 'warn' }
@@ -32,7 +33,7 @@ export default function AdminWorkspacePage() {
           <span>{copy.admin.workspaces.cols.created.toLowerCase()} {fmtDate(w.created_at)}</span>
         </div>
         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 items-center text-sm">
-          <Pill tone={w.plan_tier === 'pro' ? 'accent' : 'plain'}>{w.plan_tier === 'pro' ? 'Pro' : 'Free'}</Pill>
+          <Pill tone={w.plan_tier === 'pro' ? 'accent' : 'plain'}>{w.plan_tier === 'pro' ? `Pro · ${w.plan_source === 'granted' ? D.granted : D.paid}` : 'Free'}</Pill>
           {w.plan_expires_at && <span className="text-ink-secondary">{D.until} <span className="font-mono">{fmtDate(w.plan_expires_at)}</span></span>}
           {w.plan_tier === 'pro' && <span className="text-ink-secondary">{D.autoRenew}: {w.auto_renew ? 'да' : 'нет'}</span>}
           {w.card_last4 && <span className="text-ink-secondary">{D.card} ···{w.card_last4}</span>}
@@ -47,7 +48,7 @@ export default function AdminWorkspacePage() {
           <thead><tr><th className={TH}>E-mail</th><th className={TH}>Имя</th><th className={TH}>152-ФЗ</th><th className={TH}>Создан</th></tr></thead>
           <tbody>{data.users.map((u) => (
             <tr key={u.id}>
-              <td className={TD}>{u.email}{u.is_admin && <span className="ml-2 text-[10px] uppercase tracking-[0.08em] text-accent">{D.admin}</span>}</td>
+              <td className={TD}>{u.email}{u.is_admin && <span className="ml-2 text-[10px] uppercase tracking-[0.08em] text-accent">{D.admin}</span>}{u.deactivated_at && <span className="ml-2 text-xs text-danger">{D.deactivated}</span>}</td>
               <td className={TD}>{u.display_name ?? '—'}</td>
               <td className={`${TD} text-xs`}>{u.terms_accepted_at ? <span className="text-success">{D.terms} {u.terms_version}</span> : <span className="text-warning">{D.termsNo}</span>}</td>
               <td className={`${TD} font-mono text-xs`}>{fmtDate(u.created_at)}</td>
@@ -55,6 +56,8 @@ export default function AdminWorkspacePage() {
           ))}</tbody>
         </Table>
       </Section>
+
+      <AdminWorkspaceActions detail={data} />
 
       <Section title={`${D.talks} · ${data.talks.length}`}>
         {data.talks.length === 0 ? <p className="text-sm text-ink-secondary">{D.none}</p> : (

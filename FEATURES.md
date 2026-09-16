@@ -97,12 +97,15 @@ on-prem install keeps `.pptx` open to everyone.
 ## Operator
 
 - ✅ **Admin panel** at `/admin` for the e-mails in `ADMIN_EMAILS` (the only
-  way to become one). Read only so far: an overview (people, activity, Pro
-  count, this month's talks, exports, model spend and payments, support,
-  failed jobs), a searchable workspace list, a workspace page (users and
-  consent, talks, payments, spend by month, jobs, event timeline) and the
-  support inbox. 📋 Writes with an audit trail — grant or extend Pro, spend
-  cap, deactivate — then promo codes, referrals, usage and health (TODO M).
+  way to become one). An overview (people, activity, Pro count, this
+  month's talks, exports, model spend and payments, open support, failed
+  jobs), a searchable workspace list, a workspace page (users and consent,
+  talks, payments, spend by month, jobs, event timeline) and the support
+  inbox with an open/all filter. Writes, each requiring a reason and
+  recorded in an audit journal: grant or revoke Pro (a gift never renews
+  the card and never counts against a live subscription), set a
+  workspace's spend cap, deactivate or reactivate a user, mark a support
+  message answered. 📋 Promo codes, referrals, usage/health pages (TODO M).
 - ✅ **Public contact / tech-support form** at `/contact` on the landing
   site, no account needed. Submissions (name, email, category, message)
   land in `support_messages` and show in the admin's support inbox; no

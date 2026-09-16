@@ -27,6 +27,13 @@ export class UnauthorizedError extends AppError {
   }
 }
 
+/** The account was switched off by an operator (TODO M). Says what to do, not why. */
+export class DeactivatedError extends AppError {
+  constructor() {
+    super('Аккаунт отключён. Если это ошибка — напишите нам: hello@tezarium.ru', 403, 'ACCOUNT_DEACTIVATED')
+  }
+}
+
 export class ForbiddenError extends AppError {
   constructor(message = 'Недостаточно прав') {
     super(message, 403, 'FORBIDDEN')

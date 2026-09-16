@@ -10,7 +10,7 @@ export interface AdminOverview {
   users:            { total: number; new_7d: number; new_30d: number }
   workspaces:       { active_7d: number; pro: number }
   month:            { talks: number; exports_pptx: number; exports_pdf: number; spend_usd: number; revenue_kopecks: number }
-  support:          { total: number; last_7d: number }
+  support:          { open: number; last_7d: number }
   jobs:             { failed_24h: number; stuck: number }
 }
 
@@ -31,8 +31,8 @@ export async function adminOverview(): Promise<AdminOverview> {
              (SELECT COUNT(*) FROM talk_events WHERE event = 'exported' AND format = 'pdf'  AND created_at >= date_trunc('month', NOW()))::text AS exports_pdf,
              COALESCE((SELECT SUM(cost_usd) FROM usage_log WHERE created_at >= date_trunc('month', NOW())), 0)::text AS spend_usd,
              COALESCE((SELECT SUM(amount_kopecks) FROM payments WHERE status = 'CONFIRMED' AND created_at >= date_trunc('month', NOW())), 0)::text AS revenue_kopecks`),
-    one<{ total: string; last_7d: string }>(`
-      SELECT COUNT(*)::text AS total, COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days')::text AS last_7d FROM support_messages`),
+    one<{ open: string; last_7d: string }>(`
+      SELECT COUNT(*) FILTER (WHERE answered_at IS NULL)::text AS open, COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days')::text AS last_7d FROM support_messages`),
     // «stuck»: still processing after 15 min — the worker's own timeout is shorter.
     one<{ failed_24h: string; stuck: string }>(`
       SELECT COUNT(*) FILTER (WHERE status = 'failed' AND updated_at >= NOW() - INTERVAL '24 hours')::text AS failed_24h,
@@ -43,7 +43,7 @@ export async function adminOverview(): Promise<AdminOverview> {
     users:      { total: +users.total, new_7d: +users.new_7d, new_30d: +users.new_30d },
     workspaces: { active_7d: +ws.active_7d, pro: +ws.pro },
     month:      { talks: +month.talks, exports_pptx: +month.exports_pptx, exports_pdf: +month.exports_pdf, spend_usd: +month.spend_usd, revenue_kopecks: +month.revenue_kopecks },
-    support:    { total: +support.total, last_7d: +support.last_7d },
+    support:    { open: +support.open, last_7d: +support.last_7d },
     jobs:       { failed_24h: +jobs.failed_24h, stuck: +jobs.stuck },
   }
 }
@@ -98,8 +98,8 @@ export async function listAdminWorkspaces(p: ListWorkspacesParams): Promise<{ ro
 }
 
 export interface AdminWorkspaceDetail {
-  workspace: { id: string; name: string; plan_tier: string; plan_expires_at: string | null; auto_renew: boolean; card_last4: string | null; renewal_failures: number; monthly_spend_cap_usd: number | null; style_learning: boolean; created_at: string }
-  users:     Array<{ id: string; email: string; display_name: string | null; is_admin: boolean; terms_accepted_at: string | null; terms_version: string | null; created_at: string }>
+  workspace: { id: string; name: string; plan_tier: string; plan_source: string; plan_expires_at: string | null; auto_renew: boolean; card_last4: string | null; renewal_failures: number; monthly_spend_cap_usd: number | null; style_learning: boolean; created_at: string }
+  users:     Array<{ id: string; email: string; display_name: string | null; is_admin: boolean; deactivated_at: string | null; terms_accepted_at: string | null; terms_version: string | null; created_at: string }>
   talks:     Array<{ id: string; title: string; intent: string; audience: string; language: string; slides: number; theme_id: string; approved_at: string | null; shared: boolean; created_at: string }>
   payments:  Array<{ id: string; kind: string; amount_kopecks: number; status: string; error_code: string | null; period_start: string | null; period_end: string | null; created_at: string }>
   spend:     Array<{ month: string; calls: number; cost_usd: number; failed: number }>
@@ -109,10 +109,10 @@ export interface AdminWorkspaceDetail {
 
 export async function getAdminWorkspace(id: string): Promise<AdminWorkspaceDetail | null> {
   const ws = (await pool.query<AdminWorkspaceDetail['workspace']>(
-    `SELECT id, name, plan_tier, plan_expires_at, auto_renew, card_last4, renewal_failures, monthly_spend_cap_usd, style_learning, created_at FROM workspaces WHERE id = $1`, [id])).rows[0]
+    `SELECT id, name, plan_tier, plan_source, plan_expires_at, auto_renew, card_last4, renewal_failures, monthly_spend_cap_usd, style_learning, created_at FROM workspaces WHERE id = $1`, [id])).rows[0]
   if (!ws) return null
   const [users, talks, payments, spend, events, jobs] = await Promise.all([
-    pool.query<AdminWorkspaceDetail['users'][number]>(`SELECT id, email, display_name, is_admin, terms_accepted_at, terms_version, created_at FROM users WHERE workspace_id = $1 ORDER BY created_at`, [id]),
+    pool.query<AdminWorkspaceDetail['users'][number]>(`SELECT id, email, display_name, is_admin, deactivated_at, terms_accepted_at, terms_version, created_at FROM users WHERE workspace_id = $1 ORDER BY created_at`, [id]),
     pool.query<AdminWorkspaceDetail['talks'][number] & { slides: string }>(
       `SELECT id, title, intent, audience, language, COALESCE(jsonb_array_length(slides), 0)::text AS slides, theme_id, approved_at, share_token IS NOT NULL AS shared, created_at
          FROM talks WHERE workspace_id = $1 ORDER BY created_at DESC LIMIT 200`, [id]),
@@ -136,15 +136,18 @@ export async function getAdminWorkspace(id: string): Promise<AdminWorkspaceDetai
 
 export interface AdminSupportRow {
   id: string; category: string; name: string; email: string; message: string; created_at: string
+  answered_at: string | null; answered_by_email: string | null
   /** The sender's workspace, when the e-mail belongs to a registered user. */
   workspace_id: string | null
 }
 
-export async function listAdminSupport(page: number, pageSize: number): Promise<{ rows: AdminSupportRow[]; total: number }> {
-  const total = (await pool.query<{ n: string }>(`SELECT COUNT(*)::text AS n FROM support_messages`)).rows[0].n
+export async function listAdminSupport(page: number, pageSize: number, open: boolean): Promise<{ rows: AdminSupportRow[]; total: number }> {
+  const where = open ? 'WHERE s.answered_at IS NULL' : ''
+  const total = (await pool.query<{ n: string }>(`SELECT COUNT(*)::text AS n FROM support_messages s ${where}`)).rows[0].n
   const { rows } = await pool.query<AdminSupportRow>(`
-    SELECT s.id, s.category, s.name, s.email, s.message, s.created_at,
+    SELECT s.id, s.category, s.name, s.email, s.message, s.created_at, s.answered_at,
+           (SELECT email FROM users u WHERE u.id = s.answered_by) AS answered_by_email,
            (SELECT workspace_id FROM users u WHERE u.email = LOWER(s.email) LIMIT 1) AS workspace_id
-      FROM support_messages s ORDER BY s.created_at DESC LIMIT $1 OFFSET $2`, [pageSize, (page - 1) * pageSize])
+      FROM support_messages s ${where} ORDER BY s.created_at DESC LIMIT $1 OFFSET $2`, [pageSize, (page - 1) * pageSize])
   return { rows, total: +total }
 }

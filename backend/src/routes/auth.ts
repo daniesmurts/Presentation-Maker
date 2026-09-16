@@ -25,7 +25,7 @@ async function withFeatures(user: PublicUser | null): Promise<PublicUser | null>
   return { ...user, features: { billing: config.billing.enabled }, quota: quotaOf(user.plan_tier, { talks, pptx, pdf }) }
 }
 import { authenticate } from '../middleware/authenticate'
-import { UnauthorizedError, ValidationError } from '../errors/AppError'
+import { DeactivatedError, UnauthorizedError, ValidationError } from '../errors/AppError'
 
 export const authRouter = Router()
 
@@ -68,6 +68,7 @@ authRouter.post('/login', authLimiter, asyncHandler(async (req, res) => {
   const user = await findUserByEmail(email)
   // Same message for "no such user" and "wrong password".
   if (!user || !(await bcrypt.compare(password, user.password_hash))) throw new UnauthorizedError('Неверный e-mail или пароль')
+  if (user.deactivated_at) throw new DeactivatedError()
   setSessionCookie(res, signToken({ id: user.id, ws: user.workspace_id }))
   res.json({ user: await withFeatures(await findPublicUserById(user.id)) })
 }))

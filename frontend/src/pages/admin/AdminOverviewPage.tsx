@@ -28,7 +28,7 @@ export default function AdminOverviewPage() {
       <Stat label={`${O.month}: ${O.talks}`} value={data.month.talks} />
       <Stat label={`${O.month}: ${O.exports}`} value={data.month.exports_pptx + data.month.exports_pdf} sub={`.pptx ${data.month.exports_pptx} · PDF ${data.month.exports_pdf}`} />
       <Stat label={`${O.month}: ${O.spend}`} value={fmtUsd(data.month.spend_usd)} />
-      <Link to="/admin/support" className="contents"><Stat label={O.support} value={data.support.total} sub={`+${data.support.last_7d} ${O.support7}`} /></Link>
+      <Link to="/admin/support" className="contents"><Stat label={O.support} value={data.support.open} sub={`+${data.support.last_7d} ${O.support7}`} /></Link>
       <Stat label={`${O.jobs}: ${O.failed24}`} value={data.jobs.failed_24h} tone={data.jobs.failed_24h > 0 ? 'bad' : undefined} />
       <Stat label={`${O.jobs}: ${O.stuck}`} value={data.jobs.stuck} tone={data.jobs.stuck > 0 ? 'bad' : undefined} />
     </div>

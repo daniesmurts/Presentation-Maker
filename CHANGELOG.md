@@ -34,6 +34,31 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 ## [Unreleased]
 
 ### Added
+- **Admin panel, phase 2 — writes** (TODO M). Migration 017:
+  `admin_actions` (admin, action, target, before/after JSON, a required
+  reason — the panel's audit trail); `workspaces.plan_source` ('paid' |
+  'granted') so a gift and a subscription are distinguishable — the renew
+  job (`listDueForRenewal`) now skips a granted Pro (a gift is not a
+  charge) and a confirmed payment resets the source back to 'paid';
+  `users.deactivated_at`, refused by both `authenticate` and `/login`
+  with a new `DeactivatedError` (403 `ACCOUNT_DEACTIVATED`) — data kept,
+  152-ФЗ deletion is its own flow; `support_messages.answered_at/by`.
+  `services/adminActions.ts` holds the rules: `grantPro` extends a live
+  *paid* Pro and keeps it paid (the card still renews at the new date);
+  anything else — free, lapsed, or already a grant — becomes a granted
+  Pro counted from today, capped to 7/14/30/90/365 days. `revokeGrant`
+  only ends a grant; a paid month is refunded in the T-Bank cabinet, never
+  revoked from the panel. An admin cannot deactivate themselves or another
+  admin — that role is `ADMIN_EMAILS`'s alone. Every write requires a
+  reason (≥3 characters) client-side and server-side. Frontend: the
+  workspace page grew an actions block (grant/revoke, spend cap,
+  deactivate/reactivate per user) and a journal table reading
+  `/api/admin/actions`; the support inbox got an open/all filter and an
+  answered toggle that records and shows who answered. Verified end-to-end
+  locally against a real DB and API: grant → revoke → spend cap →
+  deactivate → login refused (403, confirmed by curl) → reactivate →
+  login OK; support message answered then reopened with the admin's
+  e-mail attached in the UI.
 - **Admin panel, phase 1 — read only** (TODO M). Migration 016 adds
   `users.is_admin`; the role is owned by `ADMIN_EMAILS` (env): synced on
   every boot (granted to those, revoked from everyone else) and applied at
