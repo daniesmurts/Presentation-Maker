@@ -119,6 +119,23 @@ export const copy = {
       after: ', в том числе обработку персональных данных в соответствии с ФЗ-152.',
       termsUrl: '/legal/terms', privacyUrl: '/legal/privacy',
     },
+    yandex: {
+      button: 'Войти через Яндекс ID',
+      or: 'или',
+      // Same substance as the checkbox above, worded for a line under a
+      // button rather than a label next to one — there's no checkbox to
+      // gate a redirect on, so this proximate disclosure is the consent.
+      disclosureBefore: 'Продолжая, вы принимаете ', disclosureAnd: ' и ', disclosureAfter: '.',
+    },
+    // Query-string ?error= codes the /api/auth/yandex/callback redirect
+    // can land back with (routes/auth.ts) — every branch that isn't a
+    // clean success bounces here with one of these.
+    yandexErrors: {
+      yandex: 'Не удалось войти через Яндекс ID. Попробуйте ещё раз.',
+      yandex_no_email: 'В вашем аккаунте Яндекс ID не указан e-mail — без него нельзя создать аккаунт в Тезариуме.',
+      yandex_consent: 'Чтобы создать аккаунт через Яндекс ID, начните с этой страницы и примите условия использования.',
+      deactivated: 'Аккаунт отключён. Если это ошибка — напишите нам: hello@tezarium.ru',
+    } as Record<string, string>,
     rememberMe:     'Запомнить меня',
     forgotPassword: 'Забыли пароль?',
     forgot: {

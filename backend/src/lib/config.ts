@@ -54,6 +54,17 @@ function billing() {
   }
 }
 
+// Sign in with Yandex ID (2026-09-16). Off unless both are set — a dev box
+// or an on-prem install with no Yandex OAuth app configured just doesn't
+// show the button (routes/auth.ts checks this before registering the
+// /yandex routes at all, so there's nothing to 404 into either).
+function yandexOAuth() {
+  const clientId = process.env.YANDEX_OAUTH_CLIENT_ID
+  const clientSecret = process.env.YANDEX_OAUTH_CLIENT_SECRET
+  if (!clientId || !clientSecret) return { enabled: false as const }
+  return { enabled: true as const, clientId, clientSecret }
+}
+
 export const config = {
   nodeEnv:        process.env.NODE_ENV ?? 'development',
   isDev:          process.env.NODE_ENV !== 'production',
@@ -69,4 +80,5 @@ export const config = {
   auth:     { jwtSecret: required('JWT_SECRET') },
   deepseek: { apiKey: required('DEEPSEEK_API_KEY') },
   billing:  billing(),
+  yandexOAuth: yandexOAuth(),
 } as const

@@ -5,8 +5,9 @@ import Button from '../components/ui/Button'
 import { Field, inputClass } from '../components/ui/Field'
 import PasswordField from '../components/ui/PasswordField'
 import AuthShowcase from '../components/auth/AuthShowcase'
+import YandexButton from '../components/auth/YandexButton'
 import { passwordIsStrong } from '../../../shared/password'
-import { login, register } from '../api/auth'
+import { login, register, authProviders } from '../api/auth'
 import { errorMessage } from '../api/client'
 import { useAuth } from '../lib/auth'
 import { copy } from '../lib/copy'
@@ -27,17 +28,23 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const [rememberMe, setRememberMe] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
+  const [yandexEnabled, setYandexEnabled] = useState(false)
+
+  const ref = params.get('ref') ?? (() => { try { return localStorage.getItem(REF_KEY) } catch { return null } })()
+  // The Yandex callback (routes/auth.ts) bounces failures back here as
+  // ?error=<code> — a plain query param survives the full-page redirect
+  // that an XHR-based error never could.
+  const oauthError = params.get('error')
 
   useEffect(() => {
-    const ref = params.get('ref')
-    if (ref) { try { localStorage.setItem(REF_KEY, ref) } catch { /* private mode — the code still works this visit */ } }
+    if (params.get('ref')) { try { localStorage.setItem(REF_KEY, params.get('ref')!) } catch { /* private mode — the code still works this visit */ } }
+    authProviders().then((p) => setYandexEnabled(p.yandex)).catch(() => setYandexEnabled(false))
   }, [params])
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setBusy(true); setError(undefined)
     try {
-      const ref = params.get('ref') ?? (() => { try { return localStorage.getItem(REF_KEY) } catch { return null } })()
       const user = mode === 'login' ? await login(email, password, rememberMe) : await register(email, password, name, consent, ref)
       setUser(user)
       navigate('/talks', { replace: true })
@@ -70,6 +77,23 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
               <p className="font-display text-[22px] text-ink mt-1.5 leading-snug">{mode === 'login' ? copy.auth.welcomeBack : copy.auth.welcomeNew}</p>
               <p className="text-sm text-ink-secondary mt-1">{mode === 'login' ? copy.auth.loginHint : copy.auth.registerHint}</p>
             </div>
+
+            {oauthError && (
+              <div role="alert" className="px-3 py-2 bg-danger-bg text-danger text-sm rounded-md">
+                {copy.auth.yandexErrors[oauthError] ?? copy.auth.yandexErrors.yandex}
+              </div>
+            )}
+
+            {yandexEnabled && (
+              <>
+                <YandexButton referral={ref} />
+                <div className="flex items-center gap-3">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-xs text-ink-tertiary">{copy.auth.yandex.or}</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+              </>
+            )}
 
             {mode === 'register' && (
               <Field label={copy.auth.displayName} htmlFor="name">

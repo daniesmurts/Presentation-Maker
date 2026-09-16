@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import rateLimit from 'express-rate-limit'
@@ -5,8 +6,8 @@ import { asyncHandler } from '../lib/asyncHandler'
 import { signToken, REMEMBER_ME_EXPIRY } from '../lib/jwt'
 import { setSessionCookie, clearSessionCookie } from '../lib/session'
 import {
-  createUserWithWorkspace, findUserByEmail, findUserById, findPublicUserById,
-  setEmailVerified, updateUserPassword, type PublicUser,
+  createUserWithWorkspace, findUserByEmail, findUserById, findUserByYandexId, linkYandexId, findPublicUserById,
+  setEmailVerified, updateUserPassword, type PublicUser, type UserRow,
 } from '../db/queries/users'
 import { quotaOf } from '../lib/planTier'
 import { countTalksThisMonth } from '../db/queries/talks'
@@ -21,6 +22,7 @@ import { emailVerifyUrl, extractUserIdFromVerifyToken, verifyEmailVerifyToken } 
 import {
   generateRawToken, hashToken, createResetToken, invalidateExistingTokens, findValidToken, markTokenUsed,
 } from '../db/queries/passwordReset'
+import { yandexAuthorizeUrl, exchangeYandexCode, fetchYandexUser } from '../services/yandexOAuth'
 
 // The UI reads the gate from here, never from the tier name: what is locked
 // depends on the tier AND on billing being on in THIS installation, and
@@ -83,8 +85,10 @@ authRouter.post('/login', authLimiter, asyncHandler(async (req, res) => {
   const { email, password } = readCredentials(req.body)
   const rememberMe = (req.body as Record<string, unknown> | null)?.remember_me === true
   const user = await findUserByEmail(email)
-  // Same message for "no such user" and "wrong password".
-  if (!user || !(await bcrypt.compare(password, user.password_hash))) throw new UnauthorizedError('Неверный e-mail или пароль')
+  // Same message for "no such user", "wrong password", and "this account
+  // has no password" (Yandex-ID-only) — none of those should be
+  // distinguishable from outside.
+  if (!user || !user.password_hash || !(await bcrypt.compare(password, user.password_hash))) throw new UnauthorizedError('Неверный e-mail или пароль')
   if (user.deactivated_at) throw new DeactivatedError()
   setSessionCookie(res, signToken({ id: user.id, ws: user.workspace_id }, rememberMe ? REMEMBER_ME_EXPIRY : undefined), rememberMe)
   res.json({ user: await withFeatures(await findPublicUserById(user.id)) })
@@ -98,6 +102,14 @@ authRouter.post('/logout', (_req, res) => {
 authRouter.get('/me', authenticate, asyncHandler(async (req, res) => {
   res.json({ user: await withFeatures(req.user) })
 }))
+
+// Unauthenticated — read before login/register render, to decide whether
+// the Yandex ID button is worth showing at all (off is the safe default:
+// a dev box or an on-prem install with no OAuth app configured gets a
+// login page with one fewer button, not a dead link into a 404).
+authRouter.get('/providers', (_req, res) => {
+  res.json({ yandex: config.yandexOAuth.enabled })
+})
 
 // ─── Email verification ──────────────────────────────────────────────────────
 // GET, not POST: it's a link clicked from an email client. Unlike the
@@ -156,3 +168,93 @@ authRouter.post('/reset-password', authLimiter, asyncHandler(async (req, res) =>
   if (user) void sendEmail({ ...passwordChangedEmail(user.display_name), to: user.email })
   res.json({ message: 'Пароль изменён. Теперь вы можете войти.' })
 }))
+
+// ─── Sign in with Yandex ID ───────────────────────────────────────────────────
+// Both routes 404 (via the same "not found" the router falls through to)
+// when the feature isn't configured — nothing in the frontend should ever
+// be able to reach a route that then has to explain it's turned off.
+const OAUTH_STATE_COOKIE = 'tezarium_oauth_state'
+
+if (config.yandexOAuth.enabled) {
+  // GET, not POST: this is a real navigation (the browser leaves the app
+  // for oauth.yandex.ru), not an XHR — a <button> can't drive that, only
+  // an <a href>. state is CSRF protection, round-tripped through Yandex;
+  // ref (referral code) and consent travel in the same short-lived cookie
+  // since the URL that comes back from Yandex is entirely theirs to shape.
+  authRouter.get('/yandex', authLimiter, (req, res) => {
+    const state = crypto.randomBytes(16).toString('hex')
+    const ref = typeof req.query.ref === 'string' ? req.query.ref.slice(0, 64) : ''
+    // Every entry point to this route shows the consent disclosure right
+    // under the button (AuthPage.tsx) — there's no separate checkbox to
+    // gate on for a redirect-initiated flow, so accept_terms=1 is sent
+    // unconditionally by the frontend and is the account's consent record
+    // if a new account ends up being created below.
+    const acceptTerms = req.query.accept_terms === '1' ? '1' : '0'
+    const cookieValue = new URLSearchParams({ state, ref, terms: acceptTerms }).toString()
+    res.cookie(OAUTH_STATE_COOKIE, cookieValue, {
+      httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/api/auth/yandex', maxAge: 5 * 60 * 1000,
+    })
+    res.redirect(yandexAuthorizeUrl(state))
+  })
+
+  authRouter.get('/yandex/callback', asyncHandler(async (req, res) => {
+    const saved = req.cookies?.[OAUTH_STATE_COOKIE] ? new URLSearchParams(req.cookies[OAUTH_STATE_COOKIE] as string) : null
+    res.clearCookie(OAUTH_STATE_COOKIE, { path: '/api/auth/yandex' })
+
+    const queryState = typeof req.query.state === 'string' ? req.query.state : ''
+    const code = typeof req.query.code === 'string' ? req.query.code : ''
+    const savedState = saved?.get('state') ?? ''
+    // req.query.error present, no saved cookie (expired/blocked cookies),
+    // or a state mismatch (CSRF / stale link) — all the same bounce.
+    if (req.query.error || !code || !savedState || queryState !== savedState) {
+      res.redirect(`${config.frontendUrl}/login?error=yandex`)
+      return
+    }
+
+    let yandexUser: Awaited<ReturnType<typeof fetchYandexUser>>
+    try {
+      const accessToken = await exchangeYandexCode(code)
+      yandexUser = await fetchYandexUser(accessToken)
+    } catch {
+      res.redirect(`${config.frontendUrl}/login?error=yandex`)
+      return
+    }
+    if (!yandexUser.defaultEmail) {
+      // No email on the Yandex account to build an account around — rare
+      // (a phone-only Yandex ID), but real.
+      res.redirect(`${config.frontendUrl}/login?error=yandex_no_email`)
+      return
+    }
+    const email = yandexUser.defaultEmail.toLowerCase()
+
+    let user: UserRow | null = await findUserByYandexId(yandexUser.id)
+    if (!user) {
+      const existing = await findUserByEmail(email)
+      if (existing) {
+        // Same person, already has a password account — attach the Yandex
+        // id rather than creating a second account for one email.
+        await linkYandexId(existing.id, yandexUser.id)
+        user = existing
+      } else {
+        if (saved?.get('terms') !== '1') {
+          res.redirect(`${config.frontendUrl}/register?error=yandex_consent`)
+          return
+        }
+        const displayName = yandexUser.displayName?.trim().slice(0, 120) || null
+        const created = await createUserWithWorkspace(email, null, displayName, config.adminEmails.includes(email), req.ip ?? null, yandexUser.id)
+        await recordTermsAcceptance(created.id)
+        const ref = saved?.get('ref')
+        if (ref) await attachReferralOnSignup(created.workspace_id, ref, email, req.ip ?? null)
+        user = created
+      }
+    }
+    if (user.deactivated_at) {
+      res.redirect(`${config.frontendUrl}/login?error=deactivated`)
+      return
+    }
+    // Treated like "remember me" checked — re-doing the Yandex redirect
+    // dance every week is real friction a password login doesn't have.
+    setSessionCookie(res, signToken({ id: user.id, ws: user.workspace_id }, REMEMBER_ME_EXPIRY), true)
+    res.redirect(`${config.frontendUrl}/talks`)
+  }))
+}
