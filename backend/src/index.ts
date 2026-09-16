@@ -11,6 +11,7 @@ import { authRouter } from './routes/auth'
 import { talksRouter } from './routes/talks'
 import { brandRouter } from './routes/brand'
 import { sharedRouter } from './routes/shared'
+import { supportRouter } from './routes/support'
 import { billingRouter, billingWebhookRouter } from './routes/billing'
 import { startBillingJobs } from './services/billing'
 import { startJobQueue, stopJobQueue } from './services/jobQueue'
@@ -51,6 +52,7 @@ app.use('/api/auth',  authRouter)
 app.use('/api/talks', talksRouter)
 app.use('/api/brand', brandRouter)
 app.use('/api/shared', sharedRouter)
+app.use('/api/support', supportRouter)
 // The webhook router first: it must not sit behind the session middleware.
 app.use('/api/billing', billingWebhookRouter)
 app.use('/api/billing', billingRouter)

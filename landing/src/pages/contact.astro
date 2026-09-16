@@ -1,0 +1,92 @@
+---
+import Base from '../layouts/Base.astro'
+import { OPERATOR } from '../data/operator'
+const title = 'Связаться с нами — Тезариум'
+const description = 'Вопрос по продукту, техническая проблема или оплата — напишите нам, ответим на почту.'
+---
+<Base title={title} description={description} canonical="/contact">
+  <section style="border-top:0; padding-top: 56px;">
+    <div class="wrap grid">
+      <div>
+        <div class="eyebrow pencil">Поддержка</div>
+        <h1 style="margin: 14px 0 16px">Связаться с нами</h1>
+        <p class="muted measure" style="margin-bottom: 28px">Опишите вопрос — ответим на указанный email. Для срочной технической проблемы приложите, что вы делали и что пошло не так.</p>
+        <p class="muted small">Или напишите напрямую: <a href={`mailto:${OPERATOR.email}`}>{OPERATOR.email}</a></p>
+      </div>
+
+      <form id="contact-form" novalidate>
+        <label>
+          <span>Имя</span>
+          <input type="text" name="name" required maxlength="200" autocomplete="name" />
+        </label>
+        <label>
+          <span>Email</span>
+          <input type="email" name="email" required maxlength="320" autocomplete="email" />
+        </label>
+        <label>
+          <span>Тема обращения</span>
+          <select name="category">
+            <option value="general">Общий вопрос</option>
+            <option value="support">Техническая проблема</option>
+            <option value="billing">Оплата и биллинг</option>
+          </select>
+        </label>
+        <label>
+          <span>Сообщение</span>
+          <textarea name="message" required maxlength="5000" rows="6"></textarea>
+        </label>
+        <button type="submit" class="btn solid">Отправить</button>
+        <p id="contact-status" class="muted small" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </section>
+</Base>
+
+<script>
+  const form = document.getElementById('contact-form') as HTMLFormElement
+  const status = document.getElementById('contact-status') as HTMLParagraphElement
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const data = Object.fromEntries(new FormData(form).entries())
+    const button = form.querySelector('button[type="submit"]') as HTMLButtonElement
+    button.disabled = true
+    status.textContent = 'Отправляем…'
+    try {
+      const res = await fetch('/api/support/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.error?.message || 'Не удалось отправить сообщение')
+      }
+      form.reset()
+      status.textContent = 'Спасибо! Мы ответим на указанный email в ближайшее время.'
+    } catch (err) {
+      status.textContent = err instanceof Error ? err.message : 'Не удалось отправить сообщение. Попробуйте ещё раз.'
+    } finally {
+      button.disabled = false
+    }
+  })
+</script>
+
+<style>
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: start; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; gap: 36px; } }
+  .small { font-size: 14px; }
+  form { display: grid; gap: 16px; }
+  label { display: grid; gap: 6px; font-size: 14px; color: rgb(var(--c-ink-secondary)); }
+  input, select, textarea {
+    font: 400 16px/1.4 var(--ui);
+    color: rgb(var(--c-ink));
+    background: rgb(var(--c-surface));
+    border: 1px solid var(--c-border-strong);
+    border-radius: 6px;
+    padding: 11px 14px;
+  }
+  textarea { resize: vertical; font-family: var(--ui); }
+  input:focus, select:focus, textarea:focus { outline: 2px solid rgb(var(--c-accent)); outline-offset: 1px; }
+  button { justify-self: start; margin-top: 4px; }
+  #contact-status:empty { display: none; }
+</style>

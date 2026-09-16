@@ -206,7 +206,12 @@ routing, web image. Ship gate (J) lifted 2026-09-14 — the .pptx matches. Legal
 added 2026-09-14 (`/legal/*`): **fill `landing/src/data/operator.ts`
 before launch**, have both documents reviewed, file the Roskomnadzor
 notification; pricing section updated with the real Pro price 2026-09-15. Existing accounts (pre-consent) have NULL
-`terms_accepted_at` — ask them at next sign-in. Next: an OG image (`/og.png` is referenced,
+`terms_accepted_at` — ask them at next sign-in. `/contact` shipped
+2026-09-16: a public contact/tech-support form posting to
+`POST /api/support/contact`, stored in `support_messages` — no email
+notification yet, an operator has to query the table; add one (or an
+admin list view) once there is an operator who isn't watching the DB.
+Next: an OG image (`/og.png` is referenced,
 not yet drawn); `/examples/<intent>/<audience>` from real generated talks
 (three by hand first); blog scaffold; Метрика + Webmaster verification;
 the 404 page.

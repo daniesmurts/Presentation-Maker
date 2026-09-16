@@ -34,6 +34,16 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 ## [Unreleased]
 
 ### Added
+- **Public contact / tech-support form.** `landing/src/pages/contact.astro`
+  (linked from the footer) posts to a new unauthenticated
+  `POST /api/support/contact` (`routes/support.ts`, `supportRouter`), same
+  posture as `sharedRouter`: rate-limited per IP (10 / 15 min), validated
+  (`readContactParams`, tested), stored in a new `support_messages` table
+  (migration 015) — no email sending or notification path yet, this is
+  durable capture only. Works with no CORS wiring because the site and the
+  API share one origin behind Caddy (`deploy/Caddyfile`); local dev across
+  the two Vite/Astro ports needs `FRONTEND_URL` to include the site's
+  origin to test the round trip in a browser.
 - **Generated pictures — YandexART** (TODO B phase 3 / L3's last item;
   CLAUDE.md §5.4). `services/imageGen.ts`: one picture per call through
   Yandex AI Studio's OpenAI-compatible endpoint, model

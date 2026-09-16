@@ -96,6 +96,10 @@ on-prem install keeps `.pptx` open to everyone.
 
 ## Operator
 
+- ✅ **Public contact / tech-support form** at `/contact` on the landing
+  site, no account needed. Submissions (name, email, category, message)
+  land in `support_messages`; no notification or queue yet — an operator
+  reads the table directly.
 - ✅ **Immutable images built in CI** for the API and the web bundle, each
   carrying its build version (`/health`, `/version.txt`); a pull-based
   `deploy.sh` with a CI gate, image guard, one-shot migration, rolling
