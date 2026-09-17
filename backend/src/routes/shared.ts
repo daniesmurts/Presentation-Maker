@@ -54,6 +54,15 @@ sharedRouter.get('/:token/media/:mediaId/image', asyncHandler(async (req, res) =
   const media = await getTalkMediaById(req.params.mediaId)
   if (!media || media.talk_id !== talk.id) throw new NotFoundError('Изображение не найдено')
   res.setHeader('Content-Type', media.mime)
-  res.setHeader('Cache-Control', 'private, max-age=3600')
+  // public, not private (found 2026-09-17, chasing "the OG card shows while
+  // composing in Telegram, then disappears once the message is sent"):
+  // the token is the only credential this route has, the image is the
+  // same for anyone who has the link, and a link-preview card's image is
+  // fetched and re-served through the platform's own CDN (Telegram's,
+  // WhatsApp's, ...) for every viewer of the sent message — "private"
+  // tells that shared cache it must NOT store the response at all, so the
+  // one-off compose-time fetch succeeds (no CDN involved) but the image
+  // never survives into the persisted message.
+  res.setHeader('Cache-Control', 'public, max-age=3600')
   res.send(await downloadObject(media.storage_path))
 }))
