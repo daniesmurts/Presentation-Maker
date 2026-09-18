@@ -49,7 +49,10 @@ on-prem install keeps `.pptx` open to everyone.
   say or show, and declines everything else in character — that fills in
   a card beside it: topic, intent, audience, length, the theses in order,
   the tone, what it still wants to know. Every field on the card is
-  editable and the next turn sees the edit. «Собрать выступление» posts
+  editable and the next turn sees the edit; any message of yours can be
+  edited too — the conversation re-runs from it, so a transcribed
+  «pretty stainless» becomes «predestined» in the theses, not just in
+  the bubble. «Собрать выступление» posts
   the card as the talk request and lands on the outline gate — nothing a
   draft can build that the form could not. Three starter chips for a cold
   start; 40 turns a day free, 400 on Pro. Pasting material as a message

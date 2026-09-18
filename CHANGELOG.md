@@ -6,6 +6,15 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
 ## [Unreleased]
 
 ### Added
+- **Edit a message to the editor — and re-run from it.** The first minute
+  arrives transcribed, and a transcript reads «pretty stainless» for
+  «predestined» (first real use, 2026-09-18). Fixing the bubble alone
+  would leave the editor's reply — and the theses it pulled — wrong, so
+  «Изменить» on any message of yours cuts the conversation before it and
+  sends the corrected text as the turn (`POST /drafts/:id/messages/:idx/edit`).
+  The card keeps what it has: it merges, and a correction is not a reason
+  to lose what was settled after it. The cut-off part stays on screen,
+  dimmed, until the new reply lands.
 - **«Скажите первую минуту» — the landing demo.** The wow was already
   built (rehearsal) and met the visitor last, behind a form, a plan, a
   generation and a toolbar; most left thinking «a slide generator». The
@@ -383,6 +392,15 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 ## [Unreleased]
 
 ### Added
+- **Edit a message to the editor — and re-run from it.** The first minute
+  arrives transcribed, and a transcript reads «pretty stainless» for
+  «predestined» (first real use, 2026-09-18). Fixing the bubble alone
+  would leave the editor's reply — and the theses it pulled — wrong, so
+  «Изменить» on any message of yours cuts the conversation before it and
+  sends the corrected text as the turn (`POST /drafts/:id/messages/:idx/edit`).
+  The card keeps what it has: it merges, and a correction is not a reason
+  to lose what was settled after it. The cut-off part stays on screen,
+  dimmed, until the new reply lands.
 - **«Скажите первую минуту» — the landing demo.** The wow was already
   built (rehearsal) and met the visitor last, behind a form, a plan, a
   generation and a toolbar; most left thinking «a slide generator». The

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Trash2, SendHorizontal, Loader2 } from 'lucide-react'
-import { getDraft, sendMessage, saveCard, deleteDraft, collectDraft } from '../api/drafts'
+import { Trash2, SendHorizontal, Loader2, Pencil } from 'lucide-react'
+import { getDraft, sendMessage, editMessage, saveCard, deleteDraft, collectDraft } from '../api/drafts'
 import { errorMessage, errorUpgrade } from '../api/client'
 import Spinner from '../components/ui/Spinner'
 import Button from '../components/ui/Button'
@@ -74,6 +74,15 @@ export default function DraftPage() {
     onError:   (err, t) => { setText(t); toast(errorMessage(err), 'error') },
     onSettled: () => setPending(null),
   })
+  // Editing a message of yours re-runs the conversation from it (the
+  // server cuts everything after and sends the corrected text as the
+  // turn). While it runs the cut-off part is still on screen, dimmed.
+  const [editing, setEditing] = useState<number | null>(null)
+  const edit = useMutation({
+    mutationFn: async ({ idx, t }: { idx: number; t: string }) => { await flushCard(); return editMessage(id, idx, t) },
+    onSuccess: (d) => { setDraft(d); setCard(d.card); dirty.current = false; setEditing(null); void qc.invalidateQueries({ queryKey: ['drafts'] }) },
+    onError:   (err) => toast(errorMessage(err), 'error'),
+  })
   const endRef = useRef<HTMLDivElement>(null)
   // Keyed on the card too: the first render with messages still shows the
   // spinner (the card is seeded one effect later), so the marker does not
@@ -137,9 +146,14 @@ export default function DraftPage() {
             </div>
           )}
           <ol className="space-y-4">
-            {draft.messages.map((m, i) => <Message key={i} m={m} />)}
+            {draft.messages.map((m, i) => (
+              editing === i
+                ? <EditMessage key={i} text={m.text} busy={edit.isPending} onCancel={() => setEditing(null)} onSend={(t) => edit.mutate({ idx: i, t })} />
+                : <Message key={i} m={m} dimmed={editing != null && i > editing}
+                           onEdit={m.role === 'user' && editing == null && !send.isPending ? () => setEditing(i) : undefined} />
+            ))}
             {pending && <Message m={{ role: 'user', text: pending, at: '' }} />}
-            {send.isPending && (
+            {(send.isPending || edit.isPending) && (
               <li className="flex items-center gap-2 text-sm text-ink-secondary" role="status">
                 <Loader2 className="w-4 h-4 animate-spin" aria-hidden /> {copy.draft.thinking}
               </li>
@@ -181,14 +195,41 @@ export default function DraftPage() {
   )
 }
 
-function Message({ m }: { m: DraftMessage }) {
+function Message({ m, dimmed, onEdit }: { m: DraftMessage; dimmed?: boolean; onEdit?: () => void }) {
   const user = m.role === 'user'
   return (
-    <li className={`flex ${user ? 'justify-end' : 'justify-start'}`}>
-      <div className={`max-w-[85%] lg:max-w-[75%] rounded-lg px-4 py-3 text-[15px] leading-relaxed whitespace-pre-wrap ${
+    <li className={`flex ${user ? 'justify-end' : 'justify-start'} ${dimmed ? 'opacity-40' : ''}`}>
+      <div className={`group max-w-[85%] lg:max-w-[75%] rounded-lg px-4 py-3 text-[15px] leading-relaxed whitespace-pre-wrap ${
         user ? 'bg-accent-light text-ink' : 'bg-surface-soft text-ink font-display'}`}>
-        <div className="text-[11px] uppercase tracking-[0.08em] text-ink-secondary mb-1 font-sans">{user ? copy.draft.you : copy.draft.editor}</div>
+        <div className="flex items-center justify-between gap-3 mb-1 font-sans">
+          <span className="text-[11px] uppercase tracking-[0.08em] text-ink-secondary">{user ? copy.draft.you : copy.draft.editor}</span>
+          {/* A bordered chip, not a bare hover-only word: touch has no hover (CLAUDE.md §6). */}
+          {onEdit && (
+            <button type="button" onClick={onEdit} className="h-7 px-2 inline-flex items-center gap-1 rounded-md border border-border-strong bg-surface text-[11px] text-ink-secondary hover:text-ink hover:bg-surface-soft">
+              <Pencil className="w-3 h-3" aria-hidden /> {copy.draft.editMsg}
+            </button>
+          )}
+        </div>
         {m.text}
+      </div>
+    </li>
+  )
+}
+
+function EditMessage({ text, busy, onCancel, onSend }: { text: string; busy: boolean; onCancel: () => void; onSend: (t: string) => void }) {
+  const [value, setValue] = useState(text)
+  const can = value.trim().length > 0 && value.trim() !== text.trim() && !busy
+  return (
+    <li className="flex justify-end">
+      <div className="w-full lg:max-w-[85%] rounded-lg border border-accent bg-accent-light px-4 py-3">
+        <div className="text-[11px] uppercase tracking-[0.08em] text-ink-secondary mb-2">{copy.draft.you} · {copy.draft.editMsg}</div>
+        <textarea value={value} onChange={(e) => setValue(e.target.value)} rows={Math.min(14, Math.max(3, value.split('\n').length + 1))} maxLength={4000} autoFocus
+                  className={`${proseInputClass} resize-y`} />
+        <p className="text-xs text-ink-secondary mt-2">{copy.draft.editHint}</p>
+        <div className="flex gap-2 mt-3">
+          <Button size="sm" onClick={() => onSend(value.trim())} disabled={!can} loading={busy}>{copy.draft.editSend}</Button>
+          <Button size="sm" variant="ghost" onClick={onCancel} disabled={busy}>{copy.draft.editCancel}</Button>
+        </div>
       </div>
     </li>
   )

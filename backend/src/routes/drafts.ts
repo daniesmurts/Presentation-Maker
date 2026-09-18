@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { Router, type Request, type Response } from 'express'
 import rateLimit from 'express-rate-limit'
 import { asyncHandler } from '../lib/asyncHandler'
 import { authenticate } from '../middleware/authenticate'
@@ -14,7 +14,7 @@ import { createTalkJob } from '../db/queries/talkJobs'
 import { countTalksThisMonth } from '../db/queries/talks'
 import { getJobQueue } from '../services/jobQueue'
 import { TALK_JOB_QUEUE, type TalkJobPayload } from '../services/talkJobWorker'
-import { EMPTY_DRAFT_CARD, draftMissing } from '../../../shared/types'
+import { EMPTY_DRAFT_CARD, draftMissing, type DraftMessage } from '../../../shared/types'
 
 // Drafts («Наброски»): a conversation with the editor and the card it
 // fills in, before a talk exists. Every write returns the whole draft —
@@ -62,9 +62,10 @@ draftsRouter.delete('/:id', asyncHandler(async (req, res) => {
   res.status(204).end()
 }))
 
-// POST /api/drafts/:id/messages { text } — one turn. Synchronous: a turn
-// is a few seconds, and the reply is what the user is waiting for.
-draftsRouter.post('/:id/messages', turnLimiter, asyncHandler(async (req, res) => {
+// One turn: validate the text, check the quotas, ask the editor, save the
+// pair. `history` is what the turn continues from — the whole conversation
+// for a new message, a prefix of it for an edited one.
+async function runTurn(req: Request, res: Response, history: DraftMessage[]) {
   const draft = await findDraftById(req.params.id, req.user.workspace_id)
   if (!draft) throw new NotFoundError('Набросок не найден')
   const raw = (req.body as { text?: unknown })?.text
@@ -77,15 +78,39 @@ draftsRouter.post('/:id/messages', turnLimiter, asyncHandler(async (req, res) =>
 
   let turn
   try {
-    turn = await draftTurn(draft, text, { userId: req.user.id, workspaceId: req.user.workspace_id })
+    turn = await draftTurn({ card: draft.card, messages: history }, text, { userId: req.user.id, workspaceId: req.user.workspace_id })
   } catch (err) {
     // The registry's failures are mapped here because there is no job row
     // to store them on — the reply is the response (§3.2).
     if (err instanceof AppError) throw err
     throw new AppError(userFacingFailure(err, 'Редактор не ответил. Попробуйте ещё раз.'), 502, 'MODEL_FAILED', err)
   }
-  const saved = await saveDraft(draft.id, req.user.workspace_id, appendTurn(draft.messages, text, turn.reply), turn.card)
+  const saved = await saveDraft(draft.id, req.user.workspace_id, appendTurn(history, text, turn.reply), turn.card)
   res.json({ draft: saved })
+}
+
+// POST /api/drafts/:id/messages { text } — one turn. Synchronous: a turn
+// is a few seconds, and the reply is what the user is waiting for.
+draftsRouter.post('/:id/messages', turnLimiter, asyncHandler(async (req, res) => {
+  const draft = await findDraftById(req.params.id, req.user.workspace_id)
+  if (!draft) throw new NotFoundError('Набросок не найден')
+  await runTurn(req, res, draft.messages)
+}))
+
+// POST /api/drafts/:id/messages/:idx/edit { text } — a corrected message
+// (a transcribed minute reads «pretty stainless» for «predestined»). The
+// editor already answered the wrong words, so the fix re-runs from there:
+// the conversation is cut before message :idx and the corrected text is
+// the turn. The card keeps what it has — it merges, and a correction is
+// not a reason to lose what was settled after it.
+draftsRouter.post('/:id/messages/:idx/edit', turnLimiter, asyncHandler(async (req, res) => {
+  const draft = await findDraftById(req.params.id, req.user.workspace_id)
+  if (!draft) throw new NotFoundError('Набросок не найден')
+  const idx = Number(req.params.idx)
+  if (!Number.isInteger(idx) || idx < 0 || idx >= draft.messages.length || draft.messages[idx].role !== 'user') {
+    throw new ValidationError('Можно изменить только своё сообщение')
+  }
+  await runTurn(req, res, draft.messages.slice(0, idx))
 }))
 
 // POST /api/drafts/:id/talk — «Собрать выступление»: the card becomes a
