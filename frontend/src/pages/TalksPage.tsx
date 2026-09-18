@@ -70,7 +70,9 @@ export default function TalksPage() {
   return (
     <div className="space-y-5">
       <ReferralBanner />
-      <div className="flex items-end justify-between gap-4">
+      {/* Heading and actions side by side from sm; on a phone the two chips
+          get their own row (side by side they ran off the screen). */}
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <h1 className="display font-semibold text-[30px] leading-tight text-ink">{copy.list.heading}</h1>
           <p className="text-sm text-ink-secondary mt-1">{copy.list.lead(n)}</p>
@@ -80,7 +82,7 @@ export default function TalksPage() {
             solid CTA); the import is a utility and stays a bordered chip.
             Same size, different ground, so they read as different kinds
             of action rather than as a pair. */}
-        <div className="flex gap-2 flex-shrink-0">
+        <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
           <Link to="/drafts" className={buttonClass('secondary')} title={copy.draft.lead(0)}><PenLine className="w-4 h-4" aria-hidden /> {copy.draft.fromTalks}</Link>
           <ImportChip />
         </div>

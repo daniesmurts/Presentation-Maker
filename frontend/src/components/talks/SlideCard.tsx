@@ -240,7 +240,9 @@ function ImageSlot({ query, image, busy, onUpload, onRemove, onGenerate, getProm
       <figure className="m-0">
         <img src={image.url} alt={query || ''} width={image.width ?? undefined} height={image.height ?? undefined}
              className="max-h-72 w-auto max-w-full rounded-md border border-border object-contain bg-surface-soft" />
-        <figcaption className="mt-1.5 flex items-center gap-3 text-xs text-ink-secondary">
+        {/* Four chips must wrap: unwrapped they widened the whole page to
+            527 px on a 375 px phone (user's screenshot, 2026-09-18). */}
+        <figcaption className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-ink-secondary">
           {image.source_host && <span>{image.source_host}</span>}
           {onUpload && <label className="inline-flex items-center gap-1 h-8 px-2 rounded-md border border-border cursor-pointer hover:bg-surface-soft hover:text-ink">
             <Upload className="w-3.5 h-3.5" aria-hidden /> {copy.talk.image.replace}{fileInput}
@@ -257,7 +259,7 @@ function ImageSlot({ query, image, busy, onUpload, onRemove, onGenerate, getProm
   return (
     <div className="border border-dashed border-border-strong rounded-md px-3 py-2.5 flex flex-wrap items-center gap-3 text-xs text-ink-secondary">
       <span className="inline-flex items-center gap-2"><ImageIcon className="w-4 h-4 flex-shrink-0" aria-hidden /> {query ? copy.talk.imageSlot(query) : copy.talk.image.hint}</span>
-      <span className="ml-auto inline-flex items-center gap-2">
+      <span className="ml-auto inline-flex flex-wrap items-center gap-2">
         {generateButton}
         {onUpload && <label className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-border bg-surface cursor-pointer hover:bg-surface-soft hover:text-ink">
           <Upload className="w-3.5 h-3.5" aria-hidden /> {copy.talk.image.upload}{fileInput}

@@ -37,20 +37,21 @@ export default function EmailVerifyBanner() {
 
   if (!user || user.email_verified_at || dismissed) return null
 
+  // Same grid as ReferralBanner: the action under the text on a phone.
   return (
-    <div className="mb-4 flex items-center gap-3 px-3 py-2 rounded-md text-sm bg-accent-light text-ink">
-      <Mail className="w-4 h-4 text-accent flex-shrink-0" aria-hidden />
-      <span className="flex-1 min-w-0 truncate">{copy.auth.verify.banner}{user.email}</span>
+    <div className="mb-4 grid grid-cols-[16px_minmax(0,1fr)_16px] sm:grid-cols-[16px_minmax(0,1fr)_auto_16px] items-center gap-x-3 gap-y-1.5 px-3 py-2.5 rounded-md text-sm bg-accent-light text-ink">
+      <Mail className="w-4 h-4 text-accent" aria-hidden />
+      <span className="min-w-0 break-words">{copy.auth.verify.banner}{user.email}</span>
+      <button onClick={() => setDismissed(true)} aria-label="Скрыть" className="sm:col-start-4 h-11 w-11 -m-3.5 sm:h-auto sm:w-auto sm:m-0 inline-flex items-center justify-center text-ink-tertiary hover:text-ink">
+        <X className="w-4 h-4" aria-hidden />
+      </button>
       {resent ? (
-        <span className="text-accent flex-shrink-0">{copy.auth.verify.resent}</span>
+        <span className="col-start-2 sm:col-start-3 sm:row-start-1 text-accent whitespace-nowrap">{copy.auth.verify.resent}</span>
       ) : (
-        <button onClick={() => { void resendVerification(); setResent(true) }} className="text-accent underline underline-offset-4 hover:text-accent-deep flex-shrink-0">
+        <button onClick={() => { void resendVerification(); setResent(true) }} className="col-start-2 sm:col-start-3 sm:row-start-1 justify-self-start h-8 sm:h-auto text-accent underline underline-offset-4 hover:text-accent-deep whitespace-nowrap">
           {copy.auth.verify.resend}
         </button>
       )}
-      <button onClick={() => setDismissed(true)} aria-label="Скрыть" className="text-ink-tertiary hover:text-ink flex-shrink-0">
-        <X className="w-4 h-4" aria-hidden />
-      </button>
     </div>
   )
 }
