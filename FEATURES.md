@@ -45,7 +45,11 @@ on-prem install keeps `.pptx` open to everyone.
   transcript is never stored. Funnel in `talk_events` (`try_*`) and as
   Metrika goals.
 - ✅ **Talk it through first («Наброски»).** A conversation with the
-  editor — a speechwriter and copywriter who works only on what you will
+  editor — spoken or typed: a microphone in the composer puts what you
+  say into the box as text (the browser's own recognition, same as the
+  rehearsal) to read and correct before sending, and the editor flags
+  likely mis-hearings itself. A new account's first screen leads here
+  («Рассказать редактору»), the form one link away. The editor — a speechwriter and copywriter who works only on what you will
   say or show, and declines everything else in character — that fills in
   a card beside it: topic, intent, audience, length, the theses in order,
   the tone, what it still wants to know. Every field on the card is

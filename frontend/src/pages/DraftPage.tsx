@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Trash2, SendHorizontal, Loader2, Pencil } from 'lucide-react'
+import { Trash2, SendHorizontal, Loader2, Pencil, Mic, Square } from 'lucide-react'
+import { speechSupported, startListening, type SpeechSession, type SpeechError } from '../../../shared/speech'
 import { getDraft, sendMessage, editMessage, saveCard, deleteDraft, collectDraft } from '../api/drafts'
 import { errorMessage, errorUpgrade } from '../api/client'
 import Spinner from '../components/ui/Spinner'
@@ -83,6 +84,30 @@ export default function DraftPage() {
     onSuccess: (d) => { setDraft(d); setCard(d.card); dirty.current = false; setEditing(null); void qc.invalidateQueries({ queryKey: ['drafts'] }) },
     onError:   (err) => toast(errorMessage(err), 'error'),
   })
+  // ── The microphone: phrases land in the composer as text, interim under
+  //    it. Nothing is sent until the user does — a transcript is read
+  //    first (mis-hearings), which is also why the editor's own flag exists.
+  const [mic, setMic] = useState<'off' | 'on' | SpeechError>('off')
+  const [interim, setInterim] = useState('')
+  const session = useRef<SpeechSession | null>(null)
+  const micSupported = speechSupported()
+  function startMic() {
+    if (!card) return
+    session.current = startListening(card.language, {
+      onPhrase:  (t) => setText((v) => (v.trim() ? `${v.trimEnd()} ${t}` : t)),
+      onInterim: setInterim,
+      onError:   (kind) => { setMic(kind); if (kind !== 'network') { session.current = null } },
+    })
+    setMic(session.current ? 'on' : 'other')
+  }
+  function stopMic() { session.current?.stop(); session.current = null; setInterim(''); setMic('off') }
+  useEffect(() => () => { session.current?.stop() }, [])
+  const micLine = mic === 'on' ? copy.draft.micListening
+    : mic === 'not-allowed' ? copy.draft.micDenied
+    : mic === 'no-mic' ? copy.draft.micMissing
+    : mic === 'network' ? copy.draft.micNetwork
+    : mic === 'other' ? copy.draft.micUnsupported : null
+
   const endRef = useRef<HTMLDivElement>(null)
   // Keyed on the card too: the first render with messages still shows the
   // spinner (the card is seeded one effect later), so the marker does not
@@ -93,6 +118,7 @@ export default function DraftPage() {
   function submit() {
     const t = text.trim()
     if (!t || send.isPending) return
+    if (session.current) stopMic()
     send.mutate(t)
   }
 
@@ -143,6 +169,7 @@ export default function DraftPage() {
                   </button>
                 ))}
               </div>
+              {micSupported && <p className="text-sm text-ink-secondary mt-4">{copy.draft.orSpeak}</p>}
             </div>
           )}
           <ol className="space-y-4">
@@ -168,12 +195,28 @@ export default function DraftPage() {
                         placeholder={copy.draft.placeholder} aria-label={copy.draft.placeholder}
                         onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }}
                         className={`${proseInputClass} resize-none max-h-48 min-h-[44px]`} />
+              {/* A bordered chip beside the send button; solid ink while
+                  listening so the state is unmistakable. Hidden where the
+                  browser has no recognition — a control that can only fail
+                  is not a control. */}
+              {micSupported && (
+                <Button type="button" size="icon" variant={mic === 'on' ? 'primary' : 'ghost'}
+                        aria-label={mic === 'on' ? copy.draft.micStop : copy.draft.mic} title={mic === 'on' ? copy.draft.micStop : copy.draft.mic}
+                        aria-pressed={mic === 'on'} onClick={() => (mic === 'on' ? stopMic() : startMic())} disabled={send.isPending}>
+                  {mic === 'on' ? <Square className="w-4 h-4" aria-hidden /> : <Mic className="w-4 h-4" aria-hidden />}
+                </Button>
+              )}
               <Button type="submit" size="icon" aria-label={copy.draft.send} title={copy.draft.send}
                       disabled={!text.trim() || send.isPending} loading={send.isPending}>
                 {!send.isPending && <SendHorizontal className="w-4 h-4" aria-hidden />}
               </Button>
             </form>
-            <p className="text-[11px] text-ink-tertiary mt-1.5 hidden sm:block">{copy.draft.sendHint}</p>
+            {micLine
+              ? <p className={`text-[11px] mt-1.5 flex items-center gap-1.5 ${mic === 'on' ? 'text-ink-secondary' : 'text-warning'}`} role="status">
+                  {mic === 'on' && <span className="w-2 h-2 rounded-full bg-danger animate-pulse flex-shrink-0" aria-hidden />}
+                  {micLine}{interim && <span className="italic text-ink-tertiary truncate"> · {interim}</span>}
+                </p>
+              : <p className="text-[11px] text-ink-tertiary mt-1.5 hidden sm:block">{copy.draft.sendHint}</p>}
           </div>
           {/* Below the composer, so scrolling to it brings the composer to
               its in-flow place and nothing sits under the sticky strip. As

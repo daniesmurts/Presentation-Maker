@@ -634,7 +634,7 @@ Not planned: a general assistant, cross-draft memory, web search, editing
 finished slides from the chat (the talk page owns that), conversations
 kept forever (the history is capped; the card is what is kept).
 
-### O. Lead with the speaking · Effort: M · 🟢 O1 SHIPPED (2026-09-18, code)
+### O. Lead with the speaking · Effort: M · 🟢 O1–O2 SHIPPED (2026-09-18, code)
 
 **Why.** Every feature is on the producing side; what holds people is the
 performing side (rehearsal), and it was hidden behind the producing side.
@@ -642,10 +642,8 @@ performing side (rehearsal), and it was hidden behind the producing side.
 **O1 (shipped)** — the landing demo: speak a minute, see the report and
 the plan, register into a draft made from it.
 
-**O2 — empty state = the editor with the mic.** A new account's first
-screen is a form; make it «Расскажите о выступлении» — spoken or typed,
-the draft card fills from speech. Touches: `DraftPage` (mic in the
-composer, `shared/speech.ts`), the talks-list empty state.
+**O2 (shipped)** — the mic in the draft composer; the talks empty state
+leads with «Рассказать редактору».
 
 **O3 — rehearsal that compounds.** Rehearsal N vs N-1: «минус 4 минуты и
 60 % паразитов»; after the real thing, «как прошло?» in one tap. Touches:

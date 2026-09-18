@@ -3,9 +3,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Upload, Loader2, Presentation, PenLine } from 'lucide-react'
 import { listTalks, importPptx, type TalkListItem } from '../api/talks'
+import { createDraft } from '../api/drafts'
 import { errorMessage } from '../api/client'
 import Spinner from '../components/ui/Spinner'
-import { buttonClass } from '../components/ui/Button'
+import Button, { buttonClass } from '../components/ui/Button'
 import ReferralBanner from '../components/ReferralBanner'
 import { useToast } from '../lib/toast'
 import { copy, INTENT_LABEL, AUDIENCE_LABEL } from '../lib/copy'
@@ -66,6 +67,16 @@ function Status({ t }: { t: TalkListItem }) {
 export default function TalksPage() {
   const { data, isLoading } = useQuery({ queryKey: ['talks'], queryFn: listTalks })
   const n = data?.length ?? 0
+  // The empty state — a new account's first screen — leads with the
+  // editor, not the form: say what the talk is about, spoken or typed.
+  const navigate = useNavigate()
+  const { toast } = useToast()
+  const [starting, setStarting] = useState(false)
+  async function startDraft() {
+    setStarting(true)
+    try { const d = await createDraft(); navigate(`/drafts/${d.id}`) }
+    catch (err) { toast(errorMessage(err), 'error'); setStarting(false) }
+  }
 
   return (
     <div className="space-y-5">
@@ -98,8 +109,9 @@ export default function TalksPage() {
       {isLoading && <Spinner />}
       {data && data.length === 0 && (
         <div className="border-t border-border-strong pt-8 text-center">
-          <p className="text-sm text-ink-secondary">{copy.list.empty}</p>
-          <Link to="/talks/new" className={`${buttonClass('primary')} mt-4`}>{copy.list.emptyCta}</Link>
+          <p className="font-display text-[17px] leading-relaxed text-ink max-w-[46ch] mx-auto">{copy.list.emptyLead}</p>
+          <Button className="mt-5" onClick={() => void startDraft()} loading={starting}><PenLine className="w-4 h-4" aria-hidden /> {copy.list.emptyCta}</Button>
+          <p className="mt-3 text-sm"><Link to="/talks/new" className="text-accent hover:text-accent-deep underline underline-offset-2">{copy.list.emptyForm}</Link></p>
         </div>
       )}
       {data && data.length > 0 && (

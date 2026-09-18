@@ -205,8 +205,19 @@ export const copy = {
       { label: 'Что важно сказать этой аудитории', text: 'Помогите понять, что именно важно сказать моей аудитории и что можно опустить.' },
     ],
     placeholder: 'Напишите редактору — тему, материал, вопрос…',
+    orSpeak:     'Или нажмите микрофон и просто расскажите — как коллеге в коридоре.',
     send:        'Отправить',
     sendHint:    'Enter — отправить, Shift+Enter — новая строка',
+    // The microphone in the composer: speech lands in the box as text,
+    // to be read (and corrected) before it is sent — a transcript has
+    // mis-hearings, and the editor flags the rest.
+    mic:         'Сказать голосом',
+    micStop:     'Остановить',
+    micListening:'Слушаю — текст появится в поле, отправьте, когда закончите',
+    micDenied:   'Микрофон не разрешён — разрешите его в адресной строке',
+    micMissing:  'Микрофон не найден',
+    micNetwork:  'Распознавание сейчас недоступно — напишите текстом',
+    micUnsupported: 'В этом браузере нет распознавания речи',
     thinking:    'Редактор пишет…',
     editMsg:     'Изменить',
     editHint:    'Ответы после этого сообщения будут написаны заново по исправленному тексту.',
@@ -521,7 +532,12 @@ export const copy = {
     heading: 'Выступления',
     lead:    (n: number) => n === 0 ? 'Пока пусто' : plural(n, 'выступление', 'выступления', 'выступлений'),
     empty:   'Пока ни одного выступления.',
-    emptyCta:'Создать первое',
+    // The first screen of a new account leads with the editor: say what
+    // the talk is about — spoken or typed — and the card fills in. The
+    // form is one link away for those who already know what they want.
+    emptyLead: 'Расскажите о выступлении — редактор задаст вопросы и соберёт тезисы. Голосом или текстом.',
+    emptyCta:'Рассказать редактору',
+    emptyForm:'или заполните форму',
     created: 'Создано',
     filterAll: 'Все',
     status: { draft: 'Черновик', approved: 'Готово', shared: 'по ссылке', noNotes: 'без текста докладчика', withNotes: 'с текстом докладчика' },
