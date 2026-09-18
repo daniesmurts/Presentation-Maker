@@ -598,7 +598,19 @@ export const copy = {
     promo: {
       heading:  'Промокоды',
       create:   'Создать код',
+      newCode:  'Новый код',
       code:     'Код', kind: 'Тип', value: 'Значение', maxUses: 'Лимит использований', validUntil: 'Действует до',
+      codeHint: 'Латиница и цифры; вводится без учёта регистра',
+      // The sentence under the form reads the code back the way a user
+      // will experience it — the check before «Создать».
+      preview: {
+        percent:     (code: string, v: number) => `${code} — скидка ${v} % на первый месяц Pro`,
+        fixed:       (code: string, v: number) => `${code} — скидка ${v.toLocaleString('ru-RU')} ₽ на первый месяц Pro`,
+        free_months: (code: string, v: number) => `${code} — ${plural(v, 'месяц', 'месяца', 'месяцев')} Pro бесплатно, без карты`,
+        uses:        (n: number | null) => n == null ? 'без лимита использований' : `${plural(n, 'использование', 'использования', 'использований')}`,
+        until:       (d: string | null) => d ? `до ${new Date(d).toLocaleDateString('ru-RU')}` : 'бессрочно',
+        empty:       'Введите код и значение — здесь будет видно, что он даёт.',
+      },
       kindLabel: { percent: 'Процент', fixed: 'Фикс. сумма, ₽', free_months: 'Месяцев бесплатно' } as Record<string, string>,
       kindOpt:  { percent: '% от цены', fixed: 'скидка, ₽', free_months: 'бесплатных месяцев' } as Record<string, string>,
       noLimit:  'без лимита', noExpiry: 'бессрочно',

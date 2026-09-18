@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { listPromoCodes, createPromoCode, setPromoCodeActive } from '../../api/admin'
 import { errorMessage } from '../../api/client'
 import Button from '../../components/ui/Button'
-import { inputClass, Pill } from '../../components/ui/Field'
+import { Field, inputClass, Pill } from '../../components/ui/Field'
 import { useToast } from '../../lib/toast'
 import { copy } from '../../lib/copy'
 import { fmtDate, Table, TH, TD } from './AdminLayout'
@@ -21,6 +21,15 @@ export default function AdminPromoPage() {
   const [value, setValue] = useState('20')
   const [maxUses, setMaxUses] = useState('')
   const [validUntil, setValidUntil] = useState('')
+
+  // Percent has a sensible default; the other kinds do not (a «fixed 20»
+  // is not a discount anyone means).
+  function pickKind(k: typeof KINDS[number]) { setKind(k); setValue(k === 'percent' ? '20' : '') }
+  const n = Number(value)
+  const canCreate = code.trim().length > 0 && Number.isInteger(n) && n > 0 && (kind !== 'percent' || n < 100)
+  const preview = canCreate
+    ? `${P.preview[kind](code.trim().toUpperCase(), n)} · ${P.preview.uses(maxUses.trim() ? Number(maxUses) : null)} · ${P.preview.until(validUntil || null)}`
+    : P.preview.empty
 
   async function create(e: React.FormEvent) {
     e.preventDefault()
@@ -41,30 +50,34 @@ export default function AdminPromoPage() {
 
   return (
     <div className="space-y-6">
-      <form onSubmit={create} className="border border-border rounded-lg p-4 flex flex-wrap items-end gap-3">
-        <label className="block text-xs text-ink-secondary">
-          {P.code}
-          <input value={code} onChange={(e) => setCode(e.target.value)} required maxLength={32} placeholder="WELCOME20" className={`${inputClass} mt-1 !w-40 font-mono uppercase`} />
-        </label>
-        <label className="block text-xs text-ink-secondary">
-          {P.kind}
-          <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} className={`${inputClass} mt-1 !w-auto`}>
-            {KINDS.map((k) => <option key={k} value={k}>{P.kindLabel[k]}</option>)}
-          </select>
-        </label>
-        <label className="block text-xs text-ink-secondary">
-          {P.kindOpt[kind]}
-          <input value={value} onChange={(e) => setValue(e.target.value)} required inputMode="numeric" className={`${inputClass} mt-1 !w-24 font-mono`} />
-        </label>
-        <label className="block text-xs text-ink-secondary">
-          {P.maxUses}
-          <input value={maxUses} onChange={(e) => setMaxUses(e.target.value)} inputMode="numeric" placeholder={P.noLimit} className={`${inputClass} mt-1 !w-28 font-mono`} />
-        </label>
-        <label className="block text-xs text-ink-secondary">
-          {P.validUntil}
-          <input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} className={`${inputClass} mt-1 !w-auto`} />
-        </label>
-        <Button type="submit" variant="secondary" loading={busy} disabled={!code.trim() || !value.trim()}>{P.create}</Button>
+      {/* A form, not a strip of inputs: labels above, one grid, the value
+          field named by the kind, and a sentence that reads the code back
+          the way a user will meet it — the check before «Создать». */}
+      <form onSubmit={create} className="border border-border rounded-lg p-5 space-y-5">
+        <div className="eyebrow text-ink-tertiary">{P.newCode}</div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr] gap-4">
+          <Field label={P.code} hint={P.codeHint} htmlFor="promo-code">
+            <input id="promo-code" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} required maxLength={32} placeholder="WELCOME20" className={`${inputClass} h-10 font-mono`} />
+          </Field>
+          <Field label={P.kind} htmlFor="promo-kind">
+            <select id="promo-kind" value={kind} onChange={(e) => pickKind(e.target.value as typeof kind)} className={`${inputClass} h-10`}>
+              {KINDS.map((k) => <option key={k} value={k}>{P.kindLabel[k]}</option>)}
+            </select>
+          </Field>
+          <Field label={P.kindOpt[kind]} htmlFor="promo-value">
+            <input id="promo-value" value={value} onChange={(e) => setValue(e.target.value.replace(/\D/g, ''))} required inputMode="numeric" className={`${inputClass} h-10 font-mono`} />
+          </Field>
+          <Field label={P.maxUses} htmlFor="promo-uses">
+            <input id="promo-uses" value={maxUses} onChange={(e) => setMaxUses(e.target.value.replace(/\D/g, ''))} inputMode="numeric" placeholder={P.noLimit} className={`${inputClass} h-10 font-mono`} />
+          </Field>
+          <Field label={P.validUntil} htmlFor="promo-until">
+            <input id="promo-until" type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} className={`${inputClass} h-10`} />
+          </Field>
+        </div>
+        <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-border">
+          <Button type="submit" loading={busy} disabled={!canCreate}>{P.create}</Button>
+          <p className={`text-sm ${canCreate ? 'text-ink' : 'text-ink-secondary'}`}>{preview}</p>
+        </div>
       </form>
 
       {isLoading && <p className="text-sm text-ink-secondary">…</p>}
