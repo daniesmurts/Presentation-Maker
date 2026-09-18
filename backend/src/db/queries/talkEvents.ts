@@ -15,6 +15,10 @@ export interface TalkEvent {
     // The landing demo funnel; { seconds, words, fillers, wpm, language } — the
     // shape says how far each visitor got (§3.9).
     | 'try_started' | 'try_stopped' | 'try_typed' | 'try_plan' | 'try_cta' | 'try_registered'
+    // «Как прошло?» after the real thing: { outcome: good|ok|bad, rehearsals }
+    // — how many run-throughs preceded a talk that went well is the
+    // number the rehearsal feature is ultimately measured by.
+    | 'delivered'
   format?:     'pptx' | 'pdf'
   metadata?:   Record<string, unknown>
 }
@@ -35,4 +39,17 @@ export async function countDownloadsThisMonth(workspaceId: string, format: 'pptx
     [workspaceId, format],
   )
   return Number(rows[0]?.n ?? 0)
+}
+
+export type DeliveredOutcome = 'good' | 'ok' | 'bad'
+export interface Delivered { outcome: DeliveredOutcome; at: string }
+
+/** The latest «как прошло» answer for a talk, or null. */
+export async function getDelivered(talkId: string, workspaceId: string): Promise<Delivered | null> {
+  const { rows } = await pool.query<{ outcome: DeliveredOutcome; at: string }>(
+    `SELECT metadata->>'outcome' AS outcome, created_at AS at FROM talk_events
+      WHERE talk_id = $1 AND workspace_id = $2 AND event = 'delivered' ORDER BY created_at DESC LIMIT 1`,
+    [talkId, workspaceId],
+  )
+  return rows[0] ?? null
 }

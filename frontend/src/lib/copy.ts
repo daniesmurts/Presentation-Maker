@@ -525,6 +525,29 @@ export const copy = {
     applyNotes: (n: number) => `Заменить текст докладчика (${n})`, applyHint: 'Отметьте слайды, где ваш живой пересказ лучше написанного — он станет текстом докладчика.',
     applied: (n: number) => `Заменено: ${n}`, undo: 'Вернуть как было', undone: 'Возвращено',
     earlier: 'Прошлые репетиции', none: 'Репетиций пока не было.', delete: 'Удалить', deleted: 'Репетиция удалена',
+    // N against N−1 (shared/rehearsalProgress.ts). The sentence says what
+    // changed in the units a speaker thinks in — minutes, fillers, slides
+    // — never a score.
+    progress: {
+      title:     (n: number, of: number) => `Репетиция ${n} из ${of}`,
+      vsPrev:    (d: string) => `По сравнению с прошлой (${d}):`,
+      first:     'Первая репетиция — после следующей здесь будет видно, что изменилось.',
+      time:      (fromMs: string, toMs: string) => `время ${fromMs} → ${toMs}`,
+      fillers:   (from: number, to: number) => `паразитов на 100 слов ${from} → ${to}`,
+      wpm:       (from: number, to: number) => `темп ${from} → ${to} слов/мин`,
+      over:      (from: number, to: number) => `слайдов с перебором ${from} → ${to}`,
+      verdict:   (improved: number, judged: number) => improved === judged && judged >= 2 ? 'лучше по всем пунктам' : improved > 0 ? `лучше по ${improved} из ${judged}` : judged > 0 ? 'пока без улучшений — это нормально, нужна ещё одна' : 'без заметных изменений',
+      cols:      { when: 'Когда', time: 'Время', wpm: 'Слов/мин', fillers: 'Паразитов', over: 'Перебор' },
+    },
+    // «Как прошло?» — after the real thing. Asked once there is at least
+    // one rehearsal; «ещё нет» hides it for a few days.
+    delivered: {
+      ask:      'Уже выступили? Как прошло:',
+      good: 'Хорошо', ok: 'Нормально', bad: 'Не очень', notYet: 'Ещё нет',
+      done:     (outcome: string, d: string) => `Выступили ${d} — прошло ${outcome}`,
+      outcome:  { good: 'хорошо', ok: 'нормально', bad: 'не очень' } as Record<string, string>,
+      thanksBad: 'Жаль. Следующее — лучше: репетиция перед ним поможет.',
+    },
     backToTalk: 'К выступлению', again: 'Репетировать ещё раз',
     lastOne: (n: number) => `${plural(n, 'репетиция', 'репетиции', 'репетиций')} — разбор последней`,
   },

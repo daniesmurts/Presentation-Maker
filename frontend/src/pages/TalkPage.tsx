@@ -7,6 +7,7 @@ import RewriteReview from '../components/talks/RewriteReview'
 import { remapAfterMove, remapAfterDelete, remapAfterInsert, toSlideNumbers, rangeBetween } from '../lib/slideSelection'
 import { getBrand } from '../api/brand'
 import { listRehearsals } from '../api/rehearsals'
+import DeliveredAsk from '../components/talks/DeliveredAsk'
 import { inputClass, Pill } from '../components/ui/Field'
 import { errorMessage } from '../api/client'
 import SlideCard, { type SlideEditActions } from '../components/talks/SlideCard'
@@ -191,6 +192,11 @@ export default function TalkPage() {
               </Link>
             )}
           </p>
+          {/* After the real thing: one tap, once (TODO O3). Its own line
+              under the status — the chips would not fit among the pills. */}
+          {rehearsals && rehearsals.length > 0 && (
+            <p className="text-sm mt-2"><DeliveredAsk talkId={id} rehearsals={rehearsals.length} /></p>
+          )}
         </div>
         {/* The toolbar reads in three groups, left to right: the talk as a
             thing (theme, «Готово») · change all of it (one menu — two

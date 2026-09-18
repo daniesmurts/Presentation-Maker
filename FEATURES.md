@@ -119,6 +119,14 @@ on-prem install keeps `.pptx` open to everyone.
   «вот», «как бы» — um, uh, like), the transcript per slide. A browser
   without recognition still gets the timings. Rehearsals are kept per
   talk; the last one is linked from the talk header.
+- ✅ **Rehearsal that compounds.** Each report says which run this is
+  («Репетиция 3 из 3») and what changed since the last one, in the units
+  a speaker thinks in — time toward the plan, fillers per hundred words,
+  pace into the comfortable band, slides over budget — with a one-line
+  verdict («лучше по 3 из 4»), never a score; and a table of every run.
+  After the real thing the talk page asks once, «Уже выступили? Как
+  прошло:» — one tap, stored with how many rehearsals preceded it, which
+  is the number the feature is ultimately measured by.
 - ✅ **Rehearsal review** — one pass over the rehearsal: per slide, was the
   speaker's text covered / partial / skipped, which points did not get
   said, what was added, one-sentence verdict; an overall summary with

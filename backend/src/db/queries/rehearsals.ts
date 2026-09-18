@@ -24,13 +24,19 @@ export async function findRehearsalById(id: string, workspaceId: string): Promis
 export interface RehearsalListRow {
   id: string; started_at: string; duration_ms: number; speech_available: boolean
   review_status: Rehearsal['review_status']; words: number; fillers: number
+  // Enough of the metrics to compare one run with the previous one
+  // (shared/rehearsalProgress.ts) without loading the rows.
+  target_ms: number | null; words_per_min: number | null; over_slides: number
 }
 
-/** Newest first — the report page's «earlier rehearsals» list. */
+/** Newest first — the report page's «earlier rehearsals» list and the
+ *  N-vs-N−1 comparison. */
 export async function listRehearsals(talkId: string, workspaceId: string): Promise<RehearsalListRow[]> {
   const { rows } = await pool.query<RehearsalListRow>(
     `SELECT id, started_at, duration_ms, speech_available, review_status,
-            (metrics->>'words')::int AS words, (metrics->>'fillers')::int AS fillers
+            (metrics->>'words')::int AS words, (metrics->>'fillers')::int AS fillers,
+            (metrics->>'target_ms')::int AS target_ms, (metrics->>'words_per_min')::int AS words_per_min,
+            (SELECT COUNT(*)::int FROM jsonb_array_elements(metrics->'slides') s WHERE (s->>'over')::boolean) AS over_slides
        FROM rehearsals WHERE talk_id = $1 AND workspace_id = $2 ORDER BY created_at DESC LIMIT 20`,
     [talkId, workspaceId],
   )

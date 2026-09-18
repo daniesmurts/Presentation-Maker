@@ -634,7 +634,7 @@ Not planned: a general assistant, cross-draft memory, web search, editing
 finished slides from the chat (the talk page owns that), conversations
 kept forever (the history is capped; the card is what is kept).
 
-### O. Lead with the speaking · Effort: M · 🟢 O1–O2 SHIPPED (2026-09-18, code)
+### O. Lead with the speaking · Effort: M · 🟢 O1–O3 SHIPPED (2026-09-18, code)
 
 **Why.** Every feature is on the producing side; what holds people is the
 performing side (rehearsal), and it was hidden behind the producing side.
@@ -645,9 +645,9 @@ the plan, register into a draft made from it.
 **O2 (shipped)** — the mic in the draft composer; the talks empty state
 leads with «Рассказать редактору».
 
-**O3 — rehearsal that compounds.** Rehearsal N vs N-1: «минус 4 минуты и
-60 % паразитов»; after the real thing, «как прошло?» in one tap. Touches:
-`RehearsalReportPage`, the rehearsal list query, one event.
+**O3 (shipped)** — N vs N−1 on the report, a table of runs, «как прошло?»
+on the talk page. Next on this thread, when there's data: the admin
+overview showing delivered-well against rehearsals-before.
 
 **O4 — the one-page briefing.** After generation: the talk in five
 sentences, three numbers, the one ask, the likely question and the

@@ -4,7 +4,7 @@ import { AppError, NotFoundError, ValidationError } from '../errors/AppError'
 import { assertReviewQuota } from '../lib/planTier'
 import { checkSpendCap } from '../services/spendCap'
 import { findTalkById, replaceSlides } from '../db/queries/talks'
-import { recordTalkEvent } from '../db/queries/talkEvents'
+import { recordTalkEvent, getDelivered } from '../db/queries/talkEvents'
 import { createRehearsal, findRehearsalById, listRehearsals, saveRehearsalReview, countReviewsThisMonth, deleteRehearsal } from '../db/queries/rehearsals'
 import { normaliseSegments, normaliseVisits, computeMetrics, reviewRehearsal, MAX_DURATION_MS } from '../services/rehearsal'
 import { userFacingFailure } from '../lib/userFacingFailure'
@@ -21,6 +21,24 @@ async function talkOr404(id: string, workspaceId: string) {
   if (!talk?.slides?.length) throw new NotFoundError('Выступление не найдено')
   return talk
 }
+
+// GET /api/talks/:id/rehearsals/delivered · POST { outcome } — «как
+// прошло?» after the real thing. One tap; the answer is an event with
+// the number of rehearsals that preceded it (§3.9).
+rehearsalsRouter.get('/delivered', asyncHandler(async (req, res) => {
+  const talk = await findTalkById(req.params.id, req.user.workspace_id)
+  if (!talk) throw new NotFoundError('Выступление не найдено')
+  res.json({ delivered: await getDelivered(talk.id, req.user.workspace_id) })
+}))
+rehearsalsRouter.post('/delivered', asyncHandler(async (req, res) => {
+  const talk = await findTalkById(req.params.id, req.user.workspace_id)
+  if (!talk) throw new NotFoundError('Выступление не найдено')
+  const outcome = (req.body as { outcome?: unknown })?.outcome
+  if (outcome !== 'good' && outcome !== 'ok' && outcome !== 'bad') throw new ValidationError('Как прошло: хорошо, нормально или не очень')
+  const rehearsals = (await listRehearsals(talk.id, req.user.workspace_id)).length
+  recordTalkEvent({ talkId: talk.id, workspaceId: req.user.workspace_id, userId: req.user.id, event: 'delivered', metadata: { outcome, rehearsals } })
+  res.json({ delivered: { outcome, at: new Date().toISOString() } })
+}))
 
 rehearsalsRouter.get('/', asyncHandler(async (req, res) => {
   const talk = await talkOr404(req.params.id, req.user.workspace_id)

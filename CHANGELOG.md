@@ -6,6 +6,20 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
 ## [Unreleased]
 
 ### Added
+- **Rehearsal that compounds (TODO O3).** A rehearsal was a report;
+  nobody churns from the thing that shows them getting better at
+  something they're scared of, so now it's a record. `shared/rehearsalProgress.ts`
+  (pure, tested) reads run N against N−1: time is better when *closer to
+  the target* (not shorter — with no target there is no verdict; five
+  seconds is not a change), fillers as a rate per hundred words (a
+  longer run is not punished for more words), pace only by the band,
+  slides over budget by count. The verdict is a count («лучше по 3 из
+  4»; «по всем пунктам» only from two judged metrics up), never a score.
+  The list row now carries enough of the metrics to compare without
+  loading the rows. «Как прошло?» after the real thing: one tap on the
+  talk page once there is a rehearsal — an event `delivered { outcome,
+  rehearsals }`, the count being what the feature is measured by;
+  «ещё нет» snoozes it three days per browser.
 - **Edit a message to the editor — and re-run from it.** The first minute
   arrives transcribed, and a transcript reads «pretty stainless» for
   «predestined» (first real use, 2026-09-18). Fixing the bubble alone
@@ -401,6 +415,20 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 ## [Unreleased]
 
 ### Added
+- **Rehearsal that compounds (TODO O3).** A rehearsal was a report;
+  nobody churns from the thing that shows them getting better at
+  something they're scared of, so now it's a record. `shared/rehearsalProgress.ts`
+  (pure, tested) reads run N against N−1: time is better when *closer to
+  the target* (not shorter — with no target there is no verdict; five
+  seconds is not a change), fillers as a rate per hundred words (a
+  longer run is not punished for more words), pace only by the band,
+  slides over budget by count. The verdict is a count («лучше по 3 из
+  4»; «по всем пунктам» only from two judged metrics up), never a score.
+  The list row now carries enough of the metrics to compare without
+  loading the rows. «Как прошло?» after the real thing: one tap on the
+  talk page once there is a rehearsal — an event `delivered { outcome,
+  rehearsals }`, the count being what the feature is measured by;
+  «ещё нет» snoozes it three days per browser.
 - **Edit a message to the editor — and re-run from it.** The first minute
   arrives transcribed, and a transcript reads «pretty stainless» for
   «predestined» (first real use, 2026-09-18). Fixing the bubble alone

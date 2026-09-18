@@ -15,6 +15,7 @@ import { copy, plural } from '../lib/copy'
 import { mmss } from '../components/talks/useStageScale'
 import type { Rehearsal, RehearsalCoverage, Slide } from '../../../shared/types'
 import { paceBand } from '../../../shared/rehearsalText'
+import { rehearsalProgress, fillersPer100 } from '../../../shared/rehearsalProgress'
 
 // The report: numbers first (they are free and instant), the review under
 // a button (it costs a model pass and is metered on the free tier). Per
@@ -81,6 +82,14 @@ export default function RehearsalReportPage() {
   const pace = m.words_per_min == null ? null : { slow: copy.rehearsal.paceSlow, fast: copy.rehearsal.paceFast, ok: copy.rehearsal.paceOk }[paceBand(m.words_per_min)]
   const overall = m.target_ms ? (m.total_ms > m.target_ms * 1.1 ? 'over' : m.total_ms < m.target_ms * 0.7 ? 'under' : 'ok') : null
   const maxMs = Math.max(1, ...m.slides.map((s) => Math.max(s.ms, s.target_ms ?? 0)))
+  // This run against the one before it (the list is newest first).
+  const history = [...(earlier ?? [])].reverse()          // oldest first
+  const ordinal = history.findIndex((e) => e.id === rid) + 1
+  const prevRow = ordinal > 1 ? history[ordinal - 2] : null
+  const curSnap = { duration_ms: m.total_ms, target_ms: m.target_ms, words: m.words, words_per_min: m.words_per_min, fillers: m.fillers, over_slides: m.slides.filter((x) => x.over).length }
+  const progress = prevRow ? rehearsalProgress(curSnap, prevRow) : null
+  const P = copy.rehearsal.progress
+  const shortDate = (d: string) => new Date(d).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
   const applicable = new Set((r?.slides ?? []).filter((s) => s.spoken_notes.trim()).map((s) => s.slide))
   const toggle = (i: number) => setChosen((c) => { const n = new Set(c); if (n.has(i)) n.delete(i); else n.add(i); return n })
 
@@ -108,6 +117,26 @@ export default function RehearsalReportPage() {
         <Stat label={copy.rehearsal.fillers} value={String(m.fillers)} note={m.filler_examples.length ? m.filler_examples.map((f) => `«${f}»`).join(', ') : undefined} tone={m.fillers > Math.max(5, m.words / 50) ? 'warn' : 'plain'} />
       </dl>
       {!m.target_ms && <p className="text-xs text-ink-secondary">{copy.rehearsal.noTarget}</p>}
+
+      {/* Rehearsal that compounds (TODO O3): what changed since last time,
+          in the units a speaker thinks in. Better → success, worse → warning,
+          no verdict → plain; the line ends with the count, not a score. */}
+      {ordinal > 0 && (
+        <section className="rounded-lg border border-border p-4 text-sm">
+          <div className="flex items-baseline justify-between gap-3 flex-wrap">
+            <span className="font-medium text-ink">{P.title(ordinal, history.length)}</span>
+            {progress && prevRow && <span className="text-ink-secondary">{P.vsPrev(shortDate(prevRow.started_at))} <span className="text-ink">{P.verdict(progress.improved, progress.judged)}</span></span>}
+          </div>
+          {progress ? (
+            <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1">
+              <Delta better={progress.time.better}>{P.time(mmss(progress.time.from), mmss(progress.time.to))}</Delta>
+              <Delta better={progress.fillers.better}>{P.fillers(progress.fillers.from, progress.fillers.to)}</Delta>
+              {progress.wpm && <Delta better={progress.wpm.better}>{P.wpm(progress.wpm.from, progress.wpm.to)}</Delta>}
+              <Delta better={progress.over.better}>{P.over(progress.over.from, progress.over.to)}</Delta>
+            </ul>
+          ) : <p className="text-ink-secondary mt-1">{P.first}</p>}
+        </section>
+      )}
 
       {/* The review — under a button because it costs. */}
       {!r && (
@@ -209,14 +238,27 @@ export default function RehearsalReportPage() {
       <section className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h2 className="font-medium text-ink mb-2">{copy.rehearsal.earlier}</h2>
-          <ul className="text-sm space-y-1">
-            {(earlier ?? []).filter((e) => e.id !== rid).map((e) => (
-              <li key={e.id}><Link to={`/talks/${id}/rehearsals/${e.id}`} className="text-accent hover:text-accent-deep underline">
-                {new Date(e.started_at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</Link>
-                <span className="text-ink-secondary"> · {mmss(e.duration_ms)} · {plural(e.words, 'слово', 'слова', 'слов')}{e.review_status === 'ready' ? ` · ${copy.rehearsal.report.toLowerCase()}` : ''}</span></li>
-            ))}
-            {(earlier ?? []).filter((e) => e.id !== rid).length === 0 && <li className="text-ink-secondary">{copy.rehearsal.none}</li>}
-          </ul>
+          {history.length <= 1 ? <p className="text-sm text-ink-secondary">{copy.rehearsal.none}</p> : (
+            <div className="overflow-x-auto -mx-1 px-1">
+              <table className="text-sm tabular-nums">
+                <thead><tr className="text-[11px] uppercase tracking-[0.06em] text-ink-secondary">
+                  <th className="text-left font-medium pr-4 pb-1">{P.cols.when}</th><th className="text-right font-medium pr-4 pb-1">{P.cols.time}</th>
+                  <th className="text-right font-medium pr-4 pb-1">{P.cols.wpm}</th><th className="text-right font-medium pr-4 pb-1">{P.cols.fillers}</th><th className="text-right font-medium pb-1">{P.cols.over}</th>
+                </tr></thead>
+                <tbody>
+                  {history.map((e, i) => (
+                    <tr key={e.id} className={`border-t border-border ${e.id === rid ? 'text-ink font-medium' : 'text-ink-secondary'}`}>
+                      <td className="pr-4 py-1.5 whitespace-nowrap">{i + 1}. {e.id === rid ? shortDate(e.started_at) : <Link to={`/talks/${id}/rehearsals/${e.id}`} className="text-accent hover:text-accent-deep underline">{shortDate(e.started_at)}</Link>}</td>
+                      <td className="text-right pr-4 font-mono">{mmss(e.duration_ms)}</td>
+                      <td className="text-right pr-4 font-mono">{e.words_per_min ?? '—'}</td>
+                      <td className="text-right pr-4 font-mono">{fillersPer100(e.fillers, e.words)}</td>
+                      <td className="text-right font-mono">{e.over_slides}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
         <Button variant="quiet" size="sm" onClick={() => { if (confirm(copy.rehearsal.delete + '?')) remove.mutate() }} loading={remove.isPending}><Trash2 className="w-3.5 h-3.5" aria-hidden /> {copy.rehearsal.delete}</Button>
       </section>
@@ -242,4 +284,9 @@ function List({ title, items }: { title: string; items: string[] }) {
       <ul className="text-sm text-ink space-y-1 list-disc pl-4">{items.map((s, i) => <li key={i}>{s}</li>)}</ul>
     </div>
   )
+}
+
+function Delta({ better, children }: { better: boolean | null; children: React.ReactNode }) {
+  const tone = better === true ? 'text-success' : better === false ? 'text-warning' : 'text-ink-secondary'
+  return <li className={`${tone} whitespace-nowrap`}>{better === true ? '↑ ' : better === false ? '↓ ' : '· '}{children}</li>
 }
