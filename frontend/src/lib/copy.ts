@@ -550,6 +550,7 @@ export const copy = {
       active7: 'Активных пространств за 7 дней', pro: 'Pro',
       month: 'Этот месяц', talks: 'выступлений', exports: 'скачиваний', spend: 'расход на модели', revenue: 'оплат',
       rehearsals: 'репетиций', reviews: 'разборов', rehearsingWs: 'пространств', notesApplied: 'замен текста',
+      tryFunnel: 'Демо на главной, 7 дней', tryStarted: 'минут', tryTyped: 'напечатали', tryPlan: 'планов', tryCta: 'кликов', tryRegistered: 'регистраций',
       support: 'Открытых обращений', support7: 'за 7 дней',
       jobs: 'Задачи', failed24: 'ошибок за 24 ч', stuck: 'зависших',
     },

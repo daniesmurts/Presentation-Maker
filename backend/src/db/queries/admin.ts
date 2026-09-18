@@ -13,13 +13,18 @@ export interface AdminOverview {
   // Rehearsals this month: runs, model reviews, and how many workspaces
   // did one — the habit metric the feature was built for.
   rehearsals:       { runs: number; reviews: number; workspaces: number; notes_applied: number }
+  // The landing demo's funnel, last 7 days (routes/try.ts): each step is
+  // a distinct event, so a visitor who tried twice counts twice — the
+  // question is «did the minute lead to a plan and a click», not «how
+  // many people». `registered` is stamped by the app on pickup.
+  try_7d:           { started: number; stopped: number; typed: number; plan: number; cta: number; registered: number }
   support:          { open: number; last_7d: number }
   jobs:             { failed_24h: number; stuck: number }
 }
 
 export async function adminOverview(): Promise<AdminOverview> {
   const one = async <T extends QueryResultRow>(sql: string): Promise<T> => (await pool.query<T>(sql)).rows[0]
-  const [users, ws, month, rehearsals, support, jobs] = await Promise.all([
+  const [users, ws, month, rehearsals, tryFunnel, support, jobs] = await Promise.all([
     one<{ total: string; new_7d: string; new_30d: string }>(`
       SELECT COUNT(*)::text AS total,
              COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days')::text  AS new_7d,
@@ -39,6 +44,14 @@ export async function adminOverview(): Promise<AdminOverview> {
              (SELECT COUNT(*) FROM rehearsals WHERE review_status = 'ready' AND created_at >= date_trunc('month', NOW()))::text AS reviews,
              (SELECT COUNT(DISTINCT workspace_id) FROM rehearsals WHERE created_at >= date_trunc('month', NOW()))::text AS workspaces,
              (SELECT COUNT(*) FROM talk_events WHERE event = 'rehearsal_notes_applied' AND created_at >= date_trunc('month', NOW()))::text AS notes_applied`),
+    one<{ started: string; stopped: string; typed: string; plan: string; cta: string; registered: string }>(`
+      SELECT COUNT(*) FILTER (WHERE event = 'try_started')::text    AS started,
+             COUNT(*) FILTER (WHERE event = 'try_stopped')::text    AS stopped,
+             COUNT(*) FILTER (WHERE event = 'try_typed')::text      AS typed,
+             COUNT(*) FILTER (WHERE event = 'try_plan')::text       AS plan,
+             COUNT(*) FILTER (WHERE event = 'try_cta')::text        AS cta,
+             COUNT(*) FILTER (WHERE event = 'try_registered')::text AS registered
+        FROM talk_events WHERE event LIKE 'try\_%' AND created_at >= NOW() - INTERVAL '7 days'`),
     one<{ open: string; last_7d: string }>(`
       SELECT COUNT(*) FILTER (WHERE answered_at IS NULL)::text AS open, COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days')::text AS last_7d FROM support_messages`),
     // «stuck»: still processing after 15 min — the worker's own timeout is shorter.
@@ -52,6 +65,7 @@ export async function adminOverview(): Promise<AdminOverview> {
     workspaces: { active_7d: +ws.active_7d, pro: +ws.pro },
     month:      { talks: +month.talks, exports_pptx: +month.exports_pptx, exports_pdf: +month.exports_pdf, spend_usd: +month.spend_usd, revenue_kopecks: +month.revenue_kopecks },
     rehearsals: { runs: +rehearsals.runs, reviews: +rehearsals.reviews, workspaces: +rehearsals.workspaces, notes_applied: +rehearsals.notes_applied },
+    try_7d:     { started: +tryFunnel.started, stopped: +tryFunnel.stopped, typed: +tryFunnel.typed, plan: +tryFunnel.plan, cta: +tryFunnel.cta, registered: +tryFunnel.registered },
     support:    { open: +support.open, last_7d: +support.last_7d },
     jobs:       { failed_24h: +jobs.failed_24h, stuck: +jobs.stuck },
   }

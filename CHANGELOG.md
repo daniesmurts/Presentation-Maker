@@ -41,6 +41,8 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
     try_typed · try_plan · try_cta · try_registered` with no user, and
     the same names as Metrika goals. If it doesn't beat the old landing's
     register rate in two weeks, we know.
+  - Admin overview tile «Демо на главной, 7 дней»: minutes (typed of
+    them) · plans · clicks · registrations — the funnel, from day one.
   - The stored replay moves under «Как это работает» as «Пример целиком»;
     the privacy policy names the demo. Dev: the site proxies `/api` to
     the backend; `site-dev` (4322) and `site-built` (4330) launch configs.
@@ -416,6 +418,8 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
     try_typed · try_plan · try_cta · try_registered` with no user, and
     the same names as Metrika goals. If it doesn't beat the old landing's
     register rate in two weeks, we know.
+  - Admin overview tile «Демо на главной, 7 дней»: minutes (typed of
+    them) · plans · clicks · registrations — the funnel, from day one.
   - The stored replay moves under «Как это работает» as «Пример целиком»;
     the privacy policy names the demo. Dev: the site proxies `/api` to
     the backend; `site-dev` (4322) and `site-built` (4330) launch configs.

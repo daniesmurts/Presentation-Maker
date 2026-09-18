@@ -5,6 +5,7 @@ export interface AdminOverview {
   workspaces: { active_7d: number; pro: number }
   month:      { talks: number; exports_pptx: number; exports_pdf: number; spend_usd: number; revenue_kopecks: number }
   rehearsals: { runs: number; reviews: number; workspaces: number; notes_applied: number }
+  try_7d:     { started: number; stopped: number; typed: number; plan: number; cta: number; registered: number }
   support:    { open: number; last_7d: number }
   jobs:       { failed_24h: number; stuck: number }
 }
