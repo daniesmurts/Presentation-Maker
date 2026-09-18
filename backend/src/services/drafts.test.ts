@@ -54,6 +54,17 @@ describe('cardToTalkBody → readGenerateParams', () => {
   })
 })
 
+describe('system prompt', () => {
+  it('asks for mis-hearings to be flagged and for the reply to follow the last message\'s language', () => {
+    const messages = buildTurnMessages({ card: filled, messages: [] }, 'x')
+    const sys = messages[0].content
+    expect(sys).toContain('pretty stainless')          // the example of a transcribed mis-hearing
+    expect(sys).toMatch(/вероятно, „Y“\?/)             // the flag format
+    expect(sys).toContain('probably “Y”?')             // …and its English form
+    expect(sys).toMatch(/пишет по-английски — весь ответ по-английски/)
+  })
+})
+
 describe('history', () => {
   const msg = (i: number): DraftMessage => ({ role: i % 2 ? 'assistant' : 'user', text: `m${i}`, at: '2026-09-16T00:00:00Z' })
 

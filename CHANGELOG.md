@@ -15,6 +15,15 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
   The card keeps what it has: it merges, and a correction is not a reason
   to lose what was settled after it. The cut-off part stays on screen,
   dimmed, until the new reply lands.
+- **The editor flags mis-hearings itself.** The prompt names transcribed
+  speech as a kind of material and asks for likely mis-hearings up front
+  («“pretty stainless” — probably “predestined”?»), the intended word in
+  the theses, and no nagging about fillers — it's speech. On the real
+  transcript it also caught «Romans 18:14» → 8:14. The first run answered
+  an English message in Russian (a Russian system prompt with a Russian
+  example pulls that way); the language rule is now explicit — the
+  reply follows the last message, «this instruction being in Russian is
+  not a reason». Pinned by a test on the prompt text.
 - **«Скажите первую минуту» — the landing demo.** The wow was already
   built (rehearsal) and met the visitor last, behind a form, a plan, a
   generation and a toolbar; most left thinking «a slide generator». The
@@ -401,6 +410,15 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
   The card keeps what it has: it merges, and a correction is not a reason
   to lose what was settled after it. The cut-off part stays on screen,
   dimmed, until the new reply lands.
+- **The editor flags mis-hearings itself.** The prompt names transcribed
+  speech as a kind of material and asks for likely mis-hearings up front
+  («“pretty stainless” — probably “predestined”?»), the intended word in
+  the theses, and no nagging about fillers — it's speech. On the real
+  transcript it also caught «Romans 18:14» → 8:14. The first run answered
+  an English message in Russian (a Russian system prompt with a Russian
+  example pulls that way); the language rule is now explicit — the
+  reply follows the last message, «this instruction being in Russian is
+  not a reason». Pinned by a test on the prompt text.
 - **«Скажите первую минуту» — the landing demo.** The wow was already
   built (rehearsal) and met the visitor last, behind a form, a plan, a
   generation and a toolbar; most left thinking «a slide generator». The
