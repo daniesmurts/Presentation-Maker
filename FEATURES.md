@@ -3,7 +3,7 @@
 Legend: ✅ shipped · 🚧 in progress · 📋 planned. Grouped by the role that
 uses it. A 📋 item is marked, never implied. See `docs/WORKFLOW.md` §1.
 
-Last updated: Rehearsal mode («Репетиция») — the speaker view with a microphone, a report, and a review
+Last updated: «Скажите первую минуту» — the landing demo: speak, see how you spoke, see the plan
 
 ---
 
@@ -31,6 +31,19 @@ on-prem install keeps `.pptx` open to everyone.
   classroom · investors), set length in minutes or an explicit slide count
   (3–60); speaker notes on/off per talk, defaulting per intent. Russian or
   English. Generation is an async job the client polls.
+- ✅ **«Скажите первую минуту» — the landing demo, no account.** The
+  hero's one solid button is a microphone: say the first minute of a talk
+  you actually have to give (or type it — Firefox, a denied mic, an
+  unreachable engine). The browser listens and counts (time, words per
+  minute with the rehearsal's pace verdict, filler words with the three
+  worst); one token-gated call builds the plan of the deck it would make
+  — a title and five slides, typed in like the replay. «Сохранить и
+  продолжить» → register → the app opens a draft with the plan as the
+  card and the minute as the first message, and the editor has already
+  pulled out the theses. Bounded four ways (20 s-old single-use token,
+  3/h per IP, 500 plans a day platform-wide, the global spend cap); the
+  transcript is never stored. Funnel in `talk_events` (`try_*`) and as
+  Metrika goals.
 - ✅ **Talk it through first («Наброски»).** A conversation with the
   editor — a speechwriter and copywriter who works only on what you will
   say or show, and declines everything else in character — that fills in

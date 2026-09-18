@@ -6,7 +6,7 @@
 // so the recogniser is restarted whenever it ends while we still want it
 // running. `onPhrase` fires once per finalised result.
 
-import type { TalkLanguage } from '../../../shared/types'
+import type { TalkLanguage } from './types'
 
 interface RecognitionResultLike { isFinal: boolean; 0: { transcript: string } }
 interface RecognitionEventLike { resultIndex: number; results: ArrayLike<RecognitionResultLike> }

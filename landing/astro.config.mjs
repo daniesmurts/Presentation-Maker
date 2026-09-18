@@ -10,4 +10,14 @@ export default defineConfig({
   trailingSlash: 'never',
   build: { format: 'file' },   // /pricing → pricing.html, matches Caddy's try_files
   integrations: [sitemap()],
+  vite: {
+    // The Try island imports shared/speech.ts and shared/rehearsalText.ts
+    // from the repo root — the same code the app's rehearsal runs.
+    server: {
+      fs: { allow: ['..'] },
+      // Dev only: the demo's API lives on the backend (same origin in
+      // production behind Caddy).
+      proxy: { '/api': 'http://localhost:3000' },
+    },
+  },
 })

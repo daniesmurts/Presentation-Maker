@@ -14,6 +14,7 @@ import { useAuth } from '../lib/auth'
 import { copy, plural } from '../lib/copy'
 import { mmss } from '../components/talks/useStageScale'
 import type { Rehearsal, RehearsalCoverage, Slide } from '../../../shared/types'
+import { paceBand } from '../../../shared/rehearsalText'
 
 // The report: numbers first (they are free and instant), the review under
 // a button (it costs a model pass and is metered on the free tier). Per
@@ -22,10 +23,8 @@ import type { Rehearsal, RehearsalCoverage, Slide } from '../../../shared/types'
 // speaker's text in one write, undoable once.
 
 const TONE: Record<RehearsalCoverage, 'ok' | 'warn' | 'bad' | 'plain'> = { covered: 'ok', partial: 'warn', skipped: 'bad', no_speech: 'plain' }
-// Comfortable speaking pace in Russian is ~100–140 wpm; English ~130–160.
-// One band for both — the copy says «fast» only past where audiences
-// measurably lose the thread.
-const PACE = { slow: 90, fast: 160 }
+// The pace band lives in shared/rehearsalText.ts — the landing demo shows
+// the same verdict for the same number.
 
 export default function RehearsalReportPage() {
   const { id = '', rid = '' } = useParams()
@@ -79,7 +78,7 @@ export default function RehearsalReportPage() {
   const slides = talk.slides ?? []
   const r = rehearsal.review
   const reviewsLeft = (() => { const q = user?.quota?.reviews; return q && q.limit != null ? Math.max(0, q.limit - q.used) : Infinity })()
-  const pace = m.words_per_min == null ? null : m.words_per_min < PACE.slow ? copy.rehearsal.paceSlow : m.words_per_min > PACE.fast ? copy.rehearsal.paceFast : copy.rehearsal.paceOk
+  const pace = m.words_per_min == null ? null : { slow: copy.rehearsal.paceSlow, fast: copy.rehearsal.paceFast, ok: copy.rehearsal.paceOk }[paceBand(m.words_per_min)]
   const overall = m.target_ms ? (m.total_ms > m.target_ms * 1.1 ? 'over' : m.total_ms < m.target_ms * 0.7 ? 'under' : 'ok') : null
   const maxMs = Math.max(1, ...m.slides.map((s) => Math.max(s.ms, s.target_ms ?? 0)))
   const applicable = new Set((r?.slides ?? []).filter((s) => s.spoken_notes.trim()).map((s) => s.slide))

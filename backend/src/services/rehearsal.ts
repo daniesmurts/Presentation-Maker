@@ -16,6 +16,7 @@ import { chatJSON } from './llm/registry'
 import type { CallContext } from './llm/types'
 import { sanitiseForPrompt } from '../lib/promptSanitiser'
 import { renderSlideAsText, mapWithConcurrency, OUTPUT_TOKEN_CEILING } from './talks'
+import { wordCount, countFillers } from '../../../shared/rehearsalText'
 import type {
   Talk, Slide, TalkLanguage, RehearsalSegment, RehearsalVisit, RehearsalMetrics, RehearsalReview, RehearsalSlideReview, RehearsalCoverage,
 } from '../../../shared/types'
@@ -74,24 +75,9 @@ export function normaliseVisits(raw: unknown, slideCount: number): RehearsalVisi
 // What recognisers actually emit for hesitation — Chrome's Russian model
 // writes «э-э», «м-м», and keeps the discourse fillers verbatim. Multi-word
 // fillers first so «как бы» is not counted as a stray «как».
-const FILLERS: Record<TalkLanguage, string[]> = {
-  ru: ['как бы', 'в общем-то', 'так сказать', 'на самом деле', 'ну', 'вот', 'э-э', 'ээ', 'м-м', 'мм', 'значит', 'типа', 'короче', 'собственно', 'в общем', 'это самое', 'скажем так'],
-  en: ['you know', 'i mean', 'sort of', 'kind of', 'um', 'uh', 'umm', 'uhh', 'er', 'like', 'basically', 'actually', 'literally', 'right', 'okay so'],
-}
-
-const wordCount = (text: string) => text.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length
-
-export function countFillers(text: string, language: TalkLanguage): { count: number; examples: string[] } {
-  const lower = ` ${text.toLowerCase().replace(/[.,!?;:…()«»"]/g, ' ').replace(/\s+/g, ' ')} `
-  const found = new Map<string, number>()
-  for (const f of FILLERS[language]) {
-    const re = new RegExp(`(?<![\\p{L}-])${f}(?![\\p{L}-])`, 'gu')
-    const n = (lower.match(re) ?? []).length
-    if (n) found.set(f, n)
-  }
-  const examples = [...found.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([f]) => f)
-  return { count: [...found.values()].reduce((a, b) => a + b, 0), examples }
-}
+// Fillers and word counts live in shared/rehearsalText.ts — the landing
+// demo computes the same numbers in the browser.
+export { countFillers } from '../../../shared/rehearsalText'
 
 /**
  * Time per slide is the sum of its visits; the target is the talk's

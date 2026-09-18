@@ -7,6 +7,7 @@
 // does, not what powers it. No invented numbers, no invented customers.
 import Base from '../layouts/Base.astro'
 import Replay from '../components/Replay.astro'
+import Try from '../components/Try.astro'
 
 // The one price the product has (backend/src/lib/planTier.ts PRO_PRICE_RUB).
 // A copy, the site being its own workspace — change it there first.
@@ -43,15 +44,13 @@ const ld = {
     <div class="wrap">
       <div class="eyebrow pencil">ИИ для презентаций и выступлений</div>
       <h1>От тезисов —<br />к&nbsp;<span class="marker-under">выступлению</span></h1>
-      <p class="lede measure">Вы даёте тезисы. Тезариум пишет план, слайды и <strong>текст докладчика</strong> — что говорить, пока слайд на экране. Готовый .pptx редактируется как обычный.</p>
-      <div class="ctas">
-        <a href="/register" class="btn solid">Попробовать бесплатно</a>
-        <span class="muted">2 выступления в месяц бесплатно. Без карты.</span>
+      <p class="lede measure">Тезариум пишет план, слайды и <strong>текст докладчика</strong> — и репетирует с вами: слушает, как вы говорите, и показывает, что поправить. Готовый .pptx редактируется как обычный.</p>
+      <!-- The one solid CTA in the hero is the microphone (Try.astro): the
+           demo IS the free try. Registration is a text link beside it. -->
+      <div class="try-wrap">
+        <Try />
+        <p class="after muted">Или сразу <a href="/register">зарегистрируйтесь</a> — 2 выступления в месяц бесплатно, без карты.</p>
       </div>
-    </div>
-    <div class="wrap demo">
-      <div class="demo-cap"><span class="eyebrow">Ниже — настоящий результат</span><span class="muted">пять строк тезисов → план → пять слайдов с текстом докладчика → готовый deck, без правок</span></div>
-      <Replay />
     </div>
   </section>
 
@@ -66,6 +65,14 @@ const ld = {
         <li><span class="mono n">03</span><h3>Слайды и текст докладчика</h3><p class="muted">Каждый слайд — со своим текстом на полях и оценкой времени. Любой слайд можно переписать одной фразой: «короче», «добавь пример с цифрами».</p></li>
         <li><span class="mono n">04</span><h3>Выступайте</h3><p class="muted">Скачайте .pptx или PDF, откройте режим показа с окном докладчика на втором экране, поделитесь ссылкой.</p></li>
       </ol>
+    </div>
+  </section>
+
+  <!-- The stored replay: the whole path for one real brief, nothing fetched. -->
+  <section class="example">
+    <div class="wrap">
+      <div class="demo-cap"><span class="eyebrow">Пример целиком</span><span class="muted">пять строк тезисов → план → пять слайдов с текстом докладчика → готовый deck, без правок</span></div>
+      <Replay />
     </div>
   </section>
 
@@ -144,7 +151,9 @@ const ld = {
   .lede { font-family: var(--display); font-size: clamp(1.15rem, 1.9vw, 1.45rem); line-height: 1.45; color: rgb(var(--c-ink-secondary)); }
   .lede strong { color: rgb(var(--c-ink)); font-weight: 500; }
   .ctas { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-top: 30px; }
-  .demo { margin-top: 56px; }
+  .try-wrap { margin-top: 30px; }
+  .after { font-size: 15px; margin: 14px 0 0; }
+  .after a { color: rgb(var(--c-ink)); }
   .demo-cap { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; margin-bottom: 12px; font-size: 14px; }
 
   section h2 { margin: 12px 0 36px; }

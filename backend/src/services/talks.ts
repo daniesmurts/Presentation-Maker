@@ -133,7 +133,9 @@ export function isStrictToBrief(params: Pick<GenerateParams, 'strictToBrief' | '
  * one-line brief per slide. No full-length writing, no DB writes — a plan
  * the user can be shown and can edit before anything expensive happens.
  */
-export async function planTalk(params: GenerateParams): Promise<TalkPlan> {
+// `feature` is what usage_log records — the landing demo's plan is the
+// same call under its own name so its ceiling counts only itself.
+export async function planTalk(params: GenerateParams, feature: 'talk_outline' | 'try_outline' = 'talk_outline'): Promise<TalkPlan> {
   const slideTarget = clampSlideTarget(params.slideCountTarget ?? estimateSlideCount(params.durationMinutes))
   const L = COPY[params.language]
 
@@ -143,7 +145,7 @@ export async function planTalk(params: GenerateParams): Promise<TalkPlan> {
       { role: 'user',   content: buildOutlinePrompt(params, slideTarget) },
     ],
     'outline',
-    { context: callContextFor(params, 'talk_outline'), maxTokens: outlineMaxTokens(slideTarget, params.language) },
+    { context: callContextFor(params, feature), maxTokens: outlineMaxTokens(slideTarget, params.language) },
   )
 
   return { outline: normaliseOutline(outlineRaw?.outline, slideTarget, params.language), slideTarget }

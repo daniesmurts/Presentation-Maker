@@ -3,7 +3,8 @@ import { logger } from '../../lib/logger'
 
 export interface TalkEvent {
   talkId:      string | null   // null for workspace-level events (billing)
-  workspaceId: string
+  // null only for the landing demo's funnel (routes/try.ts) — no account exists yet.
+  workspaceId: string | null
   userId:      string | null
   // 'subscribed' | 'renewed' | 'payment_failed' | 'renewal_failed' carry
   // { amount_kopecks, kind, order_id } (CLAUDE.md §3.9 — record the shape).
@@ -11,6 +12,9 @@ export interface TalkEvent {
   // { done, failed, of } for a whole-deck pass — a deck that got 8 pictures
   // is different evidence from one that got 1 (§3.9).
   event:       'exported' | 'subscribed' | 'renewed' | 'payment_failed' | 'renewal_failed' | 'refunded' | 'auto_renew_off' | 'auto_renew_on' | 'image_generated' | 'pro_granted' | 'pro_grant_revoked' | 'promo_redeemed' | 'referral_rewarded' | 'rehearsed' | 'rehearsal_reviewed' | 'rehearsal_notes_applied'
+    // The landing demo funnel; { seconds, words, fillers, wpm, language } — the
+    // shape says how far each visitor got (§3.9).
+    | 'try_started' | 'try_stopped' | 'try_typed' | 'try_plan' | 'try_cta' | 'try_registered'
   format?:     'pptx' | 'pdf'
   metadata?:   Record<string, unknown>
 }

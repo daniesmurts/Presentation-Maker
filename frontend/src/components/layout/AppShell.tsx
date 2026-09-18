@@ -1,10 +1,11 @@
+import { useEffect, type ReactNode } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Plus, LogOut, Presentation, PenLine, FileText, Megaphone, Palette, CreditCard, Gauge } from 'lucide-react'
-import type { ReactNode } from 'react'
 import { useAuth } from '../../lib/auth'
 import { copy } from '../../lib/copy'
 import ThemeToggle from '../ui/ThemeToggle'
 import EmailVerifyBanner from './EmailVerifyBanner'
+import { pickUpTryStash } from '../../lib/tryPickup'
 
 // The desk («Редакция»): a left rail ≥ lg that holds every kind of material
 // the product will make — talks now; posts and ads are listed and marked
@@ -33,6 +34,9 @@ export default function AppShell() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const signOut = () => void logout().then(() => navigate('/login'))
+  // A visitor who tried the landing demo and then signed up lands in the
+  // draft made from their minute (lib/tryPickup.ts). Once per stash.
+  useEffect(() => { void pickUpTryStash().then((id) => { if (id) navigate(`/drafts/${id}`, { replace: true }) }) }, [navigate])
   const ic = 'w-4 h-4 flex-shrink-0'
 
   return (

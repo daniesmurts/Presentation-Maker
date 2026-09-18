@@ -13,7 +13,7 @@ import HelpLink from '../components/ui/HelpLink'
 import { useToast } from '../lib/toast'
 import { errorMessage } from '../api/client'
 import { copy } from '../lib/copy'
-import { speechSupported, startListening, type SpeechSession, type SpeechError } from '../lib/speech'
+import { speechSupported, startListening, type SpeechSession, type SpeechError } from '../../../shared/speech'
 import type { RehearsalSegment, RehearsalVisit } from '../../../shared/types'
 
 // Rehearsal («Репетиция»): the speaker view of present mode with a

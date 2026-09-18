@@ -10,6 +10,7 @@ import { getBuildVersion } from './lib/version'
 import { authRouter } from './routes/auth'
 import { talksRouter } from './routes/talks'
 import { draftsRouter } from './routes/drafts'
+import { tryRouter } from './routes/try'
 import { brandRouter } from './routes/brand'
 import { sharedRouter } from './routes/shared'
 import { shareCardRouter } from './routes/shareCard'
@@ -64,6 +65,7 @@ app.get('/health', async (_req, res) => {
 app.use('/api/auth',  authRouter)
 app.use('/api/talks', talksRouter)
 app.use('/api/drafts', draftsRouter)
+app.use('/api/try', tryRouter)
 app.use('/api/brand', brandRouter)
 app.use('/api/shared', sharedRouter)
 // Not under /api — deploy/Caddyfile proxies /s/:token here verbatim, but

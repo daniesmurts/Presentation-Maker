@@ -6,6 +6,44 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
 ## [Unreleased]
 
 ### Added
+- **«Скажите первую минуту» — the landing demo.** The wow was already
+  built (rehearsal) and met the visitor last, behind a form, a plan, a
+  generation and a toolbar; most left thinking «a slide generator». The
+  hero now leads with the speaking half: a microphone as the one solid
+  CTA, sixty seconds, the report, and the plan the deck would have — all
+  before an account. Decisions:
+  - **The browser does the listening and the counting.** `shared/speech.ts`
+    (moved from the app) and `shared/rehearsalText.ts` (fillers, word
+    count, the pace band — moved out of `services/rehearsal.ts`) run in
+    the Astro island; the report is instant and costs nothing. One call
+    builds the plan: `planTalk` with five slides under its own usage_log
+    feature `try_outline` so its ceiling counts only itself.
+  - **The open endpoint is gated by a signed, single-use token instead of
+    a CAPTCHA** (`services/tryDemo.ts`): issued on page load, refused
+    younger than 20 s (a real recording takes that long), consumed once,
+    expires in 15 min; plus a honeypot, 3/h per IP, 500 plans a day
+    platform-wide, and `checkGlobalSpendCap`. The jti set is per process
+    — ~2× with two replicas, acceptable at ≈ $1/day.
+  - **Nothing stored**: no transcript row, no draft until registration —
+    the plan is stashed in the visitor's own `localStorage` and picked up
+    by the first authenticated shell load (`lib/tryPickup.ts`): a draft
+    with the plan as the card, the minute as the first message. Stale
+    after a day (a shared machine must not inherit someone's minute).
+  - **The planner names the talk.** Passing the first sentence as the
+    topic made the title slide «Ну, добрый день» (first check); the
+    request now says the topic is not given and asks for one.
+  - **Typed fallback carries real traffic**: Chrome's engine sends audio
+    to Google and is unreachable from Russia now and then; Firefox has
+    none. The copy says «на *наши* серверы звук не попадает» — never
+    «никуда». A typed minute can beat the token's minimum age, so the
+    client waits it out rather than failing.
+  - Funnel: `talk_events` `try_started · try_stopped {seconds, words} ·
+    try_typed · try_plan · try_cta · try_registered` with no user, and
+    the same names as Metrika goals. If it doesn't beat the old landing's
+    register rate in two weeks, we know.
+  - The stored replay moves under «Как это работает» as «Пример целиком»;
+    the privacy policy names the demo. Dev: the site proxies `/api` to
+    the backend; `site-dev` (4322) and `site-built` (4330) launch configs.
 - **Rehearsal mode («Репетиция») — the talk, not just the slides.** The
   positioning claims the speaking («от тезисов — к выступлению») and the
   product stopped where slide generators stop; this is the first feature
@@ -343,6 +381,44 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 ## [Unreleased]
 
 ### Added
+- **«Скажите первую минуту» — the landing demo.** The wow was already
+  built (rehearsal) and met the visitor last, behind a form, a plan, a
+  generation and a toolbar; most left thinking «a slide generator». The
+  hero now leads with the speaking half: a microphone as the one solid
+  CTA, sixty seconds, the report, and the plan the deck would have — all
+  before an account. Decisions:
+  - **The browser does the listening and the counting.** `shared/speech.ts`
+    (moved from the app) and `shared/rehearsalText.ts` (fillers, word
+    count, the pace band — moved out of `services/rehearsal.ts`) run in
+    the Astro island; the report is instant and costs nothing. One call
+    builds the plan: `planTalk` with five slides under its own usage_log
+    feature `try_outline` so its ceiling counts only itself.
+  - **The open endpoint is gated by a signed, single-use token instead of
+    a CAPTCHA** (`services/tryDemo.ts`): issued on page load, refused
+    younger than 20 s (a real recording takes that long), consumed once,
+    expires in 15 min; plus a honeypot, 3/h per IP, 500 plans a day
+    platform-wide, and `checkGlobalSpendCap`. The jti set is per process
+    — ~2× with two replicas, acceptable at ≈ $1/day.
+  - **Nothing stored**: no transcript row, no draft until registration —
+    the plan is stashed in the visitor's own `localStorage` and picked up
+    by the first authenticated shell load (`lib/tryPickup.ts`): a draft
+    with the plan as the card, the minute as the first message. Stale
+    after a day (a shared machine must not inherit someone's minute).
+  - **The planner names the talk.** Passing the first sentence as the
+    topic made the title slide «Ну, добрый день» (first check); the
+    request now says the topic is not given and asks for one.
+  - **Typed fallback carries real traffic**: Chrome's engine sends audio
+    to Google and is unreachable from Russia now and then; Firefox has
+    none. The copy says «на *наши* серверы звук не попадает» — never
+    «никуда». A typed minute can beat the token's minimum age, so the
+    client waits it out rather than failing.
+  - Funnel: `talk_events` `try_started · try_stopped {seconds, words} ·
+    try_typed · try_plan · try_cta · try_registered` with no user, and
+    the same names as Metrika goals. If it doesn't beat the old landing's
+    register rate in two weeks, we know.
+  - The stored replay moves under «Как это работает» as «Пример целиком»;
+    the privacy policy names the demo. Dev: the site proxies `/api` to
+    the backend; `site-dev` (4322) and `site-built` (4330) launch configs.
 - **«Как пользоваться» — eight explainers on the site, linked from the
   controls.** Decided against a knowledge base: the §6 rule (explanation
   lives at the control) came out of user testing, there are no external

@@ -1,0 +1,281 @@
+---
+// The hero's proof, live: «Скажите первую минуту». The browser listens
+// (shared/speech.ts — Web Speech, the same code the app's rehearsal uses),
+// the browser counts (shared/rehearsalText.ts — words, pace, fillers; no
+// call, instant), and ONE request builds the plan of the deck it would
+// make (POST /api/try/outline, token-gated — services/tryDemo.ts). The
+// stored replay (Replay.astro) still proves the whole deck further down;
+// this proves the half no slide tool has: the speaking.
+//
+// States: idle → rec → report (→ plan) ; typed is the fallback for
+// browsers without recognition (Firefox), a denied mic, or an engine that
+// is unreachable (Chrome's is, from Russia, now and then) — it carries real
+// traffic, not edge cases. Server-rendered idle; the script does the rest.
+const SECONDS = 60
+---
+<div class="try" id="try" data-state="idle" data-seconds={SECONDS}>
+  <div class="stage s-idle">
+    <div class="row">
+      <button type="button" class="btn solid mic" id="try-start">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+        Скажите первую минуту
+      </button>
+      <div class="lang" role="group" aria-label="Язык">
+        <button type="button" class="chip on" data-lang="ru">RU</button>
+        <button type="button" class="chip" data-lang="en">EN</button>
+      </div>
+      <button type="button" class="link" id="try-type">или напечатайте</button>
+    </div>
+    <p class="fine muted">Любое выступление, которое вам предстоит. Речь распознаёт ваш браузер — на наши серверы звук не попадает. Текст отправится один раз, чтобы построить план, и не сохраняется.</p>
+    <noscript><p class="fine muted">Для демо нужен JavaScript — или <a href="/register">зарегистрируйтесь</a>, там всё то же.</p></noscript>
+  </div>
+
+  <div class="stage s-rec">
+    <div class="rechead">
+      <div class="ring" aria-hidden="true"><svg viewBox="0 0 40 40"><circle class="track" cx="20" cy="20" r="17"/><circle class="arc" id="try-arc" cx="20" cy="20" r="17"/></svg><span class="mono" id="try-clock">0:00</span></div>
+      <div class="recstate"><span class="dot" aria-hidden="true"></span><span id="try-recmsg">Слушаю — говорите как на выступлении</span></div>
+      <button type="button" class="btn ghost sm" id="try-stop">Стоп</button>
+    </div>
+    <p class="live" id="try-live" aria-live="polite"><span class="muted">…</span></p>
+  </div>
+
+  <div class="stage s-typed">
+    <label class="eyebrow" for="try-ta">Первая минута — текстом</label>
+    <textarea id="try-ta" rows="5" maxlength="1500" placeholder="Что вы скажете в первую минуту? Как есть, без редактуры — 15 слов хватит, чтобы начать."></textarea>
+    <input type="text" name="website" id="try-hp" tabindex="-1" autocomplete="off" aria-hidden="true" class="hp" />
+    <div class="row"><button type="button" class="btn solid sm" id="try-build">Построить план</button><button type="button" class="link" id="try-back">← сказать голосом</button></div>
+  </div>
+
+  <div class="stage s-report">
+    <div class="stats" id="try-stats"></div>
+    <div class="plan" id="try-plan">
+      <div class="phead"><span class="eyebrow pencil">План выступления по тому, что вы сказали</span><span class="mono muted" id="try-plan-n"></span></div>
+      <ol class="olist" id="try-olist"></ol>
+      <p class="building" id="try-building"><span class="spin" aria-hidden="true"></span> Строим план — это несколько секунд…</p>
+      <p class="perr muted" id="try-perr" hidden></p>
+    </div>
+    <div class="cta">
+      <a href="/register?from=try" class="btn solid" id="try-cta">Сохранить и продолжить</a>
+      <span class="muted">бесплатно, без карты — тезисы уже будут в карточке</span>
+      <button type="button" class="link" id="try-again">Ещё раз</button>
+    </div>
+  </div>
+
+  <div class="stage s-error">
+    <p id="try-errmsg" class="muted"></p>
+    <div class="row"><button type="button" class="btn ghost sm" id="try-retry">Попробовать снова</button><button type="button" class="link" id="try-type2">напечатать</button></div>
+  </div>
+</div>
+
+<script>
+  import { speechSupported, startListening, type SpeechSession } from '../../../shared/speech'
+  import { wordCount, countFillers, paceBand } from '../../../shared/rehearsalText'
+  import type { TalkLanguage } from '../../../shared/types'
+
+  const root = document.getElementById('try')!
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
+  const SECONDS = Number(root.dataset.seconds)
+  const TYPE: Record<string, string> = { title: 'Титул', agenda: 'План', section: 'Раздел', bullets: 'Тезисы', concept: 'Понятие', formula: 'Формула', comparison: 'Сравнение', diagram: 'Схема', stats: 'Цифры', quote: 'Цитата', 'image-full': 'Картинка', discussion: 'Вопрос залу', cta: 'Призыв', summary: 'Итоги' }
+  const PACE_COPY = { slow: 'медленно — можно чуть живее', ok: 'хороший темп', fast: 'быстро — аудитория не успевает' }
+  const MIN_WORDS = 15
+  const TOKEN_MIN_AGE_MS = 20_000   // services/tryDemo.ts MIN_AGE_MS — a token younger than this is refused
+
+  let language: TalkLanguage = navigator.language.toLowerCase().startsWith('ru') ? 'ru' : 'en'
+  let token: { value: string; at: number } | null = null
+  let session: SpeechSession | null = null
+  let phrases: string[] = []
+  let startedAt = 0
+  let tick: number | undefined
+  let stoppedBy: 'user' | 'time' = 'user'
+
+  const setState = (s: string) => { root.dataset.state = s }
+  const ym = (goal: string) => { const w = window as unknown as { ym?: (id: string, a: string, g: string) => void; __ym?: string }; try { if (w.ym && w.__ym) w.ym(w.__ym, 'reachGoal', goal) } catch { /* no metrika */ } }
+  const event = (name: string, metadata: Record<string, unknown> = {}) => {
+    ym(name)
+    void fetch('/api/try/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ event: name, metadata: { ...metadata, language } }), keepalive: true }).catch(() => {})
+  }
+  async function fetchToken() {
+    try { const r = await fetch('/api/try/token'); const j = await r.json(); token = { value: j.token, at: Date.now() } } catch { token = null }
+  }
+  void fetchToken()
+
+  // Language chips
+  root.querySelectorAll<HTMLButtonElement>('[data-lang]').forEach((b) => {
+    if (b.dataset.lang === language) { root.querySelectorAll('[data-lang]').forEach((x) => x.classList.remove('on')); b.classList.add('on') }
+    b.addEventListener('click', () => { language = b.dataset.lang as TalkLanguage; root.querySelectorAll('[data-lang]').forEach((x) => x.classList.remove('on')); b.classList.add('on') })
+  })
+
+  // ── Recording
+  const arc = $<SVGCircleElement & HTMLElement>('try-arc')
+  const C = 2 * Math.PI * 17
+  arc.style.strokeDasharray = String(C)
+  function paint() {
+    const s = Math.min(SECONDS, (Date.now() - startedAt) / 1000)
+    $('try-clock').textContent = `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+    arc.style.strokeDashoffset = String(C * (1 - s / SECONDS))
+    if (s >= SECONDS) { stoppedBy = 'time'; stop() }
+  }
+  function start() {
+    if (!speechSupported()) { showError('В этом браузере нет распознавания речи (Firefox — нет; Chrome, Яндекс Браузер, Safari, Edge — есть). Напечатайте первую минуту — план будет тот же.'); return }
+    phrases = []; $('try-live').innerHTML = '<span class="muted">…</span>'
+    session = startListening(language, {
+      onPhrase: (t) => { phrases.push(t); renderLive('') },
+      onInterim: (t) => renderLive(t),
+      onError: (kind) => {
+        if (kind === 'not-allowed') showError('Микрофон не разрешён. Разрешите его в адресной строке — или напечатайте первую минуту.')
+        else if (kind === 'no-mic') showError('Микрофон не найден. Напечатайте первую минуту — план будет тот же.')
+        else if (kind === 'network') $('try-recmsg').textContent = 'Распознавание сейчас недоступно — если слова не появляются, нажмите «Стоп» и напечатайте'
+      },
+    })
+    if (!session) { showError('Не удалось включить распознавание. Напечатайте первую минуту.'); return }
+    startedAt = Date.now(); stoppedBy = 'user'
+    setState('rec'); paint(); tick = window.setInterval(paint, 250)
+    event('try_started')
+  }
+  function renderLive(interim: string) {
+    const tail = phrases.slice(-3).join(' ')
+    $('try-live').innerHTML = `${escape(tail)} <span class="muted">${escape(interim)}</span>`
+  }
+  function stop() {
+    window.clearInterval(tick); session?.stop(); session = null
+    const seconds = Math.round((Date.now() - startedAt) / 1000)
+    const transcript = phrases.join(' ').trim()
+    const words = wordCount(transcript)
+    event('try_stopped', { seconds, words, by: stoppedBy })
+    if (words < MIN_WORDS) {
+      showError(words === 0
+        ? 'Слов не разобрал. Проверьте микрофон — или напечатайте первую минуту.'
+        : `Получилось всего ${words} слов — маловато для плана. Скажите ещё немного или напечатайте.`)
+      return
+    }
+    report({ transcript, seconds, spoken: true })
+  }
+
+  // ── Report + plan
+  function report(r: { transcript: string; seconds: number | null; spoken: boolean }) {
+    const words = wordCount(r.transcript)
+    const wpm = r.seconds && r.seconds > 5 ? Math.round(words / (r.seconds / 60)) : null
+    const f = countFillers(r.transcript, language)
+    const band = wpm != null ? paceBand(wpm) : null
+    const stats = [
+      r.seconds != null ? stat('Время', `${Math.floor(r.seconds / 60)}:${String(r.seconds % 60).padStart(2, '0')}`, r.seconds >= SECONDS ? 'ровно минута' : '') : null,
+      stat('Слов', String(words), ''),
+      wpm != null ? stat('Слов в минуту', String(wpm), band ? PACE_COPY[band] : '', band === 'ok' ? 'ok' : 'warn') : null,
+      stat('Слов-паразитов', String(f.count), f.count ? f.examples.map((e) => `«${e}»`).join(', ') : 'ни одного', f.count > 3 ? 'warn' : f.count === 0 ? 'ok' : ''),
+    ].filter(Boolean).join('')
+    $('try-stats').innerHTML = stats
+    $('try-olist').innerHTML = ''; $('try-plan-n').textContent = ''
+    $('try-building').hidden = false; $('try-perr').hidden = true
+    setState('report')
+    void buildPlan(r.transcript, { words, wpm, fillers: f.count, seconds: r.seconds })
+  }
+  function stat(label: string, value: string, note: string, tone = '') {
+    return `<div class="stat ${tone}"><div class="eyebrow">${label}</div><div class="v mono">${value}</div><div class="n muted">${escape(note)}</div></div>`
+  }
+  async function buildPlan(transcript: string, m: { words: number; wpm: number | null; fillers: number; seconds: number | null }) {
+    if (!token) await fetchToken()
+    if (!token) { planError('Не удалось связаться с сервером. Обновите страницу и попробуйте ещё раз.'); return }
+    // A typed minute can be faster than the token's minimum age; wait it out rather than fail.
+    const wait = TOKEN_MIN_AGE_MS - (Date.now() - token.at)
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait + 200))
+    try {
+      const r = await fetch('/api/try/outline', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: token.value, transcript, language, website: ($('try-hp') as HTMLInputElement).value }) })
+      token = null
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) { planError(j?.error?.message ?? 'Не получилось построить план. Попробуйте ещё раз.'); return }
+      renderPlan(j.title, j.outline)
+      try { localStorage.setItem('tezarium.try', JSON.stringify({ v: 1, at: Date.now(), transcript, title: j.title, outline: j.outline, language, metrics: m })) } catch { /* private mode */ }
+    } catch { planError('Не удалось связаться с сервером. Проверьте соединение и попробуйте ещё раз.') }
+  }
+  function renderPlan(title: string, outline: Array<{ type: string; title: string; brief: string }>) {
+    $('try-building').hidden = true
+    $('try-plan-n').textContent = `${outline.length} слайдов`
+    $('try-olist').innerHTML = outline.map((s, i) =>
+      `<li class="orow" style="--i:${i}"><span class="mono no">${String(i + 1).padStart(2, '0')}</span><span class="otype">${TYPE[s.type] ?? s.type}</span><span class="otitle">${escape(s.title)}</span></li>`).join('')
+    root.classList.add('playing'); void root.offsetWidth
+  }
+  function planError(msg: string) {
+    $('try-building').hidden = true
+    const p = $('try-perr'); p.textContent = msg; p.hidden = false
+  }
+  function showError(msg: string) {
+    window.clearInterval(tick); session?.stop(); session = null
+    $('try-errmsg').textContent = msg; setState('error')
+  }
+  const escape = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
+
+  // ── Wiring
+  $('try-start').addEventListener('click', start)
+  $('try-stop').addEventListener('click', () => { stoppedBy = 'user'; stop() })
+  const toTyped = () => { window.clearInterval(tick); session?.stop(); session = null; setState('typed'); $('try-ta').focus() }
+  $('try-type').addEventListener('click', toTyped)
+  $('try-type2').addEventListener('click', toTyped)
+  $('try-back').addEventListener('click', () => setState('idle'))
+  $('try-retry').addEventListener('click', () => { if (!token) void fetchToken(); setState('idle') })
+  $('try-build').addEventListener('click', () => {
+    const t = ($('try-ta') as HTMLTextAreaElement).value.trim()
+    const words = wordCount(t)
+    if (words < MIN_WORDS) { ($('try-ta') as HTMLTextAreaElement).setCustomValidity('x'); ($('try-ta') as HTMLTextAreaElement).reportValidity(); return }
+    event('try_typed', { words })
+    report({ transcript: t, seconds: null, spoken: false })
+  })
+  $('try-ta').addEventListener('input', () => ($('try-ta') as HTMLTextAreaElement).setCustomValidity(''))
+  $('try-again').addEventListener('click', () => { root.classList.remove('playing'); void fetchToken(); setState('idle') })
+  $('try-cta').addEventListener('click', () => event('try_cta'))
+</script>
+
+<style>
+  .try { border: 1px solid var(--c-border-strong); border-radius: 10px; background: rgb(var(--c-surface)); padding: 22px 24px; }
+  .stage { display: none; }
+  .try[data-state="idle"] .s-idle, .try[data-state="rec"] .s-rec, .try[data-state="typed"] .s-typed, .try[data-state="report"] .s-report, .try[data-state="error"] .s-error { display: block; }
+  .row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .fine { font-size: 14px; margin: 14px 0 0; max-width: 64ch; line-height: 1.5; }
+  .link { background: none; border: 0; padding: 0; font: inherit; font-size: 15px; color: rgb(var(--c-accent)); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  .link:hover { color: rgb(var(--c-accent-deep)); }
+  .lang { display: inline-flex; gap: 4px; }
+  .chip { height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--c-border-strong); background: rgb(var(--c-surface)); color: rgb(var(--c-ink-secondary)); font: 500 13px/1 var(--ui); cursor: pointer; }
+  .chip.on { background: rgb(var(--c-ink)); color: rgb(var(--c-bg)); border-color: transparent; }
+  .mic svg { flex-shrink: 0; }
+  /* rec */
+  .rechead { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .ring { position: relative; width: 56px; height: 56px; display: grid; place-items: center; }
+  .ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring circle { fill: none; stroke-width: 3; }
+  .ring .track { stroke: var(--c-border-strong); }
+  .ring .arc { stroke: rgb(var(--c-accent)); stroke-linecap: round; transition: stroke-dashoffset 250ms linear; }
+  .ring .mono { font-size: 13px; position: relative; }
+  .recstate { display: flex; align-items: center; gap: 8px; font-size: 15px; flex: 1; min-width: 220px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: rgb(var(--c-danger)); animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .live { font-family: var(--display); font-size: 17px; line-height: 1.5; margin: 18px 0 0; min-height: 3.2em; }
+  /* typed */
+  .s-typed textarea { display: block; width: 100%; margin: 10px 0 14px; padding: 12px 14px; font: 16px/1.5 var(--display); color: rgb(var(--c-ink)); background: rgb(var(--c-surface)); border: 1px solid var(--c-border-strong); border-radius: 6px; resize: vertical; }
+  .s-typed textarea:focus { outline: none; border-color: rgb(var(--c-accent)); box-shadow: 0 0 0 3px rgb(var(--c-accent) / .25); }
+  .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+  /* report */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; }
+  .stat { border: 1px solid var(--c-border); border-radius: 8px; padding: 12px 14px; }
+  .stat .v { font-size: 30px; line-height: 1.1; margin: 8px 0 4px; letter-spacing: -0.01em; }
+  .stat .n { font-size: 13px; min-height: 1.3em; }
+  .stat.ok .n { color: rgb(var(--c-success)); } .stat.warn .n { color: rgb(var(--c-warning)); }
+  .plan { margin-top: 22px; }
+  .phead { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+  .olist { list-style: none; margin: 0; padding: 0; }
+  .orow { display: grid; grid-template-columns: 36px 110px 1fr; gap: 12px; align-items: baseline; padding: 11px 0; border-bottom: 1px solid var(--c-border); }
+  .no { color: rgb(var(--c-ink-tertiary)); font-size: 13px; }
+  .otype { color: rgb(var(--c-accent)); font-size: 13px; font-weight: 500; }
+  .otitle { font-family: var(--display); font-size: 17px; }
+  .try.playing .orow { opacity: 0; transform: translateY(6px); animation: rise 320ms ease-out forwards; animation-delay: calc(var(--i) * 220ms); }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .try.playing .orow { animation: none; opacity: 1; transform: none; } .dot { animation: none; } }
+  .building[hidden] { display: none; }
+  .building { display: flex; align-items: center; gap: 10px; font-size: 15px; color: rgb(var(--c-ink-secondary)); margin: 14px 0 0; }
+  .spin { width: 14px; height: 14px; border: 2px solid var(--c-border-strong); border-top-color: rgb(var(--c-accent)); border-radius: 50%; animation: spin 800ms linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .perr { margin: 14px 0 0; font-size: 15px; }
+  .cta { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--c-border); }
+  .cta .muted { font-size: 14px; }
+  .cta .link { margin-left: auto; }
+  @media (max-width: 640px) { .try { padding: 18px 16px; } .orow { grid-template-columns: 32px 1fr; } .otype { grid-column: 2; } .otitle { grid-column: 2; } }
+</style>

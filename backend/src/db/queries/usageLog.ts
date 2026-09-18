@@ -45,3 +45,13 @@ export async function countFeatureCallsToday(workspaceId: string, feature: Featu
   )
   return Number(rows[0]?.n ?? 0)
 }
+
+/** Platform-wide calls of one feature today — the ceiling on the open
+ *  landing endpoint, which has no workspace to count against. */
+export async function countFeatureCallsTodayGlobal(feature: Feature): Promise<number> {
+  const { rows } = await pool.query<{ n: string }>(
+    `SELECT COUNT(*)::text AS n FROM usage_log WHERE feature = $1 AND created_at >= date_trunc('day', NOW())`,
+    [feature],
+  )
+  return Number(rows[0]?.n ?? 0)
+}

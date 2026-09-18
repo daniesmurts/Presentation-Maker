@@ -634,6 +634,30 @@ Not planned: a general assistant, cross-draft memory, web search, editing
 finished slides from the chat (the talk page owns that), conversations
 kept forever (the history is capped; the card is what is kept).
 
+### O. Lead with the speaking · Effort: M · 🟢 O1 SHIPPED (2026-09-18, code)
+
+**Why.** Every feature is on the producing side; what holds people is the
+performing side (rehearsal), and it was hidden behind the producing side.
+
+**O1 (shipped)** — the landing demo: speak a minute, see the report and
+the plan, register into a draft made from it.
+
+**O2 — empty state = the editor with the mic.** A new account's first
+screen is a form; make it «Расскажите о выступлении» — spoken or typed,
+the draft card fills from speech. Touches: `DraftPage` (mic in the
+composer, `shared/speech.ts`), the talks-list empty state.
+
+**O3 — rehearsal that compounds.** Rehearsal N vs N-1: «минус 4 минуты и
+60 % паразитов»; after the real thing, «как прошло?» in one tap. Touches:
+`RehearsalReportPage`, the rehearsal list query, one event.
+
+**O4 — the one-page briefing.** After generation: the talk in five
+sentences, three numbers, the one ask, the likely question and the
+answer — one PDF page to hold in the hand. Touches: one prompt, `talkPdf`.
+
+**O5 — hero copy without the category word.** Keep «ИИ для презентаций»
+in the eyebrow for search; the H1 and lede claim the rehearsal.
+
 ### The plan is built. What is next is not more building.
 Every item in CLAUDE.md §8 is shipped and deployed. The next TODO entries
 should come from users, usage_log and talk_events — not from this file.
