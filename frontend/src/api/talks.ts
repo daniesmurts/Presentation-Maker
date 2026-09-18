@@ -75,3 +75,7 @@ export const dismissRewrite = (id: string, jobId: string) => client.delete(`/api
 
 // ─── Approval ───────────────────────────────────────────────────────────────
 export const approveTalk = (id: string, approved: boolean) => client.post<{ talk: Talk }>(`/api/talks/${id}/approve`, { approved }).then(unwrap)
+
+// ─── Briefing («Памятка», O4) ───────────────────────────────────────────────
+export const makeBriefing = (id: string) => client.post<{ talk: Talk }>(`/api/talks/${id}/briefing`, {}, { timeout: 120_000 }).then(unwrap)
+export const briefingPdfUrl = (id: string) => `/api/talks/${id}/briefing.pdf`

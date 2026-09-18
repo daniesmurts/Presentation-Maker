@@ -1,5 +1,5 @@
 import { pool } from '../connection'
-import type { Talk, Slide, TalkSource } from '../../../../shared/types'
+import type { Talk, Slide, TalkSource, Briefing } from '../../../../shared/types'
 import type { GenerateParams } from '../../services/talks'
 
 export async function createTalk(params: GenerateParams, slides: Slide[], sources: TalkSource[], slideTarget: number): Promise<Talk> {
@@ -137,4 +137,14 @@ export async function setWorkspaceStyleLearning(workspaceId: string, enabled: bo
 export async function getWorkspaceStyleLearning(workspaceId: string): Promise<boolean> {
   const { rows } = await pool.query<{ style_learning: boolean }>(`SELECT style_learning FROM workspaces WHERE id = $1`, [workspaceId])
   return rows[0]?.style_learning ?? false
+}
+
+/** Deliberately does not touch updated_at: the briefing is derived from the
+ *  slides, and «slides changed since» is judged by comparing the two. */
+export async function setTalkBriefing(id: string, workspaceId: string, briefing: Briefing): Promise<Talk | null> {
+  const { rows } = await pool.query<Talk>(
+    `UPDATE talks SET briefing = $3 WHERE id = $1 AND workspace_id = $2 RETURNING *`,
+    [id, workspaceId, JSON.stringify(briefing)],
+  )
+  return rows[0] ?? null
 }

@@ -634,7 +634,7 @@ Not planned: a general assistant, cross-draft memory, web search, editing
 finished slides from the chat (the talk page owns that), conversations
 kept forever (the history is capped; the card is what is kept).
 
-### O. Lead with the speaking · Effort: M · 🟢 O1–O3 SHIPPED (2026-09-18, code)
+### O. Lead with the speaking · Effort: M · 🟢 O1–O4 SHIPPED (2026-09-18, code)
 
 **Why.** Every feature is on the producing side; what holds people is the
 performing side (rehearsal), and it was hidden behind the producing side.
@@ -649,9 +649,7 @@ leads with «Рассказать редактору».
 on the talk page. Next on this thread, when there's data: the admin
 overview showing delivered-well against rehearsals-before.
 
-**O4 — the one-page briefing.** After generation: the talk in five
-sentences, three numbers, the one ask, the likely question and the
-answer — one PDF page to hold in the hand. Touches: one prompt, `talkPdf`.
+**O4 (shipped)** — the briefing card above the slides and the A4 PDF.
 
 **O5 — hero copy without the category word.** Keep «ИИ для презентаций»
 in the eyebrow for search; the H1 and lede claim the rehearsal.

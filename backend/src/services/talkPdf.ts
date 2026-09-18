@@ -35,7 +35,7 @@ const U = (v: number) => pctPt(v, PAGE_W)
 const BOTTOM = PAGE_H - U(G.bottom)
 
 const FONT_DIR = path.join(process.cwd(), 'assets', 'fonts')
-const FONTS = {
+export const FONTS = {
   serif:  path.join(FONT_DIR, 'PTSerif-Bold.ttf'),
   serifR: path.join(FONT_DIR, 'PTSerif-Regular.ttf'),
   serifI: path.join(FONT_DIR, 'PTSerif-Italic.ttf'),

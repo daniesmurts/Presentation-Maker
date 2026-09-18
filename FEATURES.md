@@ -119,6 +119,16 @@ on-prem install keeps `.pptx` open to everyone.
   «вот», «как бы» — um, uh, like), the transcript per slide. A browser
   without recognition still gets the timings. Rehearsals are kept per
   talk; the last one is linked from the talk header.
+- ✅ **The one-page briefing («Памятка»).** From the finished slides, one
+  call: the talk in five sentences in speaking order, up to three
+  figures worth remembering (only ones that are on the slides — none
+  invented, none shown when there are none), the one ask, the question
+  the audience will most likely raise with the answer, and the first
+  sentence to say. On screen as a collapsible card above the slides and
+  as a one-page A4 PDF — paper, not a slide: ink on white, the brand
+  accent only for labels. Made and remade on request, never silently;
+  the card says when it was made and whether the slides changed since.
+  Not counted against the PDF download quota.
 - ✅ **Rehearsal that compounds.** Each report says which run this is
   («Репетиция 3 из 3») and what changed since the last one, in the units
   a speaker thinks in — time toward the plan, fillers per hundred words,

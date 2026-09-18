@@ -15,7 +15,7 @@ export interface ChatMessage {
 // row the per-day message quota counts (lib/planTier.ts).
 // `try_outline` is the landing demo's plan (routes/try.ts): no user, no
 // workspace — the per-day ceiling on the open endpoint counts these rows.
-export type Feature = 'talk_outline' | 'talk_expand' | 'slide_edit' | 'theme_generate' | 'image_generate' | 'draft_chat' | 'try_outline' | 'rehearsal_review'
+export type Feature = 'talk_outline' | 'talk_expand' | 'slide_edit' | 'theme_generate' | 'image_generate' | 'draft_chat' | 'try_outline' | 'briefing' | 'rehearsal_review'
 
 export interface CallContext {
   // Both optional: an offline eval run has no user, and usage_log's columns

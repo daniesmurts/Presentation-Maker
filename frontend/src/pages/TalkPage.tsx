@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Trash2, Download, Plus, Link2, Check, ChevronDown, Copy, Play, Mic, Wand2, CheckCircle2, MoreHorizontal } from 'lucide-react'
 import { getTalk, deleteTalk, updateSlide, regenerateSlide, deleteSlide, insertSlide, moveSlide, uploadSlideImage, removeSlideImage, setTalkTheme, shareTalk, unshareTalk, startRewrite, applyRewrite, dismissRewrite, replaceTalkSlides, getJob, approveTalk, getImagePrompt, generateSlideImage, generateDeckImages } from '../api/talks'
 import RewriteReview from '../components/talks/RewriteReview'
+import BriefingCard from '../components/talks/BriefingCard'
 import { remapAfterMove, remapAfterDelete, remapAfterInsert, toSlideNumbers, rangeBetween } from '../lib/slideSelection'
 import { getBrand } from '../api/brand'
 import { listRehearsals } from '../api/rehearsals'
@@ -316,6 +317,9 @@ export default function TalkPage() {
           </div>
         </div>
       </header>
+
+      {/* The thing you take with you (O4) — above the slides, collapsed once made. */}
+      <BriefingCard talk={talk} />
 
       {rewriteOpen && !rewriteJob && (
         <form className="bg-surface border border-border rounded-lg p-4 space-y-2" onSubmit={(e) => { e.preventDefault(); void beginRewrite() }}>

@@ -6,6 +6,20 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
 ## [Unreleased]
 
 ### Added
+- **The one-page briefing («Памятка», TODO O4).** The deck is competent;
+  the thing a person photographs and holds in the hand is one page: the
+  talk in five sentences, the numbers, the one ask, the question they
+  will raise. `services/briefing.ts` — one `chatJSON` call over
+  `renderSlidesAsText` (nothing new; the deck reordered), feature
+  `briefing`, ≤ 1 800 tokens; `normaliseBriefing` caps and keeps only
+  complete figures. `briefingPdf.ts` — A4, PT faces with the DejaVu
+  fallback per paragraph, brand accent for labels and the box; one page
+  asserted by test. Stored on `talks.briefing` (migration 025) so the
+  card and the PDF read one thing; saving it deliberately does not bump
+  `updated_at` — the card's «слайды с тех пор менялись» compares the
+  two, and the first check showed it stale a second after being made.
+  Events `briefing_made` and `exported {format: 'briefing'}`; not
+  counted against the PDF quota (`format = 'pdf'` only).
 - **Rehearsal that compounds (TODO O3).** A rehearsal was a report;
   nobody churns from the thing that shows them getting better at
   something they're scared of, so now it's a record. `shared/rehearsalProgress.ts`
@@ -415,6 +429,20 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
 ## [Unreleased]
 
 ### Added
+- **The one-page briefing («Памятка», TODO O4).** The deck is competent;
+  the thing a person photographs and holds in the hand is one page: the
+  talk in five sentences, the numbers, the one ask, the question they
+  will raise. `services/briefing.ts` — one `chatJSON` call over
+  `renderSlidesAsText` (nothing new; the deck reordered), feature
+  `briefing`, ≤ 1 800 tokens; `normaliseBriefing` caps and keeps only
+  complete figures. `briefingPdf.ts` — A4, PT faces with the DejaVu
+  fallback per paragraph, brand accent for labels and the box; one page
+  asserted by test. Stored on `talks.briefing` (migration 025) so the
+  card and the PDF read one thing; saving it deliberately does not bump
+  `updated_at` — the card's «слайды с тех пор менялись» compares the
+  two, and the first check showed it stale a second after being made.
+  Events `briefing_made` and `exported {format: 'briefing'}`; not
+  counted against the PDF quota (`format = 'pdf'` only).
 - **Rehearsal that compounds (TODO O3).** A rehearsal was a report;
   nobody churns from the thing that shows them getting better at
   something they're scared of, so now it's a record. `shared/rehearsalProgress.ts`

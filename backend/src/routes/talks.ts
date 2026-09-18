@@ -4,15 +4,18 @@ import rateLimit from 'express-rate-limit'
 import multer from 'multer'
 import { asyncHandler } from '../lib/asyncHandler'
 import { authenticate } from '../middleware/authenticate'
-import { NotFoundError, ValidationError } from '../errors/AppError'
+import { AppError, NotFoundError, ValidationError } from '../errors/AppError'
+import { userFacingFailure } from '../lib/userFacingFailure'
 import { getJobQueue } from '../services/jobQueue'
 import { TALK_JOB_QUEUE, type TalkJobPayload } from '../services/talkJobWorker'
 import { normaliseEditedOutline, normaliseEditedSlide, regenerateSlide, applySlideMove, type GenerateParams } from '../services/talks'
 import { createTalkJob, getTalkJobById, confirmTalkJobOutline, createRewriteJob, clearRewriteProposal, type TalkJobRow } from '../db/queries/talkJobs'
-import { findTalkById, listTalks, deleteTalk, replaceSlides, countTalksThisMonth, createTalk, setShareToken, setTalkApproved } from '../db/queries/talks'
+import { findTalkById, listTalks, deleteTalk, replaceSlides, countTalksThisMonth, createTalk, setShareToken, setTalkApproved, setTalkBriefing } from '../db/queries/talks'
 import { recordTalkEvent, countDownloadsThisMonth } from '../db/queries/talkEvents'
 import { generateTalkPptx } from '../services/talkExport'
 import { generateTalkPdf } from '../services/talkPdf'
+import { generateBriefing } from '../services/briefing'
+import { generateBriefingPdf } from '../services/briefingPdf'
 import { randomBytes } from 'node:crypto'
 import { parseSlideSelection, selectSlides, selectionSuffix, SelectionError } from '../lib/slideSelection'
 import { assertDownloadQuota, assertTalkQuota } from '../lib/planTier'
@@ -477,6 +480,41 @@ talksRouter.get('/:id/export.pdf', asyncHandler(async (req, res) => {
     talkId: talk.id, workspaceId: req.user.workspace_id, userId: req.user.id, event: 'exported', format: 'pdf',
     metadata: { slides: (selection ?? talk.slides).length, of: talk.slides.length, theme: talk.theme_id, notes },
   })
+}))
+
+// ─── Briefing («Памятка», TODO O4) ──────────────────────────────────────────
+
+// POST /api/talks/:id/briefing — make (or remake) the one-page briefing.
+// One cheap call under the generation limiter and the spend cap; stored
+// on the talk, so the PDF and the card read the same thing.
+talksRouter.post('/:id/briefing', generationLimiter, asyncHandler(async (req, res) => {
+  const talk = await findTalkById(req.params.id, req.user.workspace_id)
+  if (!talk) throw new NotFoundError('Выступление не найдено')
+  if (!talk.slides || talk.slides.length === 0) throw new ValidationError('У этого выступления ещё нет слайдов')
+  await checkSpendCap(req.user.workspace_id)
+  let briefing
+  try { briefing = await generateBriefing(talk) }
+  catch (err) { throw new AppError(userFacingFailure(err, 'Не получилось составить памятку. Попробуйте ещё раз.'), 502, 'MODEL_FAILED', err) }
+  if (!briefing) throw new AppError('Памятка не сложилась — попробуйте ещё раз.', 502, 'MODEL_FAILED')
+  const saved = await setTalkBriefing(talk.id, req.user.workspace_id, briefing)
+  recordTalkEvent({ talkId: talk.id, workspaceId: req.user.workspace_id, userId: req.user.id, event: 'briefing_made', metadata: { slides: talk.slides.length, numbers: briefing.numbers.length } })
+  res.json({ talk: saved })
+}))
+
+// GET /api/talks/:id/briefing.pdf — the page. Not counted against the PDF
+// download quota: it is one page of the user's own text, not the deck.
+talksRouter.get('/:id/briefing.pdf', asyncHandler(async (req, res) => {
+  const talk = await findTalkById(req.params.id, req.user.workspace_id)
+  if (!talk) throw new NotFoundError('Выступление не найдено')
+  if (!talk.briefing) throw new ValidationError('Памятка ещё не составлена')
+  const brand = await resolveBrandKit(req.user.workspace_id)
+  const pdf = await generateBriefingPdf(talk, talk.briefing, { accent: brand?.accent, brandName: brand?.name })
+  const fname = `${talk.title.trim() || 'talk'} — ${talk.language === 'ru' ? 'памятка' : 'briefing'}.pdf`
+  res.setHeader('Content-Type', 'application/pdf')
+  res.setHeader('Content-Disposition', `inline; filename="briefing.pdf"; filename*=UTF-8''${encodeURIComponent(fname)}`)
+  res.setHeader('Content-Length', pdf.length)
+  res.end(pdf)
+  recordTalkEvent({ talkId: talk.id, workspaceId: req.user.workspace_id, userId: req.user.id, event: 'exported', format: 'briefing', metadata: { slides: talk.slides?.length ?? 0 } })
 }))
 
 // ─── Deck-level rewrite ─────────────────────────────────────────────────────

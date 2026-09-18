@@ -19,7 +19,9 @@ export interface TalkEvent {
     // — how many run-throughs preceded a talk that went well is the
     // number the rehearsal feature is ultimately measured by.
     | 'delivered'
-  format?:     'pptx' | 'pdf'
+    // The briefing (O4): made, and exported as format 'briefing'.
+    | 'briefing_made'
+  format?:     'pptx' | 'pdf' | 'briefing'
   metadata?:   Record<string, unknown>
 }
 

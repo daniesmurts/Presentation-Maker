@@ -473,6 +473,25 @@ export const copy = {
     switch: 'Оформление', to: (what: string) => `Переключить: ${what}`,
     choice: { system: 'как в системе', light: 'светлое', dark: 'тёмное' } as Record<'system' | 'light' | 'dark', string>,
   },
+  // The one-page briefing («Памятка», O4): the deck reordered into what a
+  // person needs in the hand before walking in. Made on request — one
+  // call — and remade on request; never silently after an edit.
+  briefing: {
+    title:     'Памятка на одну страницу',
+    lead:      'Выступление в пяти предложениях, цифры, одна просьба, вопрос, который зададут, — распечатать и держать в руке.',
+    make:      'Составить памятку',
+    making:    'Составляем — несколько секунд…',
+    remake:    'Составить заново',
+    remakeHint:'Памятка составлена по слайдам на момент',
+    pdf:       'Скачать PDF',
+    gist:      'В пяти предложениях',
+    numbers:   'Цифры',
+    ask:       'Одна просьба',
+    question:  'Вас, скорее всего, спросят',
+    answer:    'Ответ',
+    opener:    'Первая фраза',
+    open:      'Показать', close: 'Свернуть',
+  },
   approve: {
     button: 'Готово', on: 'Готово ✓', hint: 'Отметьте, когда выступление вас устраивает. Только такие выступления используются как образец стиля — если вы это включили в настройках бренда.',
   },

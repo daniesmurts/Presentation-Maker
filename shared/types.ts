@@ -260,6 +260,10 @@ export interface Talk {
   theme_id:           string
   slides:             Slide[] | null
   sources:            TalkSource[] | null
+  // The one-page briefing («Памятка», TODO O4): the talk in five
+  // sentences, the numbers, the ask, the question they'll raise. One
+  // model call, stored; regenerated on request, never silently.
+  briefing:           Briefing | null
   // The user stands behind this talk. Only approved talks are ever used as
   // style references for a later generation (TODO G).
   approved_at:        string | null
@@ -466,4 +470,16 @@ export interface Rehearsal {
   review:         RehearsalReview | null
   review_status:  RehearsalReviewStatus
   created_at:     string
+}
+
+// ─── Briefing («Памятка») ─────────────────────────────────────────────────
+// One page to hold in the hand before walking in. Everything on it is
+// already in the slides; this is the order a nervous person needs it in.
+export interface Briefing {
+  gist:         string[]                          // the talk in up to five sentences, in speaking order
+  numbers:      Array<{ value: string; label: string }>   // up to three figures worth remembering
+  ask:          string                            // the one thing the audience should do or decide
+  question:     { q: string; a: string }          // the question they will most likely raise, and the answer
+  opener:       string                            // the first sentence to say
+  generated_at: string
 }
