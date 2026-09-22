@@ -21,6 +21,7 @@ vi.mock('../../db/queries/usageLog', () => ({ createUsageLog: createUsageLogMock
 vi.mock('../../lib/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }))
 
 import { DeepSeekProvider, TruncatedResponseError } from './deepseek'
+import { calculateDeepSeekCost } from '../../config/pricing'
 
 function axiosError(status: number | undefined) {
   const err: Record<string, unknown> = { isAxiosError: true, message: `status ${status}` }
@@ -185,5 +186,33 @@ describe('DeepSeekProvider', () => {
       expect(postMock.mock.calls[0][1].response_format).toEqual({ type: 'json_object' })
       expect(postMock.mock.calls[1][1].response_format).toEqual({ type: 'json_object' })
     })
+  })
+})
+
+// The cached share of the input is priced at the hit rate (pricing.ts). It
+// reaches usage_log only if the adapter reads `prompt_cache_hit_tokens` —
+// it did not until 2026-09-22, and a long brief (the prompt's prefix in
+// every expansion call) was billed roughly threefold.
+describe('DeepSeekProvider — cache-hit accounting', () => {
+  const ENV = 'DEEPSEEK_API_KEY'
+  let saved: string | undefined
+  beforeEach(() => { saved = process.env[ENV]; process.env[ENV] = 'key-cache'; postMock.mockReset(); createUsageLogMock.mockClear() })
+  afterEach(() => { if (saved === undefined) delete process.env[ENV]; else process.env[ENV] = saved })
+
+  const row = () => createUsageLogMock.mock.calls.at(-1)![0]
+  const respond = (usage: Record<string, number>) =>
+    postMock.mockResolvedValueOnce({ data: { choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }], usage } })
+
+  it('passes prompt_cache_hit_tokens into the cost', async () => {
+    respond({ prompt_tokens: 12_000, completion_tokens: 10, prompt_cache_hit_tokens: 11_800 })
+    await new DeepSeekProvider().chat([{ role: 'user', content: 'x' }], { context: CTX })
+    expect(row().inputTokens).toBe(12_000)
+    expect(row().costUsd).toBeLessThan(calculateDeepSeekCost(12_000, 10) / 3)
+  })
+
+  it('a response without the field is priced as a full miss — an older build, not free tokens', async () => {
+    respond({ prompt_tokens: 1_000, completion_tokens: 10 })
+    await new DeepSeekProvider().chat([{ role: 'user', content: 'x' }], { context: CTX })
+    expect(row().costUsd).toBeCloseTo(calculateDeepSeekCost(1_000, 10), 9)
   })
 })

@@ -56,3 +56,37 @@ describe('scoreRhythm', () => {
     expect(scoreRhythm([t('bullets', { design: { variant: 'plain', emphasis: 'accent', backdrop: 'pattern' } })]).heroShare).toBe(1)
   })
 })
+
+// Coverage (2026-09-22, with the 50 000-character brief): did the material
+// reach the deck, or did the model skim it?
+import { scoreCoverage, distinctiveTerms, figuresIn } from './talkEvalHarness'
+
+describe('scoreCoverage', () => {
+  const deck = (text: string): Slide[] => [{ type: 'bullets', title: 'т', notes: text, citations: [], body: { items: [] } } as Slide]
+
+  it('counts a term carried into the deck, matching across Russian inflection', () => {
+    const brief = 'Конверсия выросла на 11% после внедрения расшифровки звонков.'
+    // «конверсии», «расшифровке» — the same words in other cases
+    const c = scoreCoverage(deck('Конверсии и расшифровке звонков, рост 11%'), brief, 1)
+    expect(c.terms).toBeGreaterThanOrEqual(0.6)   // «внедрения» is the one the deck did not carry
+    expect(c.figures).toBe(1)
+  })
+
+  it('catches a deck that dropped the figures — the clearest skimming', () => {
+    const brief = 'Пилот: 3 компании, 14000 звонков, конверсия +11%, выручка 1,2 млрд.'
+    const c = scoreCoverage(deck('Пилот прошёл успешно, результаты обнадёживают.'), brief, 1)
+    expect(c.figures).toBe(0)
+    expect(c.terms).toBeLessThan(0.5)
+  })
+
+  it('an empty brief is fully covered by definition, and density is reported per slide', () => {
+    const c = scoreCoverage(deck('что угодно'), '', 0)
+    expect(c).toEqual({ terms: 1, figures: 1, charsPerSlide: 0 })
+    expect(scoreCoverage(deck('x'), 'y'.repeat(2400), 2).charsPerSlide).toBe(1200)
+  })
+
+  it('distinctiveTerms drops short and common words; figuresIn normalises the decimal comma', () => {
+    expect([...distinctiveTerms('Этот который может расшифровка звонков')]).toEqual(['расшиф', 'звонко'])
+    expect([...figuresIn('1,2 млрд и 11% за 2025')]).toEqual(['1.2', '11', '2025'])
+  })
+})

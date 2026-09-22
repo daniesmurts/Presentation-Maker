@@ -5,6 +5,39 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
 
 ## [Unreleased]
 
+### Changed
+- **The brief's ceiling: 20 000 → 50 000 characters**, with the numbers
+  measured rather than reasoned about. The old limit cited CLAUDE.md §3.3,
+  but that rule is about OUTPUT; nothing on the input side was near a wall.
+  Measured against deepseek-flash with our own prompts (2026-09-22):
+  Russian runs **3.2 chars/token**, so 50 000 chars ≈ 16 000 input tokens
+  against a **1 M** context; the body limit (express 2 mb) is ~1 M Russian
+  chars. The brief is re-sent in every expansion call, but it is the
+  prompt's PREFIX, so from the second batch on it is a cache hit —
+  measured, 11 776 of 11 962 tokens — at 1/50 the price. A 40-slide
+  Russian deck costs **~$0.024** of input at 50 000 chars against ~$0.009
+  at 20 000, while its output is ~$0.029 either way.
+  - *Cache hits are now priced as cache hits.* `deepseek.ts` ignored
+    `prompt_cache_hit_tokens`, so every repeat of the brief was billed at
+    the miss rate — roughly 3× over-stated on a long-brief deck, and the
+    workspace spend cap bit that much too early. `calculateDeepSeekCost`
+    takes the cached share ($0.006 vs $0.30 per 1M at peak).
+  - *What actually limits the brief is coverage, and it has a number now.*
+    `scripts/briefSizeEval.ts` runs one piece of real material at three
+    densities; `scoreCoverage` (eval harness) measures the share of the
+    brief's distinctive terms and figures that reached the deck. Measured,
+    one deck per point: 950 chars/slide → 57 % terms, 71 % figures ·
+    1 250 → 59 / 46 · 1 500 → 47 / 23 · 2 000 → 34 / 42 · 3 000 → 13 / 15.
+    The ceiling that matters is therefore per SLIDE, not per talk: the form
+    now offers the slide count the material needs (1 200 chars a slide)
+    instead of letting a 50 000-character brief quietly become twelve
+    skimmed slides.
+  - *The expansion batch got headroom*: 700 → 850 tokens/slide (ru),
+    600 → 720 (en). A batch truncated at 3 800 during the eval — more
+    material makes the model write fuller notes — and §3.1 forbids retrying
+    a truncated call at the same ceiling, so the cost of being wrong there
+    is a failed generation. `max_tokens` is a ceiling, not a charge.
+
 ### Added
 - **The one-page briefing («Памятка», TODO O4).** The deck is competent;
   the thing a person photographs and holds in the hand is one page: the

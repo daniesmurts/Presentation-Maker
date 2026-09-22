@@ -162,9 +162,13 @@ export class DeepSeekProvider implements LLMProvider {
         },
       )
 
-      const usage        = response.data.usage as { prompt_tokens: number; completion_tokens: number } | undefined
+      const usage        = response.data.usage as { prompt_tokens: number; completion_tokens: number; prompt_cache_hit_tokens?: number } | undefined
       const inputTokens  = usage?.prompt_tokens     ?? 0
       const outputTokens = usage?.completion_tokens ?? 0
+      // The share of the input DeepSeek served from its prefix cache — the
+      // author's brief, repeated at the top of every expansion call, is
+      // almost all of it on the second batch onward (pricing.ts).
+      const cachedTokens = usage?.prompt_cache_hit_tokens ?? 0
       const choice       = response.data.choices[0]
 
       // CLAUDE.md §3.1: a truncated answer hit the token ceiling, not a
@@ -173,7 +177,7 @@ export class DeepSeekProvider implements LLMProvider {
       // with the REAL token counts, then fail fast.
       if (choice.finish_reason === 'length') {
         if (opts.context) {
-          const costUsd = calculateDeepSeekCost(inputTokens, outputTokens, model)
+          const costUsd = calculateDeepSeekCost(inputTokens, outputTokens, model, new Date(), cachedTokens)
           createUsageLog({
             ...opts.context, model: `deepseek:${model}`, account: account.label,
             inputTokens, outputTokens, costUsd, durationMs: Date.now() - start,
@@ -188,7 +192,7 @@ export class DeepSeekProvider implements LLMProvider {
       }
 
       if (opts.context) {
-        const costUsd = calculateDeepSeekCost(inputTokens, outputTokens, model)
+        const costUsd = calculateDeepSeekCost(inputTokens, outputTokens, model, new Date(), cachedTokens)
         createUsageLog({
           ...opts.context, model: `deepseek:${model}`, account: account.label,
           inputTokens, outputTokens, costUsd, durationMs: Date.now() - start, success: true,

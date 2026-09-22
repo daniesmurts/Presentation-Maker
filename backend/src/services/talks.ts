@@ -104,9 +104,19 @@ export function outlineMaxTokens(slideTarget: number, language: TalkLanguage): n
 // writes English notes LONGER, so per slide it is ~0.8× of Russian, not
 // 0.5×, and 2487 against a 2850 ceiling is one verbose batch from a
 // truncation. 600 leaves ~1000 tokens of headroom at batch size 5.
+//
+// Raised 700 → 850 (ru) and 600 → 720 (en) on 2026-09-22, when the brief's
+// ceiling went to 50 000 characters: a batch truncated at max_tokens 3800
+// during the brief-size eval (scripts/briefSizeEval.ts, 20 000-char brief,
+// 5 slides with notes). More material to carry makes the model write fuller
+// notes, so the same batch shape sits closer to the wall — and §3.1 is
+// explicit that a truncated call must not be retried at the same ceiling,
+// so the cost of being wrong here is a failed generation, not a retry.
+// max_tokens is a ceiling, not a charge: the headroom is free. At batch
+// size 5 with notes this is 4 850 of the 8 192 the provider allows.
 const EXPANSION_TOKENS_PER_SLIDE: Record<TalkLanguage, { notes: number; noNotes: number }> = {
-  ru: { notes: 700, noNotes: 350 },
-  en: { notes: 600, noNotes: 300 },
+  ru: { notes: 850, noNotes: 350 },
+  en: { notes: 720, noNotes: 300 },
 }
 export function expansionBatchMaxTokens(batchSize: number, language: TalkLanguage, notesEnabled: boolean): number {
   const per = EXPANSION_TOKENS_PER_SLIDE[language][notesEnabled ? 'notes' : 'noNotes']

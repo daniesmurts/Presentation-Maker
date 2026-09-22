@@ -165,6 +165,10 @@ export const copy = {
     language:     'Язык выступления',
     length:       'Длительность',
     slideCount:   'Или точное число слайдов',
+    // Design: the fix is offered where the number is, not as an error on
+    // the tezisy field — a long brief is fine, it just needs room.
+    briefLong:       (n: number) => `Материала хватит слайдов на ${n} — на меньшем числе часть останется за кадром.`,
+    briefLongAction: (n: number) => `Поставить ${n}`,
     notes:        'Нужен текст докладчика',
     notesHint:    'Что говорить, пока слайд на экране. Для питча и отчёта, которые читают с экрана, обычно не нужен.',
     strict:       'Только по моим материалам',

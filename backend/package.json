@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "eval:talks": "node --env-file=../.env $(npm root)/.bin/tsx scripts/evalTalks.ts",
-    "gallery:themes": "node --env-file=../.env $(npm root)/.bin/tsx scripts/themeGallery.ts"
+    "gallery:themes": "node --env-file=../.env $(npm root)/.bin/tsx scripts/themeGallery.ts",
+    "eval:brief": "node --env-file=../.env $(npm root)/.bin/tsx scripts/briefSizeEval.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1059.0",

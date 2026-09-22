@@ -54,9 +54,22 @@ const generationLimiter = rateLimit({
   message: { error: { code: 'RATE_LIMITED', message: 'Слишком много запросов. Подождите несколько минут.', upgrade: false } },
 })
 
-// The brief field's ceiling. Past this the prompt is being fed more than the
-// outline call can use — and it is where CLAUDE.md §3.3's wall is hit first.
-export const BRIEF_MAX_CHARS = 20_000
+// The brief field's ceiling — 50 000 characters, about 25 pages.
+//
+// Measured 2026-09-22, against deepseek-flash with our own prompts, because
+// the old 20 000 was set by the §3.3 rule of thumb and that rule is about
+// OUTPUT: Russian runs 3.2 chars/token here, so 50 000 chars ≈ 16 000 input
+// tokens against a 1M context — two orders from the wall. The body limit
+// (express 2 mb) is ~1M Russian chars. The brief is re-sent in every
+// expansion call, but it sits at the TOP of the prompt, so from the second
+// batch onward it is a cache prefix at 1/50 the price (config/pricing.ts):
+// a 40-slide Russian deck costs ~$0.024 of input at 50 000 chars against
+// ~$0.009 at 20 000, while its OUTPUT is ~$0.029 either way.
+//
+// What actually limits it is coverage, not machinery: in «только по моим
+// материалам» the model must fit everything into N slides, so past this the
+// honest answer is more slides, not more characters (the form says so).
+export const BRIEF_MAX_CHARS = 50_000
 const TITLE_MAX_CHARS = 200
 
 // ─── Request → GenerateParams ───────────────────────────────────────────────
@@ -69,7 +82,7 @@ export function readGenerateParams(body: unknown, userId: string, workspaceId: s
   if (title.length > TITLE_MAX_CHARS) throw new ValidationError(`Тема — не длиннее ${TITLE_MAX_CHARS} символов`)
 
   const brief = typeof b.brief === 'string' ? b.brief.trim() : ''
-  if (brief.length > BRIEF_MAX_CHARS) throw new ValidationError(`Тезисы — не длиннее ${BRIEF_MAX_CHARS} символов`)
+  if (brief.length > BRIEF_MAX_CHARS) throw new ValidationError(`Тезисы — не длиннее ${BRIEF_MAX_CHARS.toLocaleString('ru-RU')} символов`)
 
   const intent = b.intent
   if (!isOneOf(intent, INTENTS)) throw new ValidationError('Выберите цель выступления')

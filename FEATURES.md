@@ -74,7 +74,10 @@ on-prem install keeps `.pptx` open to everyone.
   then confirm to expand. A plan left unconfirmed for 24 h expires.
 - ✅ **Only from my material.** With a brief supplied, the
   talk contains only what the brief says — fewer slides rather than
-  invented content.
+  invented content. Up to **50 000 characters** of pasted notes (~25
+  pages); when the material outgrows the chosen length the form offers
+  the number of slides it needs, because the same material in half the
+  slides arrives on them half-covered (measured — see the CHANGELOG).
 - ✅ **Sign up / sign in** with e-mail and password; one workspace per
   account. «Запомнить меня» keeps a session for 60 days instead of 7.
   Forgot-password sends a one-hour reset link. New accounts get an

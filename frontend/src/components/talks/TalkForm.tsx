@@ -10,7 +10,23 @@ import {
 } from '../../../../shared/types'
 import type { CreateTalkRequest } from '../../api/talks'
 
-const BRIEF_MAX = 20_000
+const BRIEF_MAX = 50_000   // keep in step with BRIEF_MAX_CHARS (routes/talks.ts)
+
+// Characters of material per slide past which the deck starts skimming.
+// Measured, not guessed (backend/scripts/briefSizeEval.ts, 2026-09-22, one
+// deck per point — real Russian material, «только по моим материалам»,
+// share of the brief's distinctive terms / figures that reached the deck):
+//
+//   chars per slide   950   1250   1500   2000   3000
+//   terms             57%    59%    47%    34%    13%
+//   figures           71%    46%    23%    42%    15%
+//
+// Noisy at one sample apiece, but the direction is not: by 1 500 the
+// figures — the facts a listener checks — are mostly gone, and by 3 000 so
+// is everything. 1 200 is the last point that still holds. The form SAYS
+// so rather than deciding: a long brief can also be background the author
+// does not want on the slides.
+const CHARS_PER_SLIDE = 1_200
 
 interface Props {
   onSubmit:   (req: CreateTalkRequest) => void
@@ -42,6 +58,9 @@ export default function TalkForm({ onSubmit, submitting, error, upgrade }: Props
   const estimated = slideCount ? Number(slideCount) : estimateSlideCount(minutes)
   const slideCountBad = slideCount !== '' && (!Number.isInteger(Number(slideCount)) || Number(slideCount) < MIN_SLIDE_COUNT || Number(slideCount) > MAX_SLIDE_COUNT)
   const canSubmit = title.trim().length > 0 && !slideCountBad && brief.length <= BRIEF_MAX && !submitting
+  // Not an error: a hint under the slide count, where the fix is.
+  const suggestedSlides = Math.min(MAX_SLIDE_COUNT, Math.ceil(brief.trim().length / CHARS_PER_SLIDE))
+  const briefWantsMore  = brief.trim().length > 0 && suggestedSlides > estimated
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -113,6 +132,14 @@ export default function TalkForm({ onSubmit, submitting, error, upgrade }: Props
         <p className="text-xs text-ink-secondary mt-2">
           {slideCountBad ? `От ${MIN_SLIDE_COUNT} до ${MAX_SLIDE_COUNT}` : `≈ ${slidesCount(estimated)}`}
         </p>
+        {briefWantsMore && !slideCountBad && (
+          <p className="text-xs text-ink-secondary mt-1">
+            {copy.form.briefLong(suggestedSlides)}{' '}
+            <button type="button" className="text-accent hover:text-accent-deep underline underline-offset-2" onClick={() => setSlideCount(String(suggestedSlides))}>
+              {copy.form.briefLongAction(suggestedSlides)}
+            </button>
+          </p>
+        )}
       </fieldset>
 
       <div className="divide-y divide-border border-y border-border">
