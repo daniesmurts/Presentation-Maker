@@ -431,214 +431,6 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
   copy; dismissal persists across a reload; tsc clean, 27 frontend tests
   pass.
 
-## [0.1.0] — 2026-09-14
-
-First production deploy: https://tezarium.ru, one Yandex Cloud VM (2 vCPU
-50% / 4 GB), Postgres on the VM (compose profile `local-db`), Object
-Storage for media, images in Yandex Container Registry, Caddy for TLS.
-`0.1.0 (2026-09-14+48c2590)` on both API replicas and the bundle.
-
-### Deploy day
-- **Two bugs the first real deploy found.** (1) The CI images job read
-  `${{ secrets.REGISTRY_PASSWORD }}` inline in a shell `if`; the value is
-  a JSON key full of double quotes, so the test silently failed and every
-  run said "not configured" with all four secrets present — secrets now
-  go through `env`. (2) `IMAGE_REPO` had a stale registry id ("Registry
-  … not found" on push) — fixed by setting the secret to the exact value.
-- **SSH from the founding machine is flaky over the home network + VPN**
-  (kex closed / SYN timeouts, alternating with VPN on/off; the ИСПУМ host
-  showed the same). Off-VPN works. `deploy.sh` lost its step [6/7] to one
-  such drop after everything had already succeeded; the checks were
-  repeated from the public side. Steps are idempotent, re-running is safe.
-- **Yandex specifics recorded**: burstable database classes exist only on
-  Broadwell/Cascade Lake (`b2.*`), not Ice Lake; the cluster form
-  pre-fills two hosts, doubling the quote; a VM's internal 10.x address
-  is not reachable from outside.
-- **Verified on production**: migrations 001–007 applied by the one-shot
-  container; register → generate (ready in 9 s) → image upload (201 to
-  the bucket) → `.pptx` export (200, 70 KB). Certificate issued by Caddy
-  on first start.
-
-## [Unreleased]
-
-### Added
-- **The one-page briefing («Памятка», TODO O4).** The deck is competent;
-  the thing a person photographs and holds in the hand is one page: the
-  talk in five sentences, the numbers, the one ask, the question they
-  will raise. `services/briefing.ts` — one `chatJSON` call over
-  `renderSlidesAsText` (nothing new; the deck reordered), feature
-  `briefing`, ≤ 1 800 tokens; `normaliseBriefing` caps and keeps only
-  complete figures. `briefingPdf.ts` — A4, PT faces with the DejaVu
-  fallback per paragraph, brand accent for labels and the box; one page
-  asserted by test. Stored on `talks.briefing` (migration 025) so the
-  card and the PDF read one thing; saving it deliberately does not bump
-  `updated_at` — the card's «слайды с тех пор менялись» compares the
-  two, and the first check showed it stale a second after being made.
-  Events `briefing_made` and `exported {format: 'briefing'}`; not
-  counted against the PDF quota (`format = 'pdf'` only).
-- **Rehearsal that compounds (TODO O3).** A rehearsal was a report;
-  nobody churns from the thing that shows them getting better at
-  something they're scared of, so now it's a record. `shared/rehearsalProgress.ts`
-  (pure, tested) reads run N against N−1: time is better when *closer to
-  the target* (not shorter — with no target there is no verdict; five
-  seconds is not a change), fillers as a rate per hundred words (a
-  longer run is not punished for more words), pace only by the band,
-  slides over budget by count. The verdict is a count («лучше по 3 из
-  4»; «по всем пунктам» only from two judged metrics up), never a score.
-  The list row now carries enough of the metrics to compare without
-  loading the rows. «Как прошло?» after the real thing: one tap on the
-  talk page once there is a rehearsal — an event `delivered { outcome,
-  rehearsals }`, the count being what the feature is measured by;
-  «ещё нет» snoozes it three days per browser.
-- **Edit a message to the editor — and re-run from it.** The first minute
-  arrives transcribed, and a transcript reads «pretty stainless» for
-  «predestined» (first real use, 2026-09-18). Fixing the bubble alone
-  would leave the editor's reply — and the theses it pulled — wrong, so
-  «Изменить» on any message of yours cuts the conversation before it and
-  sends the corrected text as the turn (`POST /drafts/:id/messages/:idx/edit`).
-  The card keeps what it has: it merges, and a correction is not a reason
-  to lose what was settled after it. The cut-off part stays on screen,
-  dimmed, until the new reply lands.
-- **The editor flags mis-hearings itself.** The prompt names transcribed
-  speech as a kind of material and asks for likely mis-hearings up front
-  («“pretty stainless” — probably “predestined”?»), the intended word in
-  the theses, and no nagging about fillers — it's speech. On the real
-  transcript it also caught «Romans 18:14» → 8:14. The first run answered
-  an English message in Russian (a Russian system prompt with a Russian
-  example pulls that way); the language rule is now explicit — the
-  reply follows the last message, «this instruction being in Russian is
-  not a reason». Pinned by a test on the prompt text.
-- **«Скажите первую минуту» — the landing demo.** The wow was already
-  built (rehearsal) and met the visitor last, behind a form, a plan, a
-  generation and a toolbar; most left thinking «a slide generator». The
-  hero now leads with the speaking half: a microphone as the one solid
-  CTA, sixty seconds, the report, and the plan the deck would have — all
-  before an account. Decisions:
-  - **The browser does the listening and the counting.** `shared/speech.ts`
-    (moved from the app) and `shared/rehearsalText.ts` (fillers, word
-    count, the pace band — moved out of `services/rehearsal.ts`) run in
-    the Astro island; the report is instant and costs nothing. One call
-    builds the plan: `planTalk` with five slides under its own usage_log
-    feature `try_outline` so its ceiling counts only itself.
-  - **The open endpoint is gated by a signed, single-use token instead of
-    a CAPTCHA** (`services/tryDemo.ts`): issued on page load, refused
-    younger than 20 s (a real recording takes that long), consumed once,
-    expires in 15 min; plus a honeypot, 3/h per IP, 500 plans a day
-    platform-wide, and `checkGlobalSpendCap`. The jti set is per process
-    — ~2× with two replicas, acceptable at ≈ $1/day.
-  - **Nothing stored**: no transcript row, no draft until registration —
-    the plan is stashed in the visitor's own `localStorage` and picked up
-    by the first authenticated shell load (`lib/tryPickup.ts`): a draft
-    with the plan as the card, the minute as the first message. Stale
-    after a day (a shared machine must not inherit someone's minute).
-  - **The planner names the talk.** Passing the first sentence as the
-    topic made the title slide «Ну, добрый день» (first check); the
-    request now says the topic is not given and asks for one.
-  - **Typed fallback carries real traffic**: Chrome's engine sends audio
-    to Google and is unreachable from Russia now and then; Firefox has
-    none. The copy says «на *наши* серверы звук не попадает» — never
-    «никуда». A typed minute can beat the token's minimum age, so the
-    client waits it out rather than failing.
-  - Funnel: `talk_events` `try_started · try_stopped {seconds, words} ·
-    try_typed · try_plan · try_cta · try_registered` with no user, and
-    the same names as Metrika goals. If it doesn't beat the old landing's
-    register rate in two weeks, we know.
-  - Admin overview tile «Демо на главной, 7 дней»: minutes (typed of
-    them) · plans · clicks · registrations — the funnel, from day one.
-  - The stored replay moves under «Как это работает» as «Пример целиком»;
-    the privacy policy names the demo. Dev: the site proxies `/api` to
-    the backend; `site-dev` (4322) and `site-built` (4330) launch configs.
-- **«Как пользоваться» — eight explainers on the site, linked from the
-  controls.** Decided against a knowledge base: the §6 rule (explanation
-  lives at the control) came out of user testing, there are no external
-  users yet to tell us which forty topics matter, and a wiki's screenshots
-  rot with every release. So: eight articles on `landing/` (`/help/<slug>`,
-  Astro, markdown-free prose in the site's own layout — `Article.astro`
-  is `Legal.astro` without the version line), each reachable by a
-  «Подробнее» link at the control it explains (`HelpLink`, same origin,
-  new tab) and public because the topics are what people search («текст
-  докладчика к слайдам»). The list lives once in `landing/src/data/help.ts`;
-  `Field`/`Checkbox` hints accept a node now so a link can sit in one.
-  The share and «Много текста» pills carry a «?» to their articles. Nine
-  onward waits for `support_messages`.
-- **Drafts («Наброски») — talk it through with the editor before the
-  form.** The new-talk form assumes the user already knows what they want
-  to say; the people the product is for often do not. A draft is a
-  conversation on one side and a *card* on the other — the same fields
-  the form asks for plus the theses in order — that the editor fills in
-  with every reply. Decisions worth recording:
-  - **The card is the deliverable and the memory.** One `chatJSON` call
-    per turn returns `{reply, card}`; only the last 12 messages travel in
-    the prompt, the rest is present through what it changed on the card
-    (a 40-message Cyrillic history would cost more per turn than the
-    outline call, §3.3). The stored history is capped at 80 messages.
-  - **Hand-off is one click past the form**: `POST /drafts/:id/talk`
-    turns the card into the body `readGenerateParams` reads — the same
-    validation, quota and spend-cap checks as the form — and lands on
-    `/jobs/:id` at the outline gate. `draftMissing()` is shared, so the
-    button is never enabled for a card the server would refuse.
-  - **Scope is one system prompt, no classifier.** The editor works only
-    on what will be said or shown, declines everything else in character
-    and turns the conversation back. A classifier in front would double
-    the cost of every turn to catch what the prompt already catches. User
-    text is sanitised on every turn (§3.4).
-  - **Normaliser keeps `prev` on anything malformed** — a model that
-    forgets a field, or returns `theses: "…"` instead of a list, must not
-    wipe what the user said three turns ago; an explicit `null` on a
-    nullable field does clear it (unpicking the audience is a real edit).
-  - **The card's save echo does not overwrite the card being typed** — the
-    server drops empty thesis lines, which is exactly the line the cursor
-    is on after Enter; found in the first browser check.
-  - **Gate: turns per day** (`draftMessagesPerDay`, from `usage_log`
-    feature `draft_chat`: 40 free / 400 Pro), because a conversation is
-    many small calls and a month's quota burned in one evening is what a
-    runaway client does. The spend cap stays the money guard.
-  - The noun is «набросок», not «черновик»: the talks list already calls
-    an unapproved talk a черновик. The assistant is «редактор» — what it
-    does, not what powers it (§1).
-  - Migration 024 (`drafts`: messages and card as JSONB, `job_id` set on
-    hand-off — the talk exists only after expansion, the job row carries
-    its id). Rail item «Наброски», a chip on the talks list, a line under
-    the form.
-- **Consent to recurring charges, refund contacts, subscription terms —
-  T-Bank's conditions for enabling Recurrent/Charge** (their letter,
-  2026-09-16: «покупателю нужно указать сумму и периодичность списания
-  перед оплатой … чек-бокс согласия, который покупатель заполняет
-  самостоятельно», and «форму обратной связи либо контакты для
-  обращения по возврату или отмене»). What changed and why it is shaped
-  this way:
-  - The «save card» box was on by default and doubled as consent. Now
-    save-card chooses the mode and a *second*, unticked box carries the
-    consent sentence; the button stays disabled until it is ticked. The
-    sentence comes from the API (`recurring_consent_text`) and is stored
-    on the payment row with the time and `req.ip` (migration 023) —
-    the answer to a chargeback is a row, not a claim. `POST /checkout`
-    with `save_card` and no `recurring_consent:true` is a 400, so a
-    client that skipped the page cannot save a card either.
-  - A terms block above the button says «Сегодня: X ₽ · Далее: 2 500 ₽
-    каждый месяц …» — with a promo, X differs and the block says the
-    discount is for the first month only. One-time mode says «карта не
-    сохраняется, списаний больше не будет».
-  - «Включить автопродление» became «… — 2 500 ₽ в месяц» with a line
-    under it; clicking it stamps `workspaces.recurring_consent_at` and
-    the `auto_renew_on` event carries the sentence.
-  - Refund rule decided: the latest charge is refunded in full on request
-    within 14 days if the paid period was unused; otherwise the period
-    runs out. On the billing page, on `/legal/subscription` (new, linked
-    from the footer, terms §6.2, the pricing block, the FAQ, the contact
-    page), and in every subscription e-mail. `/contact?category=billing`
-    preselects the topic.
-  - E-mails on subscription start, renewal and failed renewal — each
-    restates amount, period, how to cancel, how to ask for a refund.
-    Fire-and-forget from the webhook path: a mailer outage still returns
-    `OK` to T-Bank (tested).
-  - Admin workspace page: a «Согласие» column on payments (time · IP).
-  - Verified locally: box unticked → button disabled; ticked → row with
-    sentence/time/IP; one-time mode → no consent recorded; server 400
-    without consent; signed CONFIRMED replay → Pro + rebill id; landing
-    builds, `/legal/subscription` renders, contact preselects billing.
-    Still to do before writing back to T-Bank: fill `operator.ts` (the
-    reviewer will see highlighted placeholders), deploy.
 - **Referral fraud gates**, before the first deploy (TODO M follow-up).
   Migration 020: `users.signup_ip` and a `referrals.status` value
   `'blocked'`. Normalised-e-mail match (`+tag` stripped on any provider;
@@ -1594,3 +1386,31 @@ Storage for media, images in Yandex Container Registry, Caddy for TLS.
   is the phased plan for the spine (item A) and what follows it.
   - Parent implementation lives at `../Teaching-assistant`; "port" in this
     log means copied from there with its tests, education nouns removed.
+
+## [0.1.0] — 2026-09-14
+
+First production deploy: https://tezarium.ru, one Yandex Cloud VM (2 vCPU
+50% / 4 GB), Postgres on the VM (compose profile `local-db`), Object
+Storage for media, images in Yandex Container Registry, Caddy for TLS.
+`0.1.0 (2026-09-14+48c2590)` on both API replicas and the bundle.
+
+### Deploy day
+- **Two bugs the first real deploy found.** (1) The CI images job read
+  `${{ secrets.REGISTRY_PASSWORD }}` inline in a shell `if`; the value is
+  a JSON key full of double quotes, so the test silently failed and every
+  run said "not configured" with all four secrets present — secrets now
+  go through `env`. (2) `IMAGE_REPO` had a stale registry id ("Registry
+  … not found" on push) — fixed by setting the secret to the exact value.
+- **SSH from the founding machine is flaky over the home network + VPN**
+  (kex closed / SYN timeouts, alternating with VPN on/off; the ИСПУМ host
+  showed the same). Off-VPN works. `deploy.sh` lost its step [6/7] to one
+  such drop after everything had already succeeded; the checks were
+  repeated from the public side. Steps are idempotent, re-running is safe.
+- **Yandex specifics recorded**: burstable database classes exist only on
+  Broadwell/Cascade Lake (`b2.*`), not Ice Lake; the cluster form
+  pre-fills two hosts, doubling the quote; a VM's internal 10.x address
+  is not reachable from outside.
+- **Verified on production**: migrations 001–007 applied by the one-shot
+  container; register → generate (ready in 9 s) → image upload (201 to
+  the bucket) → `.pptx` export (200, 70 KB). Certificate issued by Caddy
+  on first start.
