@@ -20,7 +20,9 @@ describe('userFacingFailure', () => {
     // Not «попробуйте ещё раз»: an identical retry truncates identically.
     const shown = userFacingFailure(new TruncatedResponseError('deepseek-flash', 4400, 'DeepSeek'), FALLBACK)
     expect(shown).toContain('оборвался')
-    expect(shown).toMatch(/уменьшите|сократите/)
+    expect(shown).toMatch(/сократите тезисы/i)
+    // 2026-09-30: fewer slides did not help — the material was the cause.
+    expect(shown).not.toMatch(/число слайдов/i)
   })
 
   it('does suggest a retry when a retry might actually work', () => {

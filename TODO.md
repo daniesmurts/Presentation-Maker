@@ -124,6 +124,23 @@ export (F), style learning / present mode / deck-level rewrite (G).
 
 **Touches:** everything — this is the repo.
 
+**Follow-ups from the 2026-09-30 truncations** (CHANGELOG, Fixed). The plan
+now asks for 8 192 and a truncated job is no longer retried; left open:
+- 📋 **Keep the form on failure.** «Вернуться к форме» is a bare link to
+  `/talks/new`; the user re-pastes up to 50 000 characters. The request is
+  on the job row — prefill from `?from=<jobId>`.
+- 📋 **Retry a truncated expansion batch at the ceiling, then split it.**
+  §3.1 forbids the *same* ceiling; a batch asks for ~4 200 of 8 192, and
+  one batch failing costs the whole deck.
+- 📋 **Salvage a truncated outline.** `resolveModelJSON` can, but
+  `deepseek.ts` throws on `finish_reason: 'length'` before it runs.
+- 📋 **Strict-mode briefs.** Check with the eval harness whether «берите
+  формулировки из тезисов» makes the outline copy material into the
+  one-line brief; the writer already receives the full talking points.
+  Read `itemsStarted` in the next truncation log first.
+- 📋 **Chunk the outline** past what 8 192 holds — the wall is now the
+  material, not a constant.
+
 ---
 
 ### B. Images — search + upload + stored media · Effort: L · after A

@@ -84,20 +84,13 @@ describe('normaliseEditedOutline', () => {
 })
 
 describe('token budgets (CLAUDE.md §3.3)', () => {
-  it('outline scales with slide count and never exceeds the provider ceiling', () => {
-    expect(outlineMaxTokens(10, 'ru')).toBeLessThan(outlineMaxTokens(40, 'ru'))
-    expect(outlineMaxTokens(MAX_SLIDE_COUNT, 'ru')).toBeLessThanOrEqual(OUTPUT_TOKEN_CEILING)
-    expect(outlineMaxTokens(1000, 'ru')).toBe(OUTPUT_TOKEN_CEILING)
+  it('asks for the outline at the provider ceiling, whatever the deck size or language', () => {
+    // A per-slide estimate cut off every strict English deck with long
+    // talking points on 2026-09-30 — the per-slide cost depends on the material.
+    expect(outlineMaxTokens()).toBe(OUTPUT_TOKEN_CEILING)
   })
 
-  it('budgets the whole supported slide range without hitting the wall in Russian', () => {
-    // 60 slides × 120 + 800 = 8000 < 8192 — under the wall, with the design
-    // field (L2) having taken most of the headroom; the next field chunks the outline.
-    expect(outlineMaxTokens(MAX_SLIDE_COUNT, 'ru')).toBeLessThan(OUTPUT_TOKEN_CEILING)
-  })
-
-  it('gives Russian a larger budget than English — Cyrillic costs ~2× the tokens', () => {
-    expect(outlineMaxTokens(30, 'ru')).toBeGreaterThan(outlineMaxTokens(30, 'en'))
+  it('gives Russian a larger expansion budget than English — Cyrillic costs more tokens', () => {
     expect(expansionBatchMaxTokens(5, 'ru', true)).toBeGreaterThan(expansionBatchMaxTokens(5, 'en', true))
   })
 
@@ -216,13 +209,13 @@ describe('prompts', () => {
 })
 
 describe('planTalk / expandTalk', () => {
-  it('asks for the outline with a language-sized budget and normalises the answer', async () => {
+  it('asks for the outline at the provider ceiling and normalises the answer', async () => {
     vi.mocked(chatJSON).mockResolvedValueOnce({ outline: [{ type: 'bullets', title: 'a' }, { type: 'bullets', title: 'b' }] })
     const plan = await planTalk({ ...PARAMS, slideCountTarget: 12 })
     expect(plan.slideTarget).toBe(12)
     expect(plan.outline[0].type).toBe('title')
     const opts = vi.mocked(chatJSON).mock.calls[0][2]!
-    expect(opts.maxTokens).toBe(outlineMaxTokens(12, 'ru'))
+    expect(opts.maxTokens).toBe(OUTPUT_TOKEN_CEILING)
     expect(opts.context).toMatchObject({ feature: 'talk_outline', userId: 'u1', workspaceId: 'w1', variant: 'ru' })
   })
 

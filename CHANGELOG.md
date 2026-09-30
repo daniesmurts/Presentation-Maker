@@ -5,6 +5,32 @@ dated by when they reached production. Format: `docs/WORKFLOW.md` §2.
 
 ## [Unreleased]
 
+### Fixed
+- **Strict English talks with long talking points failed at any size.**
+  A user sent «Ответ не поместился в лимит и оборвался» at 43 slides; the
+  production `usage_log` showed ten failed jobs on 2026-09-30, every one
+  `talk_outline`, `en`, «Научить», «Только по моим материалам», 10–42k
+  characters of talking points — cut off at 43, 20, 16, 15, 14 and 12
+  slides (1 820–4 455 output tokens, up to ~140/slide). Successful plans
+  over 2026-09-22…30 measured 78–108/slide, so the per-slide estimate
+  (85 en, 120 ru) held for the average deck and not for this one: in strict
+  mode the model carries the author's wording into each brief, and the
+  per-slide cost follows the material.
+  - *The plan is asked for at the provider ceiling (8 192).* `max_tokens`
+    is a ceiling, not a charge; `normaliseOutline` still caps a runaway
+    array before it becomes expansion calls.
+  - *A truncated job is not retried.* The worker rethrew it, so pg-boss
+    re-ran the identical request at the identical ceiling — each of the
+    ten was billed twice, ~40 s apart (§3.1). It now fails the row on the
+    first attempt and completes the pg-boss job.
+  - *The message stopped giving advice that did not work.* «Уменьшите
+    число слайдов» was followed from 43 down to 14 slides, failing every
+    time. It now says the material was too much for one pass: shorten the
+    talking points or split them into two talks.
+  - *A truncation log line records the shape of what was cut off*
+    (`outputChars`, `itemsStarted`), not its text — so the next one tells
+    "more slides than asked" from "longer slides" without guessing.
+
 ### Changed
 - **The brief's ceiling: 20 000 → 50 000 characters**, with the numbers
   measured rather than reasoned about. The old limit cited CLAUDE.md §3.3,

@@ -27,8 +27,12 @@ export function userFacingFailure(err: unknown, fallback: string): string {
   if (err instanceof AppError) return err.message
 
   if (err instanceof TruncatedResponseError) {
-    return 'Ответ не поместился в лимит и оборвался. Уменьшите число слайдов ' +
-           'или сократите тезисы — и запустите снова.'
+    // Not «уменьшите число слайдов»: on 2026-09-30 a user took that advice
+    // from 43 slides down to 14 and failed every time — the size of the
+    // talking points was the cause, not the count. The plan is now asked
+    // for at the provider ceiling, so what still truncates is the material.
+    return 'Материала оказалось больше, чем помещается за один проход, и ответ оборвался. ' +
+           'Сократите тезисы или разделите их на два выступления — и запустите снова.'
   }
 
   if (err instanceof InvalidModelJsonError || err instanceof SyntaxError) {

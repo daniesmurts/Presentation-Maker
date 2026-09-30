@@ -184,9 +184,15 @@ export class DeepSeekProvider implements LLMProvider {
             success: false, errorCode: 'TRUNCATED',
           }).catch((e) => logger.warn({ message: 'Failed to write usage log', error: e.message }))
         }
+        // The shape of what was cut off, not its text (it is the author's
+        // material): how many array items it got through, and how long.
+        // 2026-09-30's truncations could not tell "more slides than asked"
+        // from "longer slides than budgeted" because only the count was kept.
+        const partial = typeof choice.message?.content === 'string' ? choice.message.content : ''
         logger.warn({
           message: 'DeepSeek response truncated at token ceiling — not retrying (identical request would truncate again)',
           feature: opts.context?.feature, model, account: account.label, outputTokens, maxTokens: opts.maxTokens,
+          outputChars: partial.length, itemsStarted: (partial.match(/"type"\s*:/g) ?? []).length,
         })
         throw new TruncatedResponseError(model, opts.maxTokens, 'DeepSeek')
       }

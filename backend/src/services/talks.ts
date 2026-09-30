@@ -81,15 +81,22 @@ export const NOTES_WORD_TARGET: readonly [number, number] = [180, 220]
 // which silently truncated any deck past ~44 slides — the budget ran out
 // mid-array, normaliseOutline accepted the short result, and the user got
 // fewer slides than asked for with no error anywhere. It is one call for
-// the whole deck, so it is the real wall on deck size: ~60 slides at 120
-// tokens. Past that the outline has to be chunked, not the number raised.
-// Design v3 (L2) added a "design" object per item — `{"variant":"plain",
-// "emphasis":"accent","backdrop":"none"}` is ~25 tokens in either language
-// (all ASCII), hence 90 → 120 and 60 → 85.
+// the whole deck, so it is the real wall on deck size.
+//
+// It is asked for at the provider ceiling, not at a per-slide estimate. The
+// estimate (800 + 120/slide ru, 85/slide en) held on the average deck —
+// 78–108 tokens/slide measured in production 2026-09-22…30 — and failed
+// the deck that is not average: on 2026-09-30 every English "teach" talk
+// with «Только по моим материалам» and 10–42k characters of talking points
+// was cut off, at 12, 14, 15, 20 and 43 slides (1820–4455 tokens, i.e. up
+// to ~140/slide), ten jobs in a day, each retried and billed twice. In that
+// mode the model carries the author's wording into each brief, so the
+// per-slide cost depends on the material, which no constant can know.
+// max_tokens is a ceiling, not a charge — the headroom is free, and
+// normaliseOutline() caps a runaway array before it becomes calls.
 export const OUTPUT_TOKEN_CEILING = 8192
-const OUTLINE_TOKENS_PER_SLIDE: Record<TalkLanguage, number> = { ru: 120, en: 85 }
-export function outlineMaxTokens(slideTarget: number, language: TalkLanguage): number {
-  return Math.min(OUTPUT_TOKEN_CEILING, 800 + slideTarget * OUTLINE_TOKENS_PER_SLIDE[language])
+export function outlineMaxTokens(): number {
+  return OUTPUT_TOKEN_CEILING
 }
 
 // Expansion writes body + a 180–220-word script per slide: ~700 tokens/slide
@@ -155,7 +162,7 @@ export async function planTalk(params: GenerateParams, feature: 'talk_outline' |
       { role: 'user',   content: buildOutlinePrompt(params, slideTarget) },
     ],
     'outline',
-    { context: callContextFor(params, feature), maxTokens: outlineMaxTokens(slideTarget, params.language) },
+    { context: callContextFor(params, feature), maxTokens: outlineMaxTokens() },
   )
 
   return { outline: normaliseOutline(outlineRaw?.outline, slideTarget, params.language), slideTarget }

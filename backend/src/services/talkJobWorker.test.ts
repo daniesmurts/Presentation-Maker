@@ -98,10 +98,13 @@ describe('talkJobWorker', () => {
     expect(stored).toMatch(/^[^A-Za-z]*$/u)
   })
 
-  it('a truncated answer tells the user to shorten the request, not to retry', async () => {
+  it('a truncated answer fails the row on the FIRST attempt and is not handed back for a retry', async () => {
+    // The retry is the identical request at the identical ceiling (§3.1) —
+    // 2026-09-30: ten truncated jobs, each billed twice.
     vi.mocked(planTalk).mockRejectedValue(new TruncatedResponseError('deepseek-flash', 6200, 'DeepSeek'))
-    await expect((await captureHandler())(job('outline', 1, 1))).rejects.toBeTruthy()
-    expect(vi.mocked(failTalkJob).mock.calls[0][1]).toMatch(/оборвался.*сократите/)
+    await expect((await captureHandler())(job('outline', 0, 1))).resolves.toBeUndefined()
+    expect(planTalk).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(failTalkJob).mock.calls[0][1]).toContain('оборвался')
   })
 
   it('expand stage with no stored outline fails with the wording written for the user', async () => {

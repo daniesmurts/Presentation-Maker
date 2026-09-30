@@ -13,6 +13,7 @@ import {
 import { scheduleWithLease } from './schedulerLease'
 import { logger } from '../lib/logger'
 import { userFacingFailure } from '../lib/userFacingFailure'
+import { TruncatedResponseError } from './llm/modelJson'
 import { ValidationError } from '../errors/AppError'
 
 export const TALK_JOB_QUEUE = 'talk-job'
@@ -116,13 +117,20 @@ export async function registerTalkJobWorker(boss: PgBoss): Promise<void> {
           attempt: job.retryCount + 1, maxAttempts: job.retryLimit + 1,
           error: (err as Error).message,
         })
+        // A truncated answer is terminal on the first attempt: the retry is
+        // the identical request at the identical ceiling (CLAUDE.md §3.1).
+        // Rethrowing let pg-boss run it again — on 2026-09-30 every one of
+        // ten truncated jobs was billed twice, ~40 s apart, for the same
+        // failure. Returning marks the pg-boss job done; the row says failed.
+        const terminal = err instanceof TruncatedResponseError
         // Only surface a terminal failure once retries are exhausted, so the
         // UI never flashes «failed» right before a silent retry succeeds.
-        if (isLastAttempt) {
+        if (isLastAttempt || terminal) {
           // The raw message is in the log line above; what lands in this
           // column is printed to the user verbatim (CLAUDE.md §3.2).
           await failTalkJob(jobId, userFacingFailure(err, FAILURE_FALLBACK)).catch(() => null)
         }
+        if (terminal) return
         throw err   // tells pg-boss the attempt failed
       }
     })
